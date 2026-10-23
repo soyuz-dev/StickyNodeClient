@@ -10,16 +10,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import org.stickynodes.editor.EditorTool
+import org.stickynodes.editor.draw.gesture.detectNodeMovement
 import org.stickynodes.editor.draw.gesture.detectNodeSelection
 import org.stickynodes.editor.draw.gesture.detectRectangleCreation
 import org.stickynodes.editor.draw.model.EditorNode
+import org.stickynodes.editor.draw.model.EditorRectangle
 import org.stickynodes.editor.draw.render.drawNode
 import org.stickynodes.editor.draw.render.drawSelection
 import kotlin.uuid.Uuid
@@ -30,11 +30,12 @@ fun EditorCanvas(
     nodes: List<EditorNode>,
     selectedTool: EditorTool,
     onNodeCreated: (EditorNode) -> Unit,
+    onNodeUpdated: (EditorNode) -> Unit,
     selectedNodeId: Uuid?,
     onNodeSelected: (Uuid?) -> Unit,
 ) {
-    var preview by remember {
-        mutableStateOf<Rect?>(null)
+    var previewNode by remember {
+        mutableStateOf<EditorNode?>(null)
     }
 
     val nodeColor = MaterialTheme.colorScheme.secondaryContainer
@@ -42,39 +43,73 @@ fun EditorCanvas(
 
     val currentNodes by rememberUpdatedState(nodes)
     val currentOnNodeCreated by rememberUpdatedState(onNodeCreated)
+    val currentOnNodeUpdated by rememberUpdatedState(onNodeUpdated)
     val currentOnNodeSelected by rememberUpdatedState(onNodeSelected)
 
     Canvas(
-        modifier = modifier.pointerInput(selectedTool) {
-            when (selectedTool) {
-                EditorTool.RECTANGLE -> detectRectangleCreation(
-                    onPreview = { preview = it },
-                    onCommit = { currentOnNodeCreated(it) },
-                )
+        modifier = modifier
+            .pointerInput(selectedTool) {
+                when (selectedTool) {
+                    EditorTool.RECTANGLE -> detectRectangleCreation(
+                        onPreview = { rect ->
+                            previewNode = rect?.let {
+                                EditorRectangle(
+                                    x = it.left,
+                                    y = it.top,
+                                    width = it.width,
+                                    height = it.height,
+                                )
+                            }
+                        },
+                        onCommit = { currentOnNodeCreated(it) },
+                    )
 
-                EditorTool.SELECT -> detectNodeSelection(
-                    nodes = { currentNodes },
-                    onSelect = { currentOnNodeSelected(it) },
-                )
+                    EditorTool.SELECT -> detectNodeSelection(
+                        nodes = { currentNodes },
+                        onSelect = { currentOnNodeSelected(it) },
+                    )
 
-                else -> Unit
+                    else -> Unit
+                }
+            }
+            .pointerInput(selectedTool) {
+                if (selectedTool == EditorTool.SELECT) {
+                    detectNodeMovement(
+                        nodes = { currentNodes },
+                        onSelect = {
+                            currentOnNodeSelected(it.id)
+                        },
+                        onPreview = {
+                            previewNode = it
+                        },
+                        onCommit = {
+                            currentOnNodeUpdated(it)
+                        },
+                    )
+                }
+            }
+    ) {
+        // Committed nodes, excluding a node currently being previewed.
+        for (node in nodes) {
+            if (node.id != previewNode?.id) {
+                drawNode(node, nodeColor)
             }
         }
-    ) {
-        for (node in nodes) {
-            drawNode(node, nodeColor)
-        }
 
-        preview?.let {
-            drawRect(
-                color = Color.Gray,
-                topLeft = it.topLeft,
-                size = it.size,
-                style = Stroke(width = 2f),
+        // Temporary creation or movement preview.
+        previewNode?.let {
+            drawNode(
+                node = it,
+                color = nodeColor.copy(alpha = 0.6f),
             )
         }
 
-        nodes.firstOrNull { it.id == selectedNodeId }?.let {
+        // Selection outline always appears on top.
+        val selectedNode = previewNode
+            ?.takeIf { it.id == selectedNodeId }
+            ?: nodes.firstOrNull { it.id == selectedNodeId }
+
+        selectedNode?.let {
             drawSelection(it, selectionColor)
         }
     }
@@ -96,6 +131,11 @@ fun EditorCanvasPreview() {
         nodes = nodes,
         selectedTool = EditorTool.RECTANGLE,
         onNodeCreated = { nodes += it },
+        onNodeUpdated = { updated ->
+            nodes = nodes.map { node ->
+                if (node.id == updated.id) updated else node
+            }
+        },
         selectedNodeId = selectedNodeId,
         onNodeSelected = { selectedNodeId = it },
     )

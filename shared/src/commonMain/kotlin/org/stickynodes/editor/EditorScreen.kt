@@ -38,7 +38,12 @@ fun EditorScreen(
             selectedTool = selectedTool,
             onNodeCreated = { nodes += it },
             selectedNodeId = selectedNodeId,
-            onNodeSelected = { selectedNodeId = it }
+            onNodeSelected = { selectedNodeId = it },
+            onNodeUpdated = { updated ->
+                nodes = nodes.map { node ->
+                    if (node.id == updated.id) updated else node
+                }
+            },
         )
 
         EditorToolbar(

@@ -19,3 +19,14 @@ val EditorNode.bounds: Rect
             bottom = y + height,
         )
     }
+
+fun EditorNode.translatedBy(delta: Offset): EditorNode =
+    when (this) {
+        is EditorRectangle -> copy(
+            x = x + delta.x,
+            y = y + delta.y,
+        )
+    }
+
+fun EditorNode.movedTo(position: Offset): EditorNode =
+    translatedBy(position - Offset(x, y))
