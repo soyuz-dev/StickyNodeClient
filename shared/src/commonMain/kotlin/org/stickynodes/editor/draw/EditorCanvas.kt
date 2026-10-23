@@ -1,7 +1,6 @@
 package org.stickynodes.editor.draw
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -11,18 +10,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import org.stickynodes.editor.EditorTool
-import kotlin.math.max
-import kotlin.math.min
+import org.stickynodes.editor.draw.gesture.detectNodeSelection
+import org.stickynodes.editor.draw.gesture.detectRectangleCreation
+import org.stickynodes.editor.draw.model.EditorNode
+import org.stickynodes.editor.draw.render.drawNode
+import org.stickynodes.editor.draw.render.drawSelection
+import kotlin.uuid.Uuid
 
 @Composable
 fun EditorCanvas(
@@ -30,93 +30,53 @@ fun EditorCanvas(
     nodes: List<EditorNode>,
     selectedTool: EditorTool,
     onNodeCreated: (EditorNode) -> Unit,
+    selectedNodeId: Uuid?,
+    onNodeSelected: (Uuid?) -> Unit,
 ) {
-    var drag by remember { mutableStateOf<RectangleDrag?>(null) }
+    var preview by remember {
+        mutableStateOf<Rect?>(null)
+    }
 
-    val color = MaterialTheme.colorScheme.secondaryContainer
+    val nodeColor = MaterialTheme.colorScheme.secondaryContainer
+    val selectionColor = Color(0xFF4589E8)
+
+    val currentNodes by rememberUpdatedState(nodes)
     val currentOnNodeCreated by rememberUpdatedState(onNodeCreated)
+    val currentOnNodeSelected by rememberUpdatedState(onNodeSelected)
 
     Canvas(
         modifier = modifier.pointerInput(selectedTool) {
-            if (selectedTool == EditorTool.RECTANGLE) {
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        drag = RectangleDrag(
-                            start = offset,
-                            end = offset,
-                        )
-                    },
-                    onDrag = { change, dragAmount ->
-                        drag = drag?.let {
-                            it.copy(end = it.end + dragAmount)
-                        }
-                        change.consume()
-                    },
-                    onDragEnd = {
-                        drag?.let {
-                            val rect = rectangleBetween(it.start, it.end)
-
-                            if (rect.width > 0f && rect.height > 0f) {
-                                currentOnNodeCreated(
-                                    EditorRectangle(
-                                        x = rect.left,
-                                        y = rect.top,
-                                        width = rect.width,
-                                        height = rect.height,
-                                    )
-                                )
-                            }
-                        }
-
-                        drag = null
-                    },
-                    onDragCancel = {
-                        drag = null
-                    },
+            when (selectedTool) {
+                EditorTool.RECTANGLE -> detectRectangleCreation(
+                    onPreview = { preview = it },
+                    onCommit = { currentOnNodeCreated(it) },
                 )
+
+                EditorTool.SELECT -> detectNodeSelection(
+                    nodes = { currentNodes },
+                    onSelect = { currentOnNodeSelected(it) },
+                )
+
+                else -> Unit
             }
         }
     ) {
         for (node in nodes) {
-            drawNode(node, color)
+            drawNode(node, nodeColor)
         }
 
-        drag?.let {
-            val rect = rectangleBetween(it.start, it.end)
-
+        preview?.let {
             drawRect(
                 color = Color.Gray,
-                topLeft = rect.topLeft,
-                size = rect.size,
+                topLeft = it.topLeft,
+                size = it.size,
                 style = Stroke(width = 2f),
             )
         }
-    }
-}
 
-private data class RectangleDrag(
-    val start: Offset,
-    val end: Offset,
-)
-
-private fun rectangleBetween(start: Offset, end: Offset): Rect =
-    Rect(
-        left = min(start.x, end.x),
-        top = min(start.y, end.y),
-        right = max(start.x, end.x),
-        bottom = max(start.y, end.y),
-    )
-
-private fun DrawScope.drawNode(
-    node: EditorNode,
-    color: Color,
-) {
-    when (node) {
-        is EditorRectangle -> drawRect(
-            color = color,
-            topLeft = Offset(node.x, node.y),
-            size = Size(node.width, node.height),
-        )
+        nodes.firstOrNull { it.id == selectedNodeId }?.let {
+            drawSelection(it, selectionColor)
+        }
     }
 }
 
@@ -127,10 +87,16 @@ fun EditorCanvasPreview() {
         mutableStateOf<List<EditorNode>>(emptyList())
     }
 
+    var selectedNodeId by remember {
+        mutableStateOf<Uuid?>(null)
+    }
+
     EditorCanvas(
-        nodes = nodes,
         modifier = Modifier.size(400.dp),
+        nodes = nodes,
         selectedTool = EditorTool.RECTANGLE,
         onNodeCreated = { nodes += it },
+        selectedNodeId = selectedNodeId,
+        onNodeSelected = { selectedNodeId = it },
     )
 }

@@ -15,7 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import org.stickynodes.editor.draw.EditorCanvas
-import org.stickynodes.editor.draw.EditorNode
+import org.stickynodes.editor.draw.model.EditorNode
+import kotlin.uuid.Uuid
 
 @Composable
 fun EditorScreen(
@@ -23,6 +24,8 @@ fun EditorScreen(
 ) {
     var selectedTool by remember { mutableStateOf(EditorTool.SELECT) }
     var nodes by remember { mutableStateOf<List<EditorNode>>(emptyList()) }
+    var selectedNodeId by remember { mutableStateOf<Uuid?>(null) }
+
 
     Box(
         modifier = modifier
@@ -33,7 +36,9 @@ fun EditorScreen(
             modifier = Modifier.fillMaxSize(),
             nodes = nodes,
             selectedTool = selectedTool,
-            onNodeCreated = { nodes += it }
+            onNodeCreated = { nodes += it },
+            selectedNodeId = selectedNodeId,
+            onNodeSelected = { selectedNodeId = it }
         )
 
         EditorToolbar(
