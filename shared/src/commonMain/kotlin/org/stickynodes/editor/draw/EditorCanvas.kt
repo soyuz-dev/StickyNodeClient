@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import org.stickynodes.editor.EditorTool
 import org.stickynodes.editor.draw.camera.EditorCamera
 import org.stickynodes.editor.draw.gesture.detectCanvasPan
+import org.stickynodes.editor.draw.gesture.detectCanvasZoom
 import org.stickynodes.editor.draw.gesture.detectNodeMovement
 import org.stickynodes.editor.draw.gesture.detectNodeSelection
 import org.stickynodes.editor.draw.gesture.detectShapeCreation
@@ -129,6 +130,11 @@ fun EditorCanvas(
                         onCommit = { currentOnNodeUpdated(it) },
                     )
                 }
+            }.pointerInput(Unit) {
+                detectCanvasZoom(
+                    camera = { currentCamera },
+                    onCameraChanged = { currentOnCameraChanged(it) },
+                )
             }
     ) {
         scale(
