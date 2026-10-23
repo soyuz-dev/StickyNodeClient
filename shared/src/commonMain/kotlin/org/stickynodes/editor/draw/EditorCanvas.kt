@@ -48,7 +48,7 @@ fun EditorCanvas(
     }
 
     val nodeColor = MaterialTheme.colorScheme.secondaryContainer
-    val selectionColor = Color(0xFF4589E8)
+    val selectionColor = Color(0xFF4492FF)
 
     val currentCamera by rememberUpdatedState(camera)
     val currentNodes by rememberUpdatedState(nodes)

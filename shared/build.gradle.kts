@@ -67,8 +67,7 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
-            implementation("dev.vicart:compose-material-symbols:1.1.6")
-
+            implementation(libs.compose.material.symbols)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
