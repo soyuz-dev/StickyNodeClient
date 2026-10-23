@@ -32,7 +32,11 @@ fun ToolButton(
         MaterialSymbol.Outlined(
             icon = tool.iconName,
             size = 24.dp,
-            tint = MaterialTheme.colorScheme.onSurface,
+            tint = if (selected) {
+                MaterialTheme.colorScheme.onSecondaryContainer
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
         )
     }
 }
