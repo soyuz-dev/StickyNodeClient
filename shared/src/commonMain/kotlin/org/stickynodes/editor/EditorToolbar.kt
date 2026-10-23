@@ -2,6 +2,7 @@ package org.stickynodes.editor
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -10,6 +11,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.VerticalSlider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,8 +26,9 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun EditorToolbar(
     selectedTool: EditorTool,
+    modifier: Modifier = Modifier,
+    orientation: ToolbarOrientation = ToolbarOrientation.VERTICAL,
     onToolSelected: (EditorTool) -> Unit,
-    modifier: Modifier = Modifier
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
@@ -33,10 +37,9 @@ fun EditorToolbar(
         shadowElevation = 4.dp,
         modifier = modifier
     ) {
-        Column(
+        ToolbarLayout(
+            orientation = orientation,
             modifier = Modifier.padding(4.dp),
-            verticalArrangement = Arrangement.spacedBy(3.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             for (tool in EditorTool.entries) {
                 ToolButton(
@@ -45,12 +48,21 @@ fun EditorToolbar(
                 ) { onToolSelected(tool) }
 
                 if (tool == EditorTool.PAN) {
-                    HorizontalDivider(
-                        modifier = Modifier
-                            .width(40.dp)
-                            .padding(vertical = 4.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant,
-                    )
+                    if(orientation == ToolbarOrientation.VERTICAL) {
+                        HorizontalDivider(
+                            modifier = Modifier
+                                .padding(vertical = 4.dp)
+                                .width(40.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                        )
+                    } else {
+                        VerticalDivider(
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp)
+                                .height(40.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                        )
+                    }
                 }
             }
         }
@@ -65,6 +77,41 @@ fun EditorToolbarPreview() {
     }
     EditorToolbar(
         selectedTool,
-        {selectedTool = it}
+        Modifier,
+    ) {selectedTool = it}
+
+}
+
+@Preview(showBackground = true)
+@Composable
+fun HorizontalToolbarPreview() {
+    var selectedTool by remember {
+        mutableStateOf(EditorTool.SELECT)
+    }
+
+    EditorToolbar(
+        selectedTool = selectedTool,
+        orientation = ToolbarOrientation.HORIZONTAL,
+        onToolSelected = { selectedTool = it },
     )
+}
+
+@Composable
+private fun ToolbarLayout(
+    orientation: ToolbarOrientation,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    when(orientation) {
+        ToolbarOrientation.HORIZONTAL -> Row(
+            modifier = modifier,
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {content()}
+        ToolbarOrientation.VERTICAL -> Column(
+            modifier = modifier,
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {content()}
+    }
 }
