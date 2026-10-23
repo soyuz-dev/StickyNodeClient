@@ -17,7 +17,8 @@ import androidx.compose.ui.unit.dp
 import org.stickynodes.editor.EditorTool
 import org.stickynodes.editor.draw.gesture.detectNodeMovement
 import org.stickynodes.editor.draw.gesture.detectNodeSelection
-import org.stickynodes.editor.draw.gesture.detectRectangleCreation
+import org.stickynodes.editor.draw.gesture.detectShapeCreation
+import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorRectangle
 import org.stickynodes.editor.draw.render.drawNode
@@ -50,19 +51,33 @@ fun EditorCanvas(
         modifier = modifier
             .pointerInput(selectedTool) {
                 when (selectedTool) {
-                    EditorTool.RECTANGLE -> detectRectangleCreation(
-                        onPreview = { rect ->
-                            previewNode = rect?.let {
-                                EditorRectangle(
-                                    x = it.left,
-                                    y = it.top,
-                                    width = it.width,
-                                    height = it.height,
-                                )
-                            }
-                        },
-                        onCommit = { currentOnNodeCreated(it) },
-                    )
+                    EditorTool.RECTANGLE, EditorTool.ELLIPSE -> {
+                        detectShapeCreation(
+                            createNode = { id, rect ->
+                                when (selectedTool) {
+                                    EditorTool.RECTANGLE -> EditorRectangle(
+                                        id = id,
+                                        x = rect.left,
+                                        y = rect.top,
+                                        width = rect.width,
+                                        height = rect.height,
+                                    )
+
+                                    EditorTool.ELLIPSE -> EditorEllipse(
+                                        id = id,
+                                        x = rect.left,
+                                        y = rect.top,
+                                        width = rect.width,
+                                        height = rect.height,
+                                    )
+
+                                    else -> error("Unsupported creation tool")
+                                }
+                            },
+                            onPreview = { previewNode = it },
+                            onCommit = { currentOnNodeCreated(it) },
+                        )
+                    }
 
                     EditorTool.SELECT -> detectNodeSelection(
                         nodes = { currentNodes },
