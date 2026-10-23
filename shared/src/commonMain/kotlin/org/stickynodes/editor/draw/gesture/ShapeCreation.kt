@@ -9,6 +9,7 @@ import org.stickynodes.editor.draw.model.EditorNode
 import kotlin.uuid.Uuid
 
 suspend fun PointerInputScope.detectShapeCreation(
+    screenToWorld: (Offset) -> Offset,
     createNode: (Uuid, Rect) -> EditorNode,
     onPreview: (EditorNode?) -> Unit,
     onCommit: (EditorNode) -> Unit,
@@ -19,24 +20,34 @@ suspend fun PointerInputScope.detectShapeCreation(
 
     try {
         detectDragGestures(
-            onDragStart = { offset ->
-                start = offset
-                end = offset
+            onDragStart = { position ->
+                val worldPosition = screenToWorld(position)
                 val newId = Uuid.random()
+
+                start = worldPosition
+                end = worldPosition
                 id = newId
-                onPreview(createNode(newId, rectangleBetween(offset, offset)))
+
+                onPreview(
+                    createNode(
+                        newId,
+                        rectangleBetween(worldPosition, worldPosition),
+                    )
+                )
             },
-            onDrag = { change, dragAmount ->
+            onDrag = { change, _ ->
                 val origin = start
-                val current = end
                 val nodeId = id
 
-                if (origin != null && current != null && nodeId != null) {
-                    val next = current + dragAmount
+                if (origin != null && nodeId != null) {
+                    val next = screenToWorld(change.position)
                     end = next
 
                     onPreview(
-                        createNode(nodeId, rectangleBetween(origin, next))
+                        createNode(
+                            nodeId,
+                            rectangleBetween(origin, next),
+                        )
                     )
                 }
 

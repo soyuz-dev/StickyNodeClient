@@ -16,12 +16,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import org.stickynodes.editor.draw.EditorCanvas
 import org.stickynodes.editor.draw.model.EditorNode
+import org.stickynodes.editor.draw.camera.EditorCamera
 import kotlin.uuid.Uuid
 
 @Composable
 fun EditorScreen(
     modifier: Modifier = Modifier
 ) {
+    var camera by remember { mutableStateOf(EditorCamera()) }
     var selectedTool by remember { mutableStateOf(EditorTool.SELECT) }
     var nodes by remember { mutableStateOf<List<EditorNode>>(emptyList()) }
     var selectedNodeId by remember { mutableStateOf<Uuid?>(null) }
@@ -44,6 +46,8 @@ fun EditorScreen(
                     if (node.id == updated.id) updated else node
                 }
             },
+            camera = camera,
+            onCameraChanged = { camera = it },
         )
 
         EditorToolbar(

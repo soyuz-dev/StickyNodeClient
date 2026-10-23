@@ -9,6 +9,8 @@ import org.stickynodes.editor.draw.model.EditorNode
 
 suspend fun PointerInputScope.detectNodeMovement(
     nodes: () -> List<EditorNode>,
+    screenToWorld: (Offset) -> Offset,
+    screenDeltaToWorld: (Offset) -> Offset,
     onSelect: (EditorNode) -> Unit,
     onPreview: (EditorNode?) -> Unit,
     onCommit: (EditorNode) -> Unit,
@@ -19,17 +21,23 @@ suspend fun PointerInputScope.detectNodeMovement(
     try {
         detectDragGestures(
             onDragStart = { position ->
+                val worldPosition = screenToWorld(position)
+
                 original = nodes()
                     .asReversed()
-                    .firstOrNull { it.contains(position) }
+                    .firstOrNull { it.contains(worldPosition) }
 
                 displacement = Offset.Zero
                 original?.let(onSelect)
             },
             onDrag = { change, dragAmount ->
                 original?.let { node ->
-                    displacement += dragAmount
-                    onPreview(node.translatedBy(displacement))
+                    displacement += screenDeltaToWorld(dragAmount)
+
+                    onPreview(
+                        node.translatedBy(displacement)
+                    )
+
                     change.consume()
                 }
             },
@@ -51,8 +59,6 @@ suspend fun PointerInputScope.detectNodeMovement(
             },
         )
     } finally {
-        // Also clear previews if pointerInput is canceled,
-        // for example when the selected tool changes.
         onPreview(null)
     }
 }
