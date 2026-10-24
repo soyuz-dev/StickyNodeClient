@@ -24,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -37,6 +38,8 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import org.stickynodes.editor.draw.EditorCanvas
@@ -53,6 +56,7 @@ import org.stickynodes.editor.tools.StylingToolbar
 import org.stickynodes.editor.tools.ToolbarOrientation
 import kotlin.uuid.Uuid
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun EditorScreen(
     modifier: Modifier = Modifier,
@@ -239,7 +243,14 @@ fun EditorScreen(
             .background(MaterialTheme.colorScheme.surface)
             .focusRequester(focusRequester)
             .onPreviewKeyEvent { event ->
-                println("KEY: ${event.key}, ctrl=${event.isCtrlPressed}")
+                if (event.type == KeyEventType.KeyDown) {
+                    println(
+                        "KEY=${event.key}, " +
+                                "CTRL=${event.isCtrlPressed}, " +
+                                "UNDO=${history.undoStack.size}, " +
+                                "REDO=${history.redoStack.size}"
+                    )
+                }
                 event.type == KeyEventType.KeyDown && when {
                     event.isCtrlPressed &&
                             event.key == Key.Z &&
@@ -322,7 +333,11 @@ fun EditorScreen(
             .focusable(),
     ) {
         EditorCanvas(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .onPointerEvent(PointerEventType.Press) {
+                    focusRequester.requestFocus()
+                },
             nodes = displayNodes,
             selectedTool = selectedTool,
             camera = camera,

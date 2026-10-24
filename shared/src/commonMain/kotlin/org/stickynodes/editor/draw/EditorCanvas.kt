@@ -73,7 +73,6 @@ fun EditorCanvas(
 
     Canvas(
         modifier = modifier
-
             .pointerInput(selectedTool) {
                 when (selectedTool) {
                     EditorTool.RECTANGLE, EditorTool.ELLIPSE -> {
