@@ -1,3 +1,4 @@
+
 package org.stickynodes.editor.draw
 
 import androidx.compose.foundation.Canvas
@@ -16,18 +17,22 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import org.stickynodes.editor.tools.EditorTool
 import org.stickynodes.editor.draw.camera.EditorCamera
 import org.stickynodes.editor.draw.gesture.detectCanvasPan
 import org.stickynodes.editor.draw.gesture.detectCanvasZoom
 import org.stickynodes.editor.draw.gesture.detectNodeMovement
 import org.stickynodes.editor.draw.gesture.detectNodeSelection
+import org.stickynodes.editor.draw.gesture.detectPathCreation
 import org.stickynodes.editor.draw.gesture.detectShapeCreation
 import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorRectangle
 import org.stickynodes.editor.draw.render.drawNode
 import org.stickynodes.editor.draw.render.drawSelection
+import org.stickynodes.editor.draw.style.FillStyle
+import org.stickynodes.editor.draw.style.NodeStyle
+import org.stickynodes.editor.draw.style.StrokeStyle
+import org.stickynodes.editor.tools.EditorTool
 import kotlin.uuid.Uuid
 
 @Composable
@@ -36,6 +41,9 @@ fun EditorCanvas(
     nodes: List<EditorNode>,
     selectedTool: EditorTool,
     camera: EditorCamera,
+    rectangleStyle: NodeStyle,
+    ellipseStyle: NodeStyle,
+    penStyle: NodeStyle,
     onCameraChanged: (EditorCamera) -> Unit,
     onNodeCreated: (EditorNode) -> Unit,
     onNodeUpdated: (EditorNode) -> Unit,
@@ -48,8 +56,14 @@ fun EditorCanvas(
 
     val selectionColor = Color(0xFF4492FF)
 
+    // Keep callbacks and state current inside long-running
+    // pointerInput handlers without restarting them.
     val currentCamera by rememberUpdatedState(camera)
     val currentNodes by rememberUpdatedState(nodes)
+
+    val currentRectangleStyle by rememberUpdatedState(rectangleStyle)
+    val currentEllipseStyle by rememberUpdatedState(ellipseStyle)
+    val currentPenStyle by rememberUpdatedState(penStyle)
 
     val currentOnCameraChanged by rememberUpdatedState(onCameraChanged)
     val currentOnNodeCreated by rememberUpdatedState(onNodeCreated)
@@ -73,6 +87,7 @@ fun EditorCanvas(
                                         y = rect.top,
                                         width = rect.width,
                                         height = rect.height,
+                                        style = currentRectangleStyle,
                                     )
 
                                     EditorTool.ELLIPSE -> EditorEllipse(
@@ -81,30 +96,62 @@ fun EditorCanvas(
                                         y = rect.top,
                                         width = rect.width,
                                         height = rect.height,
+                                        style = currentEllipseStyle,
                                     )
 
-                                    else -> error("Unsupported creation tool")
+                                    else -> error(
+                                        "Unsupported creation tool"
+                                    )
                                 }
                             },
-                            onPreview = { previewNode = it },
-                            onCommit = { currentOnNodeCreated(it) },
+                            onPreview = {
+                                previewNode = it
+                            },
+                            onCommit = {
+                                currentOnNodeCreated(it)
+                            },
+                        )
+                    }
+
+                    EditorTool.PEN -> {
+                        detectPathCreation(
+                            screenToWorld = {
+                                currentCamera.screenToWorld(it)
+                            },
+                            style = {
+                                currentPenStyle
+                            },
+                            onPreview = {
+                                previewNode = it
+                            },
+                            onCommit = {
+                                currentOnNodeCreated(it)
+                            },
                         )
                     }
 
                     EditorTool.SELECT -> {
                         detectNodeSelection(
-                            nodes = { currentNodes },
+                            nodes = {
+                                currentNodes
+                            },
                             screenToWorld = {
                                 currentCamera.screenToWorld(it)
                             },
-                            onSelect = { currentOnNodeSelected(it) },
+                            onSelect = {
+                                currentOnNodeSelected(it)
+                            },
                         )
                     }
 
                     EditorTool.PAN -> {
                         detectCanvasPan(
-                            camera = { currentCamera },
-                            onCameraChanged = { currentOnCameraChanged(it) },
+                            camera = {
+                                currentCamera
+                            },
+                            onCameraChanged = {
+                                currentOnCameraChanged(it)
+                            },
                         )
                     }
 
@@ -114,7 +161,9 @@ fun EditorCanvas(
             .pointerInput(selectedTool) {
                 if (selectedTool == EditorTool.SELECT) {
                     detectNodeMovement(
-                        nodes = { currentNodes },
+                        nodes = {
+                            currentNodes
+                        },
                         screenToWorld = {
                             currentCamera.screenToWorld(it)
                         },
@@ -124,16 +173,25 @@ fun EditorCanvas(
                         onSelect = {
                             currentOnNodeSelected(it.id)
                         },
-                        onPreview = { previewNode = it },
-                        onCommit = { currentOnNodeUpdated(it) },
+                        onPreview = {
+                            previewNode = it
+                        },
+                        onCommit = {
+                            currentOnNodeUpdated(it)
+                        },
                     )
                 }
-            }.pointerInput(Unit) {
-                detectCanvasZoom(
-                    camera = { currentCamera },
-                    onCameraChanged = { currentOnCameraChanged(it) },
-                )
             }
+            .pointerInput(Unit) {
+                detectCanvasZoom(
+                    camera = {
+                        currentCamera
+                    },
+                    onCameraChanged = {
+                        currentOnCameraChanged(it)
+                    },
+                )
+            },
     ) {
         scale(
             scale = camera.zoom,
@@ -143,12 +201,15 @@ fun EditorCanvas(
                 left = -camera.position.x,
                 top = -camera.position.y,
             ) {
+                // Render all committed nodes, replacing the
+                // node currently being previewed if necessary.
                 for (node in nodes) {
                     if (node.id != previewNode?.id) {
                         drawNode(node)
                     }
                 }
 
+                // Draw the in-progress shape or movement.
                 previewNode?.let {
                     drawNode(
                         node = it,
@@ -156,9 +217,13 @@ fun EditorCanvas(
                     )
                 }
 
+                // Render selection independently from
+                // the node's own fill and stroke styles.
                 val selectedNode = previewNode
                     ?.takeIf { it.id == selectedNodeId }
-                    ?: nodes.firstOrNull { it.id == selectedNodeId }
+                    ?: nodes.firstOrNull {
+                        it.id == selectedNodeId
+                    }
 
                 selectedNode?.let {
                     drawSelection(
@@ -191,14 +256,29 @@ fun EditorCanvasPreview() {
         nodes = nodes,
         selectedTool = EditorTool.RECTANGLE,
         camera = camera,
-        onCameraChanged = { camera = it },
-        onNodeCreated = { nodes += it },
+        rectangleStyle = NodeStyle(),
+        ellipseStyle = NodeStyle(),
+        penStyle = NodeStyle(
+            fill = FillStyle.None,
+            stroke = StrokeStyle(
+                color = 0xFF264B72.toInt(),
+                width = 3f,
+            ),
+        ),
+        onCameraChanged = {
+            camera = it
+        },
+        onNodeCreated = {
+            nodes += it
+        },
         onNodeUpdated = { updated ->
             nodes = nodes.map { node ->
                 if (node.id == updated.id) updated else node
             }
         },
         selectedNodeId = selectedNodeId,
-        onNodeSelected = { selectedNodeId = it },
+        onNodeSelected = {
+            selectedNodeId = it
+        },
     )
 }

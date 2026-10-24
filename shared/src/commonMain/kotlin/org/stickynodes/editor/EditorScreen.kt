@@ -1,3 +1,4 @@
+
 package org.stickynodes.editor
 
 import androidx.compose.foundation.background
@@ -17,12 +18,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import org.stickynodes.editor.draw.EditorCanvas
-import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.camera.EditorCamera
 import org.stickynodes.editor.draw.geometry.withStyle
-import org.stickynodes.editor.draw.model.EditorEllipse
-import org.stickynodes.editor.draw.model.EditorRectangle
+import org.stickynodes.editor.draw.model.EditorNode
+import org.stickynodes.editor.draw.style.FillStyle
 import org.stickynodes.editor.draw.style.NodeStyle
+import org.stickynodes.editor.draw.style.StrokeStyle
 import org.stickynodes.editor.tools.EditorTool
 import org.stickynodes.editor.tools.EditorToolbar
 import org.stickynodes.editor.tools.StylingToolbar
@@ -31,18 +32,55 @@ import kotlin.uuid.Uuid
 
 @Composable
 fun EditorScreen(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
-    var camera by remember { mutableStateOf(EditorCamera()) }
-    var selectedTool by remember { mutableStateOf(EditorTool.SELECT) }
-    var nodes by remember { mutableStateOf<List<EditorNode>>(emptyList()) }
-    var selectedNodeId by remember { mutableStateOf<Uuid?>(null) }
-    val selectedNode = nodes.firstOrNull { it.id == selectedNodeId }
-    var rectangleStyle by remember { mutableStateOf(NodeStyle()) }
-    var ellipseStyle by remember { mutableStateOf(NodeStyle()) }
+    var camera by remember {
+        mutableStateOf(EditorCamera())
+    }
+
+    var selectedTool by remember {
+        mutableStateOf(EditorTool.SELECT)
+    }
+
+    var nodes by remember {
+        mutableStateOf<List<EditorNode>>(emptyList())
+    }
+
+    var selectedNodeId by remember {
+        mutableStateOf<Uuid?>(null)
+    }
+
+    val selectedNode = nodes.firstOrNull {
+        it.id == selectedNodeId
+    }
+
+    // Each drawing tool has independent defaults.
+    var rectangleStyle by remember {
+        mutableStateOf(NodeStyle())
+    }
+
+    var ellipseStyle by remember {
+        mutableStateOf(NodeStyle())
+    }
+
+    var penStyle by remember {
+        mutableStateOf(
+            NodeStyle(
+                fill = FillStyle.None,
+                stroke = StrokeStyle(
+                    color = 0xFF264B72.toInt(),
+                    width = 3f,
+                ),
+            )
+        )
+    }
+
+    // An existing node's style takes priority over
+    // the currently selected tool's default style.
     val activeStyle = selectedNode?.style ?: when (selectedTool) {
         EditorTool.RECTANGLE -> rectangleStyle
         EditorTool.ELLIPSE -> ellipseStyle
+        EditorTool.PEN -> penStyle
         else -> null
     }
 
@@ -59,6 +97,7 @@ fun EditorScreen(
             when (selectedTool) {
                 EditorTool.RECTANGLE -> rectangleStyle = updated
                 EditorTool.ELLIPSE -> ellipseStyle = updated
+                EditorTool.PEN -> penStyle = updated
                 else -> Unit
             }
         }
@@ -67,28 +106,39 @@ fun EditorScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
+            .background(MaterialTheme.colorScheme.surface),
     ) {
         EditorCanvas(
             modifier = Modifier.fillMaxSize(),
             nodes = nodes,
             selectedTool = selectedTool,
-            onNodeCreated = { node ->
-                val styledNode = when (node) {
-                    is EditorRectangle -> node.copy(style = rectangleStyle)
-                    is EditorEllipse -> node.copy(style = ellipseStyle)
-                }
-                nodes += styledNode
+            camera = camera,
+
+            // Drawing-tool default styles.
+            rectangleStyle = rectangleStyle,
+            ellipseStyle = ellipseStyle,
+            penStyle = penStyle,
+
+            onCameraChanged = {
+                camera = it
             },
-            selectedNodeId = selectedNodeId,
-            onNodeSelected = { selectedNodeId = it },
+
+            // Nodes already have their correct styles
+            // attached by their creation gestures.
+            onNodeCreated = { node ->
+                nodes += node
+            },
+
             onNodeUpdated = { updated ->
                 nodes = nodes.map { node ->
                     if (node.id == updated.id) updated else node
                 }
             },
-            camera = camera,
-            onCameraChanged = { camera = it },
+
+            selectedNodeId = selectedNodeId,
+            onNodeSelected = {
+                selectedNodeId = it
+            },
         )
 
         Column(
@@ -100,7 +150,9 @@ fun EditorScreen(
         ) {
             EditorToolbar(
                 selectedTool = selectedTool,
-                onToolSelected = { selectedTool = it },
+                onToolSelected = {
+                    selectedTool = it
+                },
                 orientation = ToolbarOrientation.VERTICAL,
             )
 
