@@ -23,6 +23,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
@@ -186,6 +187,12 @@ fun EditorScreen(
         )
     }
 
+    fun selectTool(tool: EditorTool) {
+        widthPreview = null
+        selectedTool = tool
+        selectedNodeId = null
+    }
+
     val activeStyle =
         widthPreview
             ?.takeIf { it.first == selectedNodeId }
@@ -282,6 +289,24 @@ fun EditorScreen(
                         }
                     }
 
+                    !event.isCtrlPressed &&
+                            !event.isAltPressed &&
+                            !event.isMetaPressed -> {
+                        val tool = when (event.key) {
+                            Key.S -> EditorTool.SELECT
+                            Key.D -> EditorTool.PEN
+                            Key.E -> EditorTool.ELLIPSE
+                            Key.R -> EditorTool.RECTANGLE
+                            Key.T -> EditorTool.TEXT
+                            else -> null
+                        }
+
+                        if (tool != null && !event.isShiftPressed) {
+                            selectTool(tool)
+                            true
+                        } else false
+                    }
+
                     else -> false
                 }
             }
@@ -322,6 +347,8 @@ fun EditorScreen(
             },
         )
 
+
+
         Column(
             modifier = Modifier
                 .align(Alignment.CenterStart)
@@ -332,13 +359,7 @@ fun EditorScreen(
             EditorToolbar(
                 selectedTool = selectedTool,
                 onToolSelected = { tool ->
-                    widthPreview = null
-                    selectedTool = tool
-
-                    if (tool != EditorTool.SELECT) {
-                        selectedNodeId = null
-                    }
-
+                    selectTool(tool)
                     focusRequester.requestFocus()
                 },
                 orientation = ToolbarOrientation.VERTICAL,
