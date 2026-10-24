@@ -37,7 +37,7 @@ val EditorNode.bounds: Rect
         }
     }
 
-fun EditorNode.contains(point: Offset): Boolean =
+fun EditorNode.contains(point: Offset, zoom: Float = 1f): Boolean =
     when (this) {
         is EditorRectangle -> bounds.contains(point)
         is EditorEllipse -> {
@@ -56,7 +56,7 @@ fun EditorNode.contains(point: Offset): Boolean =
                 dx * dx + dy * dy <= 1f
             }
         }
-        is EditorPath -> false
+        is EditorPath -> containsStroke(point, zoom)
     }
 
 fun EditorNode.translatedBy(delta: Offset): EditorNode =

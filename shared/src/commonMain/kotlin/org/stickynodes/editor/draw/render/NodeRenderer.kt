@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.DrawStyle
 import androidx.compose.ui.graphics.drawscope.Fill
+import org.stickynodes.editor.draw.geometry.smoothPath
 import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorPath
@@ -42,22 +43,15 @@ fun DrawScope.drawNode(
             is EditorPath -> {
                 if (node.points.size < 2) return
 
-                val path = Path().apply {
-                    moveTo(
-                        node.x + node.points.first().x,
-                        node.y + node.points.first().y,
+                val worldPoints = node.points.map { point ->
+                    Offset(
+                        x = node.x + point.x,
+                        y = node.y + point.y,
                     )
-
-                    node.points.drop(1).forEach { point ->
-                        lineTo(
-                            node.x + point.x,
-                            node.y + point.y,
-                        )
-                    }
                 }
 
                 drawPath(
-                    path = path,
+                    path = smoothPath(worldPoints),
                     color = color,
                     style = style,
                     alpha = alpha,

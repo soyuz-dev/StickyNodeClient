@@ -135,6 +135,9 @@ fun EditorCanvas(
                             nodes = {
                                 currentNodes
                             },
+                            zoom = {
+                                currentCamera.zoom
+                            },
                             screenToWorld = {
                                 currentCamera.screenToWorld(it)
                             },
@@ -163,6 +166,9 @@ fun EditorCanvas(
                     detectNodeMovement(
                         nodes = {
                             currentNodes
+                        },
+                        zoom = {
+                            currentCamera.zoom
                         },
                         screenToWorld = {
                             currentCamera.screenToWorld(it)

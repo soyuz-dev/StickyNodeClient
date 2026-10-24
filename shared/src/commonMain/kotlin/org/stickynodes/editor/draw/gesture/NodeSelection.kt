@@ -9,6 +9,7 @@ import kotlin.uuid.Uuid
 
 suspend fun PointerInputScope.detectNodeSelection(
     nodes: () -> List<EditorNode>,
+    zoom: () -> Float,
     screenToWorld: (Offset) -> Offset,
     onSelect: (Uuid?) -> Unit,
 ) {

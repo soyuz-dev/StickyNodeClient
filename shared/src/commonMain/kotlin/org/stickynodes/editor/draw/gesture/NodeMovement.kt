@@ -9,6 +9,7 @@ import org.stickynodes.editor.draw.model.EditorNode
 
 suspend fun PointerInputScope.detectNodeMovement(
     nodes: () -> List<EditorNode>,
+    zoom: () -> Float,
     screenToWorld: (Offset) -> Offset,
     screenDeltaToWorld: (Offset) -> Offset,
     onSelect: (EditorNode) -> Unit,
@@ -25,7 +26,7 @@ suspend fun PointerInputScope.detectNodeMovement(
 
                 original = nodes()
                     .asReversed()
-                    .firstOrNull { it.contains(worldPosition) }
+                    .firstOrNull { it.contains(worldPosition, zoom()) }
 
                 displacement = Offset.Zero
                 original?.let(onSelect)
