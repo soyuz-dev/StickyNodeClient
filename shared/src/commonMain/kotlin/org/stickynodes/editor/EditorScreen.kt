@@ -1,6 +1,14 @@
 
 package org.stickynodes.editor
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
@@ -298,6 +306,7 @@ fun EditorScreen(
                             Key.E -> EditorTool.ELLIPSE
                             Key.R -> EditorTool.RECTANGLE
                             Key.T -> EditorTool.TEXT
+                            Key.W -> EditorTool.PAN
                             else -> null
                         }
 
@@ -365,14 +374,36 @@ fun EditorScreen(
                 orientation = ToolbarOrientation.VERTICAL,
             )
 
-            if (activeStyle != null) {
-                StylingToolbar(
-                    style = activeStyle,
-                    onStyleChanged = onStyleChanged,
-                    onStylePreview = ::previewStyle,
-                    onStyleChangeFinished = ::finishStyleChange,
-                    orientation = ToolbarOrientation.VERTICAL,
-                )
+            AnimatedVisibility(
+                visible = activeStyle != null,
+                enter = fadeIn(
+                    animationSpec = tween(180)
+                ) + expandVertically(
+                    animationSpec = tween(220),
+                    expandFrom = Alignment.Top
+                ) + slideInVertically(
+                    animationSpec = tween(220),
+                    initialOffsetY = { -it/3 }
+                ),
+                exit = fadeOut(
+                    animationSpec = tween(120),
+                ) + shrinkVertically(
+                    animationSpec = tween(180),
+                    shrinkTowards = Alignment.Top,
+                ) + slideOutVertically(
+                    animationSpec = tween(180),
+                    targetOffsetY = { -it / 3 },
+                ),
+            ) {
+                activeStyle?.let { style ->
+                    StylingToolbar(
+                        style = style,
+                        onStyleChanged = onStyleChanged,
+                        onStylePreview = ::previewStyle,
+                        onStyleChangeFinished = ::finishStyleChange,
+                        orientation = ToolbarOrientation.VERTICAL
+                    )
+                }
             }
         }
     }

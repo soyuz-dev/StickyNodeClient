@@ -29,9 +29,9 @@ internal fun StrokeWidthPicker(
         OutlinedButton(
             onClick = { expanded = true },
             enabled = enabled,
-            contentPadding = PaddingValues(horizontal = 8.dp),
+            contentPadding = PaddingValues(horizontal = 4.dp),
         ) {
-            Text("${width.toInt()} px")
+            Text("${width.toInt()}px")
         }
 
         DropdownMenu(
