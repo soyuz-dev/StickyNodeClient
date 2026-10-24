@@ -1,7 +1,9 @@
 package org.stickynodes.editor
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -17,8 +19,14 @@ import androidx.compose.ui.unit.dp
 import org.stickynodes.editor.draw.EditorCanvas
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.camera.EditorCamera
+import org.stickynodes.editor.draw.geometry.withStyle
+import org.stickynodes.editor.draw.model.EditorEllipse
+import org.stickynodes.editor.draw.model.EditorRectangle
+import org.stickynodes.editor.draw.style.NodeStyle
 import org.stickynodes.editor.tools.EditorTool
 import org.stickynodes.editor.tools.EditorToolbar
+import org.stickynodes.editor.tools.StylingToolbar
+import org.stickynodes.editor.tools.ToolbarOrientation
 import kotlin.uuid.Uuid
 
 @Composable
@@ -29,7 +37,32 @@ fun EditorScreen(
     var selectedTool by remember { mutableStateOf(EditorTool.SELECT) }
     var nodes by remember { mutableStateOf<List<EditorNode>>(emptyList()) }
     var selectedNodeId by remember { mutableStateOf<Uuid?>(null) }
+    val selectedNode = nodes.firstOrNull { it.id == selectedNodeId }
+    var rectangleStyle by remember { mutableStateOf(NodeStyle()) }
+    var ellipseStyle by remember { mutableStateOf(NodeStyle()) }
+    val activeStyle = selectedNode?.style ?: when (selectedTool) {
+        EditorTool.RECTANGLE -> rectangleStyle
+        EditorTool.ELLIPSE -> ellipseStyle
+        else -> null
+    }
 
+    val onStyleChanged: (NodeStyle) -> Unit = { updated ->
+        if (selectedNode != null) {
+            nodes = nodes.map { node ->
+                if (node.id == selectedNode.id) {
+                    node.withStyle(updated)
+                } else {
+                    node
+                }
+            }
+        } else {
+            when (selectedTool) {
+                EditorTool.RECTANGLE -> rectangleStyle = updated
+                EditorTool.ELLIPSE -> ellipseStyle = updated
+                else -> Unit
+            }
+        }
+    }
 
     Box(
         modifier = modifier
@@ -40,7 +73,13 @@ fun EditorScreen(
             modifier = Modifier.fillMaxSize(),
             nodes = nodes,
             selectedTool = selectedTool,
-            onNodeCreated = { nodes += it },
+            onNodeCreated = { node ->
+                val styledNode = when (node) {
+                    is EditorRectangle -> node.copy(style = rectangleStyle)
+                    is EditorEllipse -> node.copy(style = ellipseStyle)
+                }
+                nodes += styledNode
+            },
             selectedNodeId = selectedNodeId,
             onNodeSelected = { selectedNodeId = it },
             onNodeUpdated = { updated ->
@@ -52,13 +91,27 @@ fun EditorScreen(
             onCameraChanged = { camera = it },
         )
 
-        EditorToolbar(
-            selectedTool = selectedTool,
-            onToolSelected = { selectedTool = it },
+        Column(
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(6.dp),
-        )
+                .padding(start = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            EditorToolbar(
+                selectedTool = selectedTool,
+                onToolSelected = { selectedTool = it },
+                orientation = ToolbarOrientation.VERTICAL,
+            )
+
+            if (activeStyle != null) {
+                StylingToolbar(
+                    style = activeStyle,
+                    onStyleChanged = onStyleChanged,
+                    orientation = ToolbarOrientation.VERTICAL,
+                )
+            }
+        }
     }
 }
 

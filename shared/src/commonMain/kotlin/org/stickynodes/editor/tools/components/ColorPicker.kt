@@ -1,11 +1,30 @@
+
 package org.stickynodes.editor.tools.components
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 
 private val palette = listOf(
@@ -45,7 +64,7 @@ internal fun ColorPicker(
         ) {
             Column(
                 modifier = Modifier
-                    .width(240.dp)
+                    .width(176.dp)
                     .padding(8.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -54,31 +73,65 @@ internal fun ColorPicker(
                     style = MaterialTheme.typography.titleSmall,
                 )
 
-                palette.chunked(6).forEach { row ->
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        row.forEach { argb ->
-                            StyleColorButton(
-                                color = Color(argb),
-                                onClick = {
-                                    onColorChanged(Color(argb))
-                                    expanded = false
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp),
+                    maxItemsInEachRow = 4,
+                ) {
+                    palette.forEach { argb ->
+                        val selected = color?.toArgb() == argb
+
+                        Surface(
+                            modifier = Modifier.size(30.dp),
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color.Transparent,
+                            border = BorderStroke(
+                                if (selected) 2.dp else 1.dp,
+                                if (selected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.outlineVariant
                                 },
-                                description = "Select colour",
+                            ),
+                            onClick = {
+                                onColorChanged(Color(argb))
+                                expanded = false
+                            },
+                        ) {
+                            ColorSwatch(
+                                color = Color(argb),
+                                modifier = Modifier.padding(3.dp),
                             )
                         }
                     }
                 }
 
-                OutlinedButton(
+                HorizontalDivider()
+
+                Surface(
                     onClick = {
                         onColorChanged(null)
                         expanded = false
                     },
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color.Transparent,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("No colour")
+                    androidx.compose.foundation.layout.Row(
+                        modifier = Modifier.padding(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment =
+                            androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
+                        NoColorSwatch(
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "No colour",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
                 }
             }
         }
