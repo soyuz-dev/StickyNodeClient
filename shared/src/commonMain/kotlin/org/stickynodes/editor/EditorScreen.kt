@@ -20,9 +20,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.tooling.preview.Preview
@@ -101,6 +104,14 @@ fun EditorScreen(
         }
     }
 
+    fun commitNodes(updatedNodes: List<EditorNode>) {
+        history = history.commit(
+            history.document.copy(
+                nodes = updatedNodes,
+            )
+        )
+    }
+
     fun undo() {
         history = history.undo()
         updateSelection()
@@ -111,13 +122,15 @@ fun EditorScreen(
         updateSelection()
     }
 
-    fun commitNodes(updatedNodes: List<EditorNode>) {
-        history = history.commit(
-            history.document.copy(
-                nodes = updatedNodes,
-            )
+    fun deleteSelectedNode() {
+        val id = selectedNodeId ?: return
+        commitNodes(
+            history.document.nodes.filterNot { it.id == id }
         )
+        selectedNodeId = null
     }
+
+
 
     val activeStyle = selectedNode?.style ?: when (selectedTool) {
         EditorTool.RECTANGLE -> rectangleStyle
@@ -152,36 +165,60 @@ fun EditorScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
             .focusRequester(focusRequester)
-            .onPreviewKeyEvent { event ->
-                if (
-                    event.type !=
-                    androidx.compose.ui.input.key.KeyEventType.KeyDown ||
-                    !event.isCtrlPressed
-                ) {
-                    false
-                } else {
-                    when {
-                        event.key == Key.Z && !event.isShiftPressed -> {
-                            if (history.canUndo) {
-                                undo()
-                                true
-                            } else {
-                                false
-                            }
+            .onKeyEvent { event ->
+                event.type == KeyEventType.KeyDown && when {
+                    event.isCtrlPressed &&
+                            event.key == Key.Z &&
+                            !event.isShiftPressed -> {
+                        if (history.canUndo) {
+                            undo()
+                            true
+                        } else {
+                            false
                         }
-
-                        event.key == Key.Y ||
-                                (event.key == Key.Z && event.isShiftPressed) -> {
-                            if (history.canRedo) {
-                                redo()
-                                true
-                            } else {
-                                false
-                            }
-                        }
-
-                        else -> false
                     }
+
+                    event.isCtrlPressed &&
+                            (
+                                    event.key == Key.Y ||
+                                            (event.key == Key.Z && event.isShiftPressed)
+                                    ) -> {
+                        if (history.canRedo) {
+                            redo()
+                            true
+                        } else {
+                            false
+                        }
+                    }
+
+                    event.key == Key.Delete &&
+                            !event.isCtrlPressed &&
+                            !event.isAltPressed -> {
+                        if (selectedNodeId != null) {
+                            deleteSelectedNode()
+                            true
+                        } else {
+                            false
+                        }
+                    }
+
+                    event.key == Key.Escape -> {
+                        when {
+                            selectedNodeId != null -> {
+                                selectedNodeId = null
+                                true
+                            }
+
+                            selectedTool != EditorTool.SELECT -> {
+                                selectedTool = EditorTool.SELECT
+                                true
+                            }
+
+                            else -> false
+                        }
+                    }
+
+                    else -> false
                 }
             }
             .focusable(),

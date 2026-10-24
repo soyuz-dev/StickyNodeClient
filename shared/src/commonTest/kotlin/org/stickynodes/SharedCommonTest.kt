@@ -291,4 +291,41 @@ class SharedCommonTest {
         assertFalse(updated.canUndo)
     }
 
+    @Test
+    fun `deleting a node can be undone`() {
+        val node = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 50f,
+        )
+
+        val original = EditorDocument(nodes = listOf(node))
+
+        val history = EditorHistory(document = original)
+            .commit(EditorDocument())
+            .undo()
+
+        assertEquals(original, history.document)
+    }
+
+    @Test
+    fun `redo reapplies node deletion`() {
+        val node = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 50f,
+        )
+
+        val original = EditorDocument(nodes = listOf(node))
+
+        val history = EditorHistory(document = original)
+            .commit(EditorDocument())
+            .undo()
+            .redo()
+
+        assertTrue(history.document.nodes.isEmpty())
+    }
+
 }
