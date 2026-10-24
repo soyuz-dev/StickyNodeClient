@@ -2,6 +2,7 @@
 package org.stickynodes.editor
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,12 +10,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import org.stickynodes.editor.draw.EditorCanvas
@@ -24,6 +34,7 @@ import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.style.FillStyle
 import org.stickynodes.editor.draw.style.NodeStyle
 import org.stickynodes.editor.draw.style.StrokeStyle
+import org.stickynodes.editor.history.EditorHistory
 import org.stickynodes.editor.tools.EditorTool
 import org.stickynodes.editor.tools.EditorToolbar
 import org.stickynodes.editor.tools.StylingToolbar
@@ -42,9 +53,11 @@ fun EditorScreen(
         mutableStateOf(EditorTool.SELECT)
     }
 
-    var nodes by remember {
-        mutableStateOf<List<EditorNode>>(emptyList())
+    var history by remember {
+        mutableStateOf(EditorHistory())
     }
+
+    val nodes = history.document.nodes
 
     var selectedNodeId by remember {
         mutableStateOf<Uuid?>(null)
@@ -54,7 +67,6 @@ fun EditorScreen(
         it.id == selectedNodeId
     }
 
-    // Each drawing tool has independent defaults.
     var rectangleStyle by remember {
         mutableStateOf(NodeStyle())
     }
@@ -75,8 +87,38 @@ fun EditorScreen(
         )
     }
 
-    // An existing node's style takes priority over
-    // the currently selected tool's default style.
+    val focusRequester = remember {
+        FocusRequester()
+    }
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+
+    fun updateSelection() {
+        selectedNodeId = selectedNodeId?.takeIf { id ->
+            history.document.nodes.any { it.id == id }
+        }
+    }
+
+    fun undo() {
+        history = history.undo()
+        updateSelection()
+    }
+
+    fun redo() {
+        history = history.redo()
+        updateSelection()
+    }
+
+    fun commitNodes(updatedNodes: List<EditorNode>) {
+        history = history.commit(
+            history.document.copy(
+                nodes = updatedNodes,
+            )
+        )
+    }
+
     val activeStyle = selectedNode?.style ?: when (selectedTool) {
         EditorTool.RECTANGLE -> rectangleStyle
         EditorTool.ELLIPSE -> ellipseStyle
@@ -86,13 +128,15 @@ fun EditorScreen(
 
     val onStyleChanged: (NodeStyle) -> Unit = { updated ->
         if (selectedNode != null) {
-            nodes = nodes.map { node ->
-                if (node.id == selectedNode.id) {
-                    node.withStyle(updated)
-                } else {
-                    node
+            commitNodes(
+                nodes.map { node ->
+                    if (node.id == selectedNode.id) {
+                        node.withStyle(updated)
+                    } else {
+                        node
+                    }
                 }
-            }
+            )
         } else {
             when (selectedTool) {
                 EditorTool.RECTANGLE -> rectangleStyle = updated
@@ -106,35 +150,67 @@ fun EditorScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface),
+            .background(MaterialTheme.colorScheme.surface)
+            .focusRequester(focusRequester)
+            .onPreviewKeyEvent { event ->
+                if (
+                    event.type !=
+                    androidx.compose.ui.input.key.KeyEventType.KeyDown ||
+                    !event.isCtrlPressed
+                ) {
+                    false
+                } else {
+                    when {
+                        event.key == Key.Z && !event.isShiftPressed -> {
+                            if (history.canUndo) {
+                                undo()
+                                true
+                            } else {
+                                false
+                            }
+                        }
+
+                        event.key == Key.Y ||
+                                (event.key == Key.Z && event.isShiftPressed) -> {
+                            if (history.canRedo) {
+                                redo()
+                                true
+                            } else {
+                                false
+                            }
+                        }
+
+                        else -> false
+                    }
+                }
+            }
+            .focusable(),
     ) {
         EditorCanvas(
             modifier = Modifier.fillMaxSize(),
             nodes = nodes,
             selectedTool = selectedTool,
             camera = camera,
-
-            // Drawing-tool default styles.
             rectangleStyle = rectangleStyle,
             ellipseStyle = ellipseStyle,
             penStyle = penStyle,
-
             onCameraChanged = {
                 camera = it
             },
-
-            // Nodes already have their correct styles
-            // attached by their creation gestures.
             onNodeCreated = { node ->
-                nodes += node
+                commitNodes(nodes + node)
             },
-
             onNodeUpdated = { updated ->
-                nodes = nodes.map { node ->
-                    if (node.id == updated.id) updated else node
-                }
+                commitNodes(
+                    nodes.map { node ->
+                        if (node.id == updated.id) {
+                            updated
+                        } else {
+                            node
+                        }
+                    }
+                )
             },
-
             selectedNodeId = selectedNodeId,
             onNodeSelected = {
                 selectedNodeId = it
@@ -150,8 +226,14 @@ fun EditorScreen(
         ) {
             EditorToolbar(
                 selectedTool = selectedTool,
-                onToolSelected = {
-                    selectedTool = it
+                onToolSelected = { tool ->
+                    selectedTool = tool
+
+                    if (tool != EditorTool.SELECT) {
+                        selectedNodeId = null
+                    }
+
+                    focusRequester.requestFocus()
                 },
                 orientation = ToolbarOrientation.VERTICAL,
             )
