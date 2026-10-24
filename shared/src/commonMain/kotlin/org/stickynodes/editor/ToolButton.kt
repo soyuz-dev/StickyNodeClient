@@ -44,8 +44,5 @@ fun ToolButton(
 @Preview
 @Composable
 fun ToolButtonPreview() {
-    Row {
-        ToolButton(EditorTool.RECTANGLE, true, {})
-        ToolButton(EditorTool.ELLIPSE, false, {})
-    }
+    ToolButton(EditorTool.ELLIPSE, false){}
 }

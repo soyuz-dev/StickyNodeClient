@@ -47,7 +47,6 @@ fun EditorCanvas(
         mutableStateOf<EditorNode?>(null)
     }
 
-    val nodeColor = MaterialTheme.colorScheme.secondaryContainer
     val selectionColor = Color(0xFF4492FF)
 
     val currentCamera by rememberUpdatedState(camera)
@@ -147,14 +146,14 @@ fun EditorCanvas(
             ) {
                 for (node in nodes) {
                     if (node.id != previewNode?.id) {
-                        drawNode(node, nodeColor)
+                        drawNode(node)
                     }
                 }
 
                 previewNode?.let {
                     drawNode(
                         node = it,
-                        color = nodeColor.copy(alpha = 0.6f),
+                        alpha = 0.6f,
                     )
                 }
 

@@ -16,9 +16,8 @@ data class EditorCamera(
         screenPoint: Offset,
         newZoom: Float,
     ): EditorCamera {
-        val zoom = newZoom.coerceIn(0.1f, 8f)
+        val zoom = newZoom.coerceIn(0.1f, 10f)
         val worldPoint = screenToWorld(screenPoint)
-
         return copy(
             position = worldPoint - screenPoint / zoom,
             zoom = zoom,

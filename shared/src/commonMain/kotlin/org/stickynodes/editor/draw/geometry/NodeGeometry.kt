@@ -14,7 +14,6 @@ val EditorNode.bounds: Rect
             right = x + width,
             bottom = y + height,
         )
-
         is EditorEllipse -> Rect(
             left = x,
             top = y,
@@ -26,7 +25,6 @@ val EditorNode.bounds: Rect
 fun EditorNode.contains(point: Offset): Boolean =
     when (this) {
         is EditorRectangle -> bounds.contains(point)
-
         is EditorEllipse -> {
             if (width <= 0f || height <= 0f) {
                 false
@@ -51,7 +49,6 @@ fun EditorNode.translatedBy(delta: Offset): EditorNode =
             x = x + delta.x,
             y = y + delta.y,
         )
-
         is EditorEllipse -> copy(
             x = x + delta.x,
             y = y + delta.y,

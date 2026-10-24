@@ -32,7 +32,6 @@ suspend fun PointerInputScope.detectCanvasZoom(
                     newZoom = newZoom,
                 )
             )
-
             change.consume()
         }
     }
