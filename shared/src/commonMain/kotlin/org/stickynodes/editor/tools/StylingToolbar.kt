@@ -19,6 +19,7 @@ import org.stickynodes.editor.draw.style.FillStyle
 import org.stickynodes.editor.draw.style.NodeStyle
 import org.stickynodes.editor.draw.style.StrokeStyle
 import org.stickynodes.editor.tools.components.ColorPicker
+import org.stickynodes.editor.tools.components.StrokeWidthPicker
 
 @Composable
 fun StylingToolbar(
@@ -79,6 +80,17 @@ fun StylingToolbar(
                         )
                     )
                 },
+            )
+            StrokeWidthPicker(
+                width = style.stroke?.width ?: 2f,
+                enabled = style.stroke != null,
+                onWidthChanged = { width ->
+                    style.stroke?.let { stroke ->
+                        onStyleChanged(
+                            style.copy(stroke = stroke.copy(width = width))
+                        )
+                    }
+                }
             )
         }
     }
