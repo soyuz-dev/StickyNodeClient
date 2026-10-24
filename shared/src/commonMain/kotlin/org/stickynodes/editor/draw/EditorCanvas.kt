@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import org.stickynodes.editor.draw.camera.EditorCamera
 import org.stickynodes.editor.draw.gesture.detectCanvasPan
 import org.stickynodes.editor.draw.gesture.detectCanvasZoom
+import org.stickynodes.editor.draw.gesture.detectNodeInteraction
 import org.stickynodes.editor.draw.gesture.detectNodeMovement
 import org.stickynodes.editor.draw.gesture.detectNodeSelection
 import org.stickynodes.editor.draw.gesture.detectPathCreation
@@ -72,6 +73,7 @@ fun EditorCanvas(
 
     Canvas(
         modifier = modifier
+
             .pointerInput(selectedTool) {
                 when (selectedTool) {
                     EditorTool.RECTANGLE, EditorTool.ELLIPSE -> {
@@ -99,9 +101,7 @@ fun EditorCanvas(
                                         style = currentEllipseStyle,
                                     )
 
-                                    else -> error(
-                                        "Unsupported creation tool"
-                                    )
+                                    else -> error("Unsupported creation tool")
                                 }
                             },
                             onPreview = {
@@ -129,24 +129,31 @@ fun EditorCanvas(
                             },
                         )
                     }
-
                     EditorTool.SELECT -> {
-                        detectNodeSelection(
+                        detectNodeInteraction(
                             nodes = {
                                 currentNodes
-                            },
-                            zoom = {
-                                currentCamera.zoom
                             },
                             screenToWorld = {
                                 currentCamera.screenToWorld(it)
                             },
+                            screenDeltaToWorld = {
+                                it / currentCamera.zoom
+                            },
+                            zoom = {
+                                currentCamera.zoom
+                            },
                             onSelect = {
                                 currentOnNodeSelected(it)
                             },
+                            onPreview = {
+                                previewNode = it
+                            },
+                            onCommit = {
+                                currentOnNodeUpdated(it)
+                            },
                         )
                     }
-
                     EditorTool.PAN -> {
                         detectCanvasPan(
                             camera = {
@@ -161,33 +168,7 @@ fun EditorCanvas(
                     else -> Unit
                 }
             }
-            .pointerInput(selectedTool) {
-                if (selectedTool == EditorTool.SELECT) {
-                    detectNodeMovement(
-                        nodes = {
-                            currentNodes
-                        },
-                        zoom = {
-                            currentCamera.zoom
-                        },
-                        screenToWorld = {
-                            currentCamera.screenToWorld(it)
-                        },
-                        screenDeltaToWorld = {
-                            it / currentCamera.zoom
-                        },
-                        onSelect = {
-                            currentOnNodeSelected(it.id)
-                        },
-                        onPreview = {
-                            previewNode = it
-                        },
-                        onCommit = {
-                            currentOnNodeUpdated(it)
-                        },
-                    )
-                }
-            }
+
             .pointerInput(Unit) {
                 detectCanvasZoom(
                     camera = {
