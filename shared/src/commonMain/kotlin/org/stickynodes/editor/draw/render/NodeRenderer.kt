@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.DrawStyle
 import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.Stroke
 import org.stickynodes.editor.draw.geometry.smoothPath
 import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorNode
@@ -41,7 +42,25 @@ fun DrawScope.drawNode(
             )
 
             is EditorPath -> {
-                if (node.points.size < 2) return
+                if(node.points.isEmpty()) return
+
+                if(node.points.size == 1) {
+                    val point = node.points[0]
+
+                    if(style is Stroke) {
+                        drawCircle(
+                            color = color,
+                            radius = style.width/2f,
+                            center = Offset(
+                                node.x + point.x,
+                                node.y + point.y
+                            ),
+                            alpha
+                        )
+                    }
+
+                    return
+                }
 
                 val worldPoints = node.points.map { point ->
                     Offset(
