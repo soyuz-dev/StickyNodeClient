@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import org.stickynodes.editor.draw.EditorCanvas
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.camera.EditorCamera
+import org.stickynodes.editor.tools.EditorTool
+import org.stickynodes.editor.tools.EditorToolbar
 import kotlin.uuid.Uuid
 
 @Composable

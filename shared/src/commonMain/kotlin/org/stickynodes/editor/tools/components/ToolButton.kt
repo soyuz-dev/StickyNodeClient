@@ -1,6 +1,5 @@
-package org.stickynodes.editor
+package org.stickynodes.editor.tools.components
 
-import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -10,6 +9,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.vicart.compose.material.symbols.MaterialSymbol
+import org.stickynodes.editor.tools.EditorTool
 
 @Composable
 fun ToolButton(

@@ -1,9 +1,5 @@
-package org.stickynodes.editor
+package org.stickynodes.editor.tools
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -12,16 +8,15 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.VerticalDivider
-import androidx.compose.material3.VerticalSlider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import org.stickynodes.editor.tools.components.ToolButton
 
 @Composable
 fun EditorToolbar(
@@ -94,24 +89,4 @@ fun HorizontalToolbarPreview() {
         orientation = ToolbarOrientation.HORIZONTAL,
         onToolSelected = { selectedTool = it },
     )
-}
-
-@Composable
-private fun ToolbarLayout(
-    orientation: ToolbarOrientation,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    when(orientation) {
-        ToolbarOrientation.HORIZONTAL -> Row(
-            modifier = modifier,
-            horizontalArrangement = Arrangement.spacedBy(3.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {content()}
-        ToolbarOrientation.VERTICAL -> Column(
-            modifier = modifier,
-            verticalArrangement = Arrangement.spacedBy(3.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {content()}
-    }
 }
