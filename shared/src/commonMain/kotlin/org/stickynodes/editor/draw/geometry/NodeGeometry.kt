@@ -4,6 +4,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorNode
+import org.stickynodes.editor.draw.model.EditorPath
 import org.stickynodes.editor.draw.model.EditorRectangle
 import org.stickynodes.editor.draw.style.NodeStyle
 
@@ -21,6 +22,19 @@ val EditorNode.bounds: Rect
             right = x + width,
             bottom = y + height,
         )
+        is EditorPath -> {
+            val left = points.minOfOrNull { it.x } ?: 0f
+            val top = points.minOfOrNull { it.y } ?: 0f
+            val right = points.maxOfOrNull { it.x } ?: 0f
+            val bottom = points.maxOfOrNull { it.y } ?: 0f
+
+            Rect(
+                x + left,
+                y + top,
+                x + right,
+                y + bottom,
+            )
+        }
     }
 
 fun EditorNode.contains(point: Offset): Boolean =
@@ -42,6 +56,7 @@ fun EditorNode.contains(point: Offset): Boolean =
                 dx * dx + dy * dy <= 1f
             }
         }
+        is EditorPath -> false
     }
 
 fun EditorNode.translatedBy(delta: Offset): EditorNode =
@@ -54,10 +69,15 @@ fun EditorNode.translatedBy(delta: Offset): EditorNode =
             x = x + delta.x,
             y = y + delta.y,
         )
+        is EditorPath -> copy(
+            x = x + delta.x,
+            y = y + delta.y,
+        )
     }
 
 fun EditorNode.withStyle(style: NodeStyle): EditorNode =
     when (this) {
         is EditorRectangle -> copy(style = style)
         is EditorEllipse -> copy(style = style)
+        is EditorPath -> copy(style = style)
     }
