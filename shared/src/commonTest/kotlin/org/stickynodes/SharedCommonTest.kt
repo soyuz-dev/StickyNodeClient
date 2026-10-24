@@ -3,6 +3,8 @@ package org.stickynodes
 
 import androidx.compose.ui.geometry.Offset
 import org.stickynodes.editor.draw.geometry.PathSampler
+import org.stickynodes.editor.draw.geometry.bezierSegments
+import org.stickynodes.editor.draw.geometry.bounds
 import org.stickynodes.editor.draw.geometry.containsStroke
 import org.stickynodes.editor.draw.model.EditorPath
 import org.stickynodes.editor.draw.style.FillStyle
@@ -133,4 +135,49 @@ class SharedCommonTest {
             node.containsStroke(Offset(102f, 201f))
         )
     }
+
+
+    @Test
+    fun `path bounds contain all bezier control points`() {
+        val node = createPath(
+            listOf(
+                Offset(0f, 0f),
+                Offset(30f, 60f),
+                Offset(60f, -20f),
+                Offset(100f, 40f),
+            )
+        )
+
+        val origin = Offset(node.x, node.y)
+
+        for ((start, control1, control2, end) in bezierSegments(node.points)) {
+            val controlPoints = listOf(
+                start,
+                control1,
+                control2,
+                end,
+            )
+
+            for (point in controlPoints) {
+                assertTrue(node.bounds.contains(origin + point))
+            }
+        }
+    }
+
+    @Test
+    fun `path bounds account for stroke width`() {
+        val node = createPath(
+            listOf(
+                Offset.Zero,
+                Offset(100f, 0f),
+            )
+        )
+
+        // Test stroke width is 4, giving a radius of 2.
+        assertEquals(98f, node.bounds.left)
+        assertEquals(198f, node.bounds.top)
+        assertEquals(202f, node.bounds.bottom)
+        assertEquals(202f, node.bounds.right)
+    }
+
 }

@@ -23,17 +23,37 @@ val EditorNode.bounds: Rect
             bottom = y + height,
         )
         is EditorPath -> {
-            val left = points.minOfOrNull { it.x } ?: 0f
-            val top = points.minOfOrNull { it.y } ?: 0f
-            val right = points.maxOfOrNull { it.x } ?: 0f
-            val bottom = points.maxOfOrNull { it.y } ?: 0f
 
-            Rect(
-                x + left,
-                y + top,
-                x + right,
-                y + bottom,
-            )
+            val segments = bezierSegments(points)
+            val positions = if (segments.isEmpty()) {
+                points
+            } else {
+                segments.flatMap { segment ->
+                    listOf(
+                        segment.start,
+                        segment.control1,
+                        segment.control2,
+                        segment.end,
+                    )
+                }
+            }
+            if (positions.isEmpty()) {
+                Rect(x, y, x, y)
+            } else {
+                val strokeRadius = (style.stroke?.width ?: 0f) / 2f
+
+                val left = positions.minOf { it.x }
+                val top = positions.minOf { it.y }
+                val right = positions.maxOf { it.x }
+                val bottom = positions.maxOf { it.y }
+
+                Rect(
+                    left = x + left - strokeRadius,
+                    top = y + top - strokeRadius,
+                    right = x + right + strokeRadius,
+                    bottom = y + bottom + strokeRadius,
+                )
+            }
         }
     }
 
