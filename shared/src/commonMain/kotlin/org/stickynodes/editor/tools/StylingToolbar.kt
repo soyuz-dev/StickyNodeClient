@@ -27,13 +27,17 @@ fun StylingToolbar(
     orientation: ToolbarOrientation = ToolbarOrientation.VERTICAL,
     style: NodeStyle,
     onStyleChanged: (NodeStyle) -> Unit,
+    onStylePreview: (NodeStyle) -> Unit,
+    onStyleChangeFinished: () -> Unit,
 ) {
     val fillColor = when (val fill = style.fill) {
         FillStyle.None -> null
         is FillStyle.Solid -> Color(fill.color)
     }
 
-    val strokeColor = style.stroke?.let { Color(it.color) }
+    val strokeColor = style.stroke?.let {
+        Color(it.color)
+    }
 
     Surface(
         shape = RoundedCornerShape(16.dp),
@@ -81,31 +85,48 @@ fun StylingToolbar(
                     )
                 },
             )
+
             StrokeWidthPicker(
                 width = style.stroke?.width ?: 2f,
                 enabled = style.stroke != null,
                 onWidthChanged = { width ->
                     style.stroke?.let { stroke ->
-                        onStyleChanged(
-                            style.copy(stroke = stroke.copy(width = width))
+                        onStylePreview(
+                            style.copy(
+                                stroke = stroke.copy(
+                                    width = width
+                                )
+                            )
                         )
                     }
-                }
+                },
+                onWidthChangeFinished = {
+                    onStyleChangeFinished()
+                },
             )
         }
     }
 }
 
-
 @Preview
 @Composable
 fun StylingToolbarPreview() {
-    var style by remember { mutableStateOf(NodeStyle()) }
+    var style by remember {
+        mutableStateOf(NodeStyle())
+    }
 
     MaterialTheme {
         StylingToolbar(
             style = style,
-            onStyleChanged = { style = it },
+            onStyleChanged = {
+                style = it
+            },
+            onStylePreview = {
+                style = it
+            },
+            onStyleChangeFinished = {
+                // No history in the standalone preview.
+            },
         )
     }
 }

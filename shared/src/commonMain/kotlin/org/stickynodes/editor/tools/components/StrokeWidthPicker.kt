@@ -1,9 +1,9 @@
+
 package org.stickynodes.editor.tools.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,10 +17,13 @@ import androidx.compose.ui.unit.dp
 internal fun StrokeWidthPicker(
     width: Float,
     onWidthChanged: (Float) -> Unit,
+    onWidthChangeFinished: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    var expanded by remember {
+        mutableStateOf(false)
+    }
 
     Box(modifier) {
         OutlinedButton(
@@ -33,7 +36,9 @@ internal fun StrokeWidthPicker(
 
         DropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false },
+            onDismissRequest = {
+                expanded = false
+            },
         ) {
             Column(
                 modifier = Modifier
@@ -47,36 +52,33 @@ internal fun StrokeWidthPicker(
                 )
 
                 Text(
-                    "${(width*10).toInt() / 10f} units",
+                    "${(width * 10).toInt() / 10f} units",
                     style = MaterialTheme.typography.bodySmall,
                 )
 
-                val sliderState = rememberSliderState(
-                    value = width.coerceIn(0.5f, 20f),
-                    steps = 38,
-                    valueRange = 0.5f..20f,
-                )
-
-                LaunchedEffect(width) {
-                    if (sliderState.value != width) {
-                        sliderState.value = width.coerceIn(0.5f, 20f)
-                    }
-                }
-
                 val activeColor = MaterialTheme.colorScheme.primary
-                val inactiveColor = MaterialTheme.colorScheme.primaryContainer
+                val inactiveColor =
+                    MaterialTheme.colorScheme.primaryContainer
 
                 Slider(
-                    state = sliderState,
+                    value = width.coerceIn(0.5f, 20f),
+                    onValueChange = onWidthChanged,
+                    onValueChangeFinished = onWidthChangeFinished,
+                    valueRange = 0.5f..20f,
+                    steps = 0,
+                    enabled = enabled,
                     modifier = Modifier.fillMaxWidth(),
                     thumb = {
                         Box(
                             modifier = Modifier
                                 .size(12.dp)
-                                .background(activeColor, CircleShape)
+                                .background(
+                                    activeColor,
+                                    CircleShape,
+                                )
                         )
                     },
-                    track = { state ->
+                    track = { state: SliderState ->
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -99,7 +101,10 @@ internal fun StrokeWidthPicker(
 
                                         drawRect(
                                             color = activeColor,
-                                            size = Size(size.width * fraction, size.height),
+                                            size = Size(
+                                                size.width * fraction,
+                                                size.height,
+                                            ),
                                         )
                                     }
                             )

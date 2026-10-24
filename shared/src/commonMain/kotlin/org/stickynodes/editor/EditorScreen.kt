@@ -60,15 +60,27 @@ fun EditorScreen(
         mutableStateOf(EditorHistory())
     }
 
-    val nodes = history.document.nodes
-
     var selectedNodeId by remember {
         mutableStateOf<Uuid?>(null)
     }
 
+    // The pending style applies to this specific node.
+    var widthPreview by remember {
+        mutableStateOf<Pair<Uuid, NodeStyle>?>(null)
+    }
+
+    val nodes = history.document.nodes
+
     val selectedNode = nodes.firstOrNull {
         it.id == selectedNodeId
     }
+
+    val displayNodes = widthPreview?.let { (id, style) ->
+        nodes.map { node ->
+            if (node.id == id) node.withStyle(style)
+            else node
+        }
+    } ?: nodes
 
     var rectangleStyle by remember {
         mutableStateOf(NodeStyle())
@@ -98,52 +110,103 @@ fun EditorScreen(
         focusRequester.requestFocus()
     }
 
+    fun commitNodes(updatedNodes: List<EditorNode>) {
+        history = history.commit(
+            history.document.copy(nodes = updatedNodes)
+        )
+    }
+
     fun updateSelection() {
         selectedNodeId = selectedNodeId?.takeIf { id ->
             history.document.nodes.any { it.id == id }
         }
     }
 
-    fun commitNodes(updatedNodes: List<EditorNode>) {
-        history = history.commit(
-            history.document.copy(
-                nodes = updatedNodes,
-            )
-        )
-    }
-
     fun undo() {
+        if (widthPreview != null) {
+            widthPreview = null
+            return
+        }
+
         history = history.undo()
         updateSelection()
     }
 
     fun redo() {
+        widthPreview = null
         history = history.redo()
         updateSelection()
     }
 
     fun deleteSelectedNode() {
         val id = selectedNodeId ?: return
+
+        widthPreview = null
+
         commitNodes(
             history.document.nodes.filterNot { it.id == id }
         )
+
         selectedNodeId = null
     }
 
-
-
-    val activeStyle = selectedNode?.style ?: when (selectedTool) {
-        EditorTool.RECTANGLE -> rectangleStyle
-        EditorTool.ELLIPSE -> ellipseStyle
-        EditorTool.PEN -> penStyle
-        else -> null
+    fun updateToolStyle(style: NodeStyle) {
+        when (selectedTool) {
+            EditorTool.RECTANGLE -> rectangleStyle = style
+            EditorTool.ELLIPSE -> ellipseStyle = style
+            EditorTool.PEN -> penStyle = style
+            else -> Unit
+        }
     }
 
+    fun previewStyle(style: NodeStyle) {
+        val id = selectedNodeId
+
+        if (id != null && nodes.any { it.id == id }) {
+            widthPreview = id to style
+        } else {
+            updateToolStyle(style)
+        }
+    }
+
+    fun finishStyleChange() {
+        val pending = widthPreview ?: return
+        val (id, style) = pending
+
+        widthPreview = null
+
+        commitNodes(
+            history.document.nodes.map { node ->
+                if (node.id == id) {
+                    node.withStyle(style)
+                } else {
+                    node
+                }
+            }
+        )
+    }
+
+    val activeStyle =
+        widthPreview
+            ?.takeIf { it.first == selectedNodeId }
+            ?.second
+            ?: selectedNode?.style
+            ?: when (selectedTool) {
+                EditorTool.RECTANGLE -> rectangleStyle
+                EditorTool.ELLIPSE -> ellipseStyle
+                EditorTool.PEN -> penStyle
+                else -> null
+            }
+
     val onStyleChanged: (NodeStyle) -> Unit = { updated ->
-        if (selectedNode != null) {
+        widthPreview = null
+
+        val id = selectedNodeId
+
+        if (id != null && history.document.nodes.any { it.id == id }) {
             commitNodes(
-                nodes.map { node ->
-                    if (node.id == selectedNode.id) {
+                history.document.nodes.map { node ->
+                    if (node.id == id) {
                         node.withStyle(updated)
                     } else {
                         node
@@ -151,12 +214,7 @@ fun EditorScreen(
                 }
             )
         } else {
-            when (selectedTool) {
-                EditorTool.RECTANGLE -> rectangleStyle = updated
-                EditorTool.ELLIPSE -> ellipseStyle = updated
-                EditorTool.PEN -> penStyle = updated
-                else -> Unit
-            }
+            updateToolStyle(updated)
         }
     }
 
@@ -165,7 +223,8 @@ fun EditorScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
             .focusRequester(focusRequester)
-            .onKeyEvent { event ->
+            .onPreviewKeyEvent { event ->
+                println("KEY: ${event.key}, ctrl=${event.isCtrlPressed}")
                 event.type == KeyEventType.KeyDown && when {
                     event.isCtrlPressed &&
                             event.key == Key.Z &&
@@ -181,7 +240,10 @@ fun EditorScreen(
                     event.isCtrlPressed &&
                             (
                                     event.key == Key.Y ||
-                                            (event.key == Key.Z && event.isShiftPressed)
+                                            (
+                                                    event.key == Key.Z &&
+                                                            event.isShiftPressed
+                                                    )
                                     ) -> {
                         if (history.canRedo) {
                             redo()
@@ -205,11 +267,13 @@ fun EditorScreen(
                     event.key == Key.Escape -> {
                         when {
                             selectedNodeId != null -> {
+                                widthPreview = null
                                 selectedNodeId = null
                                 true
                             }
 
                             selectedTool != EditorTool.SELECT -> {
+                                widthPreview = null
                                 selectedTool = EditorTool.SELECT
                                 true
                             }
@@ -225,7 +289,7 @@ fun EditorScreen(
     ) {
         EditorCanvas(
             modifier = Modifier.fillMaxSize(),
-            nodes = nodes,
+            nodes = displayNodes,
             selectedTool = selectedTool,
             camera = camera,
             rectangleStyle = rectangleStyle,
@@ -235,22 +299,26 @@ fun EditorScreen(
                 camera = it
             },
             onNodeCreated = { node ->
-                commitNodes(nodes + node)
+                widthPreview = null
+                commitNodes(history.document.nodes + node)
             },
             onNodeUpdated = { updated ->
+                widthPreview = null
+
                 commitNodes(
-                    nodes.map { node ->
-                        if (node.id == updated.id) {
-                            updated
-                        } else {
-                            node
-                        }
+                    history.document.nodes.map { node ->
+                        if (node.id == updated.id) updated
+                        else node
                     }
                 )
             },
             selectedNodeId = selectedNodeId,
-            onNodeSelected = {
-                selectedNodeId = it
+            onNodeSelected = { id ->
+                if (id != selectedNodeId) {
+                    widthPreview = null
+                }
+
+                selectedNodeId = id
             },
         )
 
@@ -264,6 +332,7 @@ fun EditorScreen(
             EditorToolbar(
                 selectedTool = selectedTool,
                 onToolSelected = { tool ->
+                    widthPreview = null
                     selectedTool = tool
 
                     if (tool != EditorTool.SELECT) {
@@ -279,6 +348,8 @@ fun EditorScreen(
                 StylingToolbar(
                     style = activeStyle,
                     onStyleChanged = onStyleChanged,
+                    onStylePreview = ::previewStyle,
+                    onStyleChangeFinished = ::finishStyleChange,
                     orientation = ToolbarOrientation.VERTICAL,
                 )
             }
