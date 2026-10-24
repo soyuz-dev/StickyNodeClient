@@ -6,10 +6,14 @@ import org.stickynodes.editor.draw.geometry.PathSampler
 import org.stickynodes.editor.draw.geometry.bezierSegments
 import org.stickynodes.editor.draw.geometry.bounds
 import org.stickynodes.editor.draw.geometry.containsStroke
+import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorPath
+import org.stickynodes.editor.draw.model.EditorRectangle
 import org.stickynodes.editor.draw.style.FillStyle
 import org.stickynodes.editor.draw.style.NodeStyle
 import org.stickynodes.editor.draw.style.StrokeStyle
+import org.stickynodes.editor.history.EditorDocument
+import org.stickynodes.editor.history.EditorHistory
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -178,6 +182,113 @@ class SharedCommonTest {
         assertEquals(198f, node.bounds.top)
         assertEquals(202f, node.bounds.bottom)
         assertEquals(202f, node.bounds.right)
+    }
+
+
+    @Test
+    fun `committing a document creates an undo entry`() {
+        val initial = EditorHistory()
+        val document = EditorDocument(
+            nodes = listOf(
+                EditorRectangle(
+                    x = 10f,
+                    y = 20f,
+                    width = 100f,
+                    height = 50f,
+                )
+            )
+        )
+
+        val updated = initial.commit(document)
+
+        assertEquals(document, updated.document)
+        assertTrue(updated.canUndo)
+        assertFalse(updated.canRedo)
+    }
+
+    @Test
+    fun `undo restores the previous document`() {
+        val initial = EditorHistory()
+        val document = EditorDocument(
+            nodes = listOf(
+                EditorRectangle(
+                    x = 10f,
+                    y = 20f,
+                    width = 100f,
+                    height = 50f,
+                )
+            )
+        )
+
+        val updated = initial.commit(document).undo()
+
+        assertEquals(initial.document, updated.document)
+        assertTrue(updated.canRedo)
+    }
+
+    @Test
+    fun `redo restores an undone document`() {
+        val initial = EditorHistory()
+        val document = EditorDocument(
+            nodes = listOf(
+                EditorRectangle(
+                    x = 10f,
+                    y = 20f,
+                    width = 100f,
+                    height = 50f,
+                )
+            )
+        )
+
+        val updated = initial
+            .commit(document)
+            .undo()
+            .redo()
+
+        assertEquals(document, updated.document)
+        assertFalse(updated.canRedo)
+    }
+
+    @Test
+    fun `new commits clear redo history`() {
+        val first = EditorDocument(
+            nodes = listOf(
+                EditorRectangle(
+                    x = 0f,
+                    y = 0f,
+                    width = 50f,
+                    height = 50f,
+                )
+            )
+        )
+
+        val second = EditorDocument(
+            nodes = listOf(
+                EditorEllipse(
+                    x = 10f,
+                    y = 10f,
+                    width = 50f,
+                    height = 50f,
+                )
+            )
+        )
+
+        val history = EditorHistory()
+            .commit(first)
+            .undo()
+            .commit(second)
+
+        assertFalse(history.canRedo)
+        assertEquals(second, history.document)
+    }
+
+    @Test
+    fun `identical commits do not create history entries`() {
+        val history = EditorHistory()
+        val updated = history.commit(history.document)
+
+        assertEquals(history, updated)
+        assertFalse(updated.canUndo)
     }
 
 }
