@@ -14,6 +14,7 @@ import kotlin.js.JsString
 import kotlin.js.Promise
 import kotlin.js.toJsString
 
+
 @JsFun(
     """() => new Promise((resolve, reject) => {
         const input = document.createElement("input");
@@ -30,21 +31,28 @@ import kotlin.js.toJsString
             resolve(value);
         }
 
-        input.addEventListener("change", async () => {
-            try {
-                const file = input.files?.[0];
-                if (!file) {
-                    finish(null);
-                } else {
-                    finish(await file.text());
-                }
-            } catch (error) {
-                input.remove();
-                reject(error);
+        input.addEventListener("change", function () {
+            const file = input.files && input.files.length > 0
+                ? input.files[0]
+                : null;
+
+            if (file === null) {
+                finish(null);
+                return;
             }
+
+            file.text().then(
+                function (content) {
+                    finish(content);
+                },
+                function (error) {
+                    input.remove();
+                    reject(error);
+                }
+            );
         }, { once: true });
 
-        input.addEventListener("cancel", () => {
+        input.addEventListener("cancel", function () {
             finish(null);
         }, { once: true });
 
