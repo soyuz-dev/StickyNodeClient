@@ -52,6 +52,7 @@ import org.stickynodes.editor.draw.style.FillStyle
 import org.stickynodes.editor.draw.style.NodeStyle
 import org.stickynodes.editor.draw.style.StrokeStyle
 import org.stickynodes.editor.history.EditorHistory
+import org.stickynodes.editor.tools.EditorActionBar
 import org.stickynodes.editor.tools.EditorTool
 import org.stickynodes.editor.tools.EditorToolbar
 import org.stickynodes.editor.tools.StylingToolbar
@@ -415,6 +416,21 @@ fun EditorScreen(
             },
         )
 
+        EditorActionBar(
+            canUndo = history.canUndo,
+            canRedo = history.canRedo,
+            zoom = camera.zoom,
+            onUndo = ::undo,
+            onRedo = ::redo,
+            onZoomReset = {
+                camera = camera.copy(zoom = 1f)
+            },
+            onOpen = ::open,
+            onSave = ::save,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 16.dp),
+        )
 
 
         Column(
