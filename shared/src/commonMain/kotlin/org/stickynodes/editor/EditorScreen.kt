@@ -22,6 +22,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -35,13 +36,14 @@ import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
+import org.stickynodes.data.rememberDocumentStorage
 import org.stickynodes.editor.draw.EditorCanvas
 import org.stickynodes.editor.draw.camera.EditorCamera
 import org.stickynodes.editor.draw.geometry.withStyle
@@ -121,6 +123,33 @@ fun EditorScreen(
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
+    }
+
+    val scope = rememberCoroutineScope()
+    val storage = rememberDocumentStorage()
+
+    fun save() {
+        scope.launch {
+            try {
+                storage.save(history.document)
+            } catch (e: Exception) {
+                println("Failed to save document: ${e.message}")
+            }
+        }
+    }
+
+    fun open() {
+        scope.launch {
+            try {
+                val document = storage.open() ?: return@launch
+
+                history = EditorHistory(document = document)
+                selectedNodeId = null
+                widthPreview = null
+            } catch (e: Exception) {
+                println("Failed to open document: ${e.message}")
+            }
+        }
     }
 
     fun commitNodes(updatedNodes: List<EditorNode>) {
@@ -252,6 +281,21 @@ fun EditorScreen(
                     )
                 }
                 event.type == KeyEventType.KeyDown && when {
+                    event.isCtrlPressed &&
+                            !event.isShiftPressed &&
+                            !event.isAltPressed &&
+                            event.key == Key.S -> {
+                        save()
+                        true
+                    }
+
+                    event.isCtrlPressed &&
+                            !event.isShiftPressed &&
+                            !event.isAltPressed &&
+                            event.key == Key.O -> {
+                        open()
+                        true
+                    }
                     event.isCtrlPressed &&
                             event.key == Key.Z &&
                             !event.isShiftPressed -> {
