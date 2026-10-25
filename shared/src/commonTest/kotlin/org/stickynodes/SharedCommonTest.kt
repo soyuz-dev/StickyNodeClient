@@ -2,6 +2,7 @@
 package org.stickynodes
 
 import androidx.compose.ui.geometry.Offset
+import org.stickynodes.data.DocumentCodec
 import org.stickynodes.editor.draw.geometry.PathSampler
 import org.stickynodes.editor.draw.geometry.bezierSegments
 import org.stickynodes.editor.draw.geometry.bounds
@@ -326,6 +327,53 @@ class SharedCommonTest {
             .redo()
 
         assertTrue(history.document.nodes.isEmpty())
+    }
+
+
+    @Test
+    fun `document survives JSON round trip`() {
+        val original = EditorDocument(
+            nodes = listOf(
+                EditorRectangle(
+                    x = 10f,
+                    y = 20f,
+                    width = 100f,
+                    height = 50f,
+                ),
+                EditorEllipse(
+                    x = 150f,
+                    y = 40f,
+                    width = 80f,
+                    height = 80f,
+                ),
+                EditorPath(
+                    x = 200f,
+                    y = 120f,
+                    points = listOf(
+                        Offset.Zero,
+                        Offset(12f, 8f),
+                        Offset(24f, -5f),
+                    ),
+                ),
+            ),
+        )
+
+        val encoded = DocumentCodec.encode(original)
+        val restored = DocumentCodec.decode(encoded)
+
+        assertEquals(original, restored)
+    }
+
+    @Test
+    fun `empty document survives JSON round trip`() {
+        val original = EditorDocument()
+
+        assertEquals(
+            original,
+            DocumentCodec.decode(
+                DocumentCodec.encode(original)
+            ),
+        )
     }
 
 }
