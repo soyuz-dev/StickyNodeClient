@@ -1,8 +1,6 @@
 package org.stickynodes.editor
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -30,7 +28,6 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.input.key.Key
@@ -46,14 +43,11 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.stickynodes.data.rememberDocumentStorage
 import org.stickynodes.editor.draw.EditorCanvas
-import org.stickynodes.editor.draw.camera.EditorCamera
-import org.stickynodes.editor.draw.camera.EditorCameraVectorConverter
+import org.stickynodes.editor.draw.camera.rememberEditorCameraState
 import org.stickynodes.editor.draw.geometry.withStyle
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.style.FillStyle
@@ -72,20 +66,8 @@ import kotlin.uuid.Uuid
 fun EditorScreen(
     modifier: Modifier = Modifier,
 ) {
-    var camera by remember {
-        mutableStateOf(EditorCamera())
-    }
-
-    var viewportSize by remember {
-        mutableStateOf(IntSize.Zero)
-    }
-
+    val cameraState = rememberEditorCameraState()
     val density = LocalDensity.current
-
-    fun viewportCentre() = Offset(
-        viewportSize.width / 2f,
-        viewportSize.height / 2f,
-    )
 
     var selectedTool by remember {
         mutableStateOf(EditorTool.SELECT)
@@ -147,37 +129,6 @@ fun EditorScreen(
 
     val scope = rememberCoroutineScope()
     val storage = rememberDocumentStorage()
-
-    val cameraAnimation = remember {
-        Animatable(camera, EditorCameraVectorConverter)
-    }
-
-    var cameraAnimationJob by remember {
-        mutableStateOf<Job?>(null)
-    }
-
-    fun updateCamera(updated: EditorCamera) {
-        cameraAnimationJob?.cancel()
-        camera = updated
-    }
-
-    fun animateCamera(target: EditorCamera) {
-        cameraAnimationJob?.cancel()
-
-        cameraAnimationJob = scope.launch {
-            cameraAnimation.snapTo(camera)
-
-            cameraAnimation.animateTo(
-                targetValue = target,
-                animationSpec = tween(
-                    durationMillis = 250,
-                    easing = FastOutSlowInEasing,
-                ),
-            ) {
-                camera = value
-            }
-        }
-    }
 
     fun save() {
         scope.launch {
@@ -430,7 +381,7 @@ fun EditorScreen(
         EditorCanvas(
             modifier = Modifier
                 .fillMaxSize()
-                .onSizeChanged { viewportSize = it }
+                .onSizeChanged(cameraState::updateViewportSize)
                 .pointerInput(focusRequester) {
                     awaitPointerEventScope {
                         while (true) {
@@ -446,11 +397,11 @@ fun EditorScreen(
                 },
             nodes = displayNodes,
             selectedTool = selectedTool,
-            camera = camera,
+            camera = cameraState.camera,
             rectangleStyle = rectangleStyle,
             ellipseStyle = ellipseStyle,
             penStyle = penStyle,
-            onCameraChanged = ::updateCamera,
+            onCameraChanged = cameraState::updateCamera,
             onNodeCreated = { node ->
                 widthPreview = null
                 commitNodes(history.document.nodes + node)
@@ -478,25 +429,16 @@ fun EditorScreen(
         EditorActionBar(
             canUndo = history.canUndo,
             canRedo = history.canRedo,
-            zoom = camera.zoom,
+            zoom = cameraState.camera.zoom,
             onUndo = ::undo,
             onRedo = ::redo,
-            onZoomReset = {
-                camera = camera.zoomAt(viewportCentre(), 1f)
-            },
-            onZoomIn = {
-                camera = camera.zoomAt(viewportCentre(), camera.zoom * 1.25f)
-            },
-            onZoomOut = {
-                camera = camera.zoomAt(viewportCentre(), camera.zoom / 1.25f)
-            },
+            onZoomReset = cameraState::resetZoom,
+            onZoomIn = cameraState::zoomIn,
+            onZoomOut = cameraState::zoomOut,
             onFitToContent = {
-                animateCamera(
-                    camera.fitToNodes(
-                        nodes = history.document.nodes,
-                        viewportSize,
-                        padding = with(density) {64.dp.toPx()}
-                    )
+                cameraState.fitToNodes(
+                    nodes = history.document.nodes,
+                    padding = with(density) { 64.dp.toPx() },
                 )
             },
             onOpen = ::open,
