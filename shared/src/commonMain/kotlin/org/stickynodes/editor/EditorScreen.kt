@@ -1,6 +1,8 @@
 package org.stickynodes.editor
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -46,10 +48,12 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.stickynodes.data.rememberDocumentStorage
 import org.stickynodes.editor.draw.EditorCanvas
 import org.stickynodes.editor.draw.camera.EditorCamera
+import org.stickynodes.editor.draw.camera.EditorCameraVectorConverter
 import org.stickynodes.editor.draw.geometry.withStyle
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.style.FillStyle
@@ -143,6 +147,37 @@ fun EditorScreen(
 
     val scope = rememberCoroutineScope()
     val storage = rememberDocumentStorage()
+
+    val cameraAnimation = remember {
+        Animatable(camera, EditorCameraVectorConverter)
+    }
+
+    var cameraAnimationJob by remember {
+        mutableStateOf<Job?>(null)
+    }
+
+    fun updateCamera(updated: EditorCamera) {
+        cameraAnimationJob?.cancel()
+        camera = updated
+    }
+
+    fun animateCamera(target: EditorCamera) {
+        cameraAnimationJob?.cancel()
+
+        cameraAnimationJob = scope.launch {
+            cameraAnimation.snapTo(camera)
+
+            cameraAnimation.animateTo(
+                targetValue = target,
+                animationSpec = tween(
+                    durationMillis = 250,
+                    easing = FastOutSlowInEasing,
+                ),
+            ) {
+                camera = value
+            }
+        }
+    }
 
     fun save() {
         scope.launch {
@@ -415,9 +450,7 @@ fun EditorScreen(
             rectangleStyle = rectangleStyle,
             ellipseStyle = ellipseStyle,
             penStyle = penStyle,
-            onCameraChanged = {
-                camera = it
-            },
+            onCameraChanged = ::updateCamera,
             onNodeCreated = { node ->
                 widthPreview = null
                 commitNodes(history.document.nodes + node)
@@ -458,10 +491,12 @@ fun EditorScreen(
                 camera = camera.zoomAt(viewportCentre(), camera.zoom / 1.25f)
             },
             onFitToContent = {
-                camera = camera.fitToNodes(
-                    nodes = history.document.nodes,
-                    viewport = viewportSize,
-                    padding = with(density) { 64.dp.toPx() },
+                animateCamera(
+                    camera.fitToNodes(
+                        nodes = history.document.nodes,
+                        viewportSize,
+                        padding = with(density) {64.dp.toPx()}
+                    )
                 )
             },
             onOpen = ::open,
