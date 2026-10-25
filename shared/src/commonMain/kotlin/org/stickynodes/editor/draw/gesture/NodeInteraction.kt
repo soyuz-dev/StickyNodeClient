@@ -1,4 +1,3 @@
-
 package org.stickynodes.editor.draw.gesture
 
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -7,7 +6,6 @@ import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerInputScope
-import org.stickynodes.editor.draw.geometry.contains
 import org.stickynodes.editor.draw.geometry.translatedBy
 import org.stickynodes.editor.draw.model.EditorNode
 import kotlin.uuid.Uuid
@@ -17,6 +15,7 @@ suspend fun PointerInputScope.detectNodeInteraction(
     screenToWorld: (Offset) -> Offset,
     screenDeltaToWorld: (Offset) -> Offset,
     zoom: () -> Float,
+    hitTest: (EditorNode, Offset, Float) -> Boolean,
     onSelect: (Uuid?) -> Unit,
     onPreview: (EditorNode?) -> Unit,
     onCommit: (EditorNode) -> Unit,
@@ -29,7 +28,7 @@ suspend fun PointerInputScope.detectNodeInteraction(
             val selectedNode = nodes()
                 .asReversed()
                 .firstOrNull { node ->
-                    node.contains(worldPoint, zoom())
+                    hitTest(node, worldPoint, zoom())
                 }
 
             onPreview(null)

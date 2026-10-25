@@ -1,4 +1,3 @@
-
 package org.stickynodes.editor.draw.geometry
 
 import androidx.compose.ui.geometry.Rect
