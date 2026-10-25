@@ -48,18 +48,15 @@ import kotlinx.coroutines.launch
 import org.stickynodes.data.rememberDocumentStorage
 import org.stickynodes.editor.draw.EditorCanvas
 import org.stickynodes.editor.draw.camera.rememberEditorCameraState
-import org.stickynodes.editor.draw.geometry.withStyle
-import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.style.FillStyle
 import org.stickynodes.editor.draw.style.NodeStyle
 import org.stickynodes.editor.draw.style.StrokeStyle
-import org.stickynodes.editor.history.EditorHistory
+import org.stickynodes.editor.history.rememberEditorDocumentState
 import org.stickynodes.editor.tools.EditorActionBar
 import org.stickynodes.editor.tools.EditorTool
 import org.stickynodes.editor.tools.EditorToolbar
 import org.stickynodes.editor.tools.StylingToolbar
 import org.stickynodes.editor.tools.ToolbarOrientation
-import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -73,31 +70,10 @@ fun EditorScreen(
         mutableStateOf(EditorTool.SELECT)
     }
 
-    var history by remember {
-        mutableStateOf(EditorHistory())
-    }
-
-    var selectedNodeId by remember {
-        mutableStateOf<Uuid?>(null)
-    }
-
-    // The pending style applies to this specific node.
-    var widthPreview by remember {
-        mutableStateOf<Pair<Uuid, NodeStyle>?>(null)
-    }
-
-    val nodes = history.document.nodes
-
-    val selectedNode = nodes.firstOrNull {
-        it.id == selectedNodeId
-    }
-
-    val displayNodes = widthPreview?.let { (id, style) ->
-        nodes.map { node ->
-            if (node.id == id) node.withStyle(style)
-            else node
-        }
-    } ?: nodes
+    val documentState = rememberEditorDocumentState()
+    val nodes = documentState.nodes
+    val selectedNodeId = documentState.selectedNodeId
+    val displayNodes = documentState.displayNodes
 
     var rectangleStyle by remember {
         mutableStateOf(NodeStyle())
@@ -133,7 +109,7 @@ fun EditorScreen(
     fun save() {
         scope.launch {
             try {
-                storage.save(history.document)
+                storage.save(documentState.document)
             } catch (e: Exception) {
                 println("Failed to save document: ${e.message}")
             }
@@ -144,54 +120,11 @@ fun EditorScreen(
         scope.launch {
             try {
                 val document = storage.open() ?: return@launch
-
-                history = EditorHistory(document = document)
-                selectedNodeId = null
-                widthPreview = null
+                documentState.open(document)
             } catch (e: Exception) {
                 println("Failed to open document: ${e.message}")
             }
         }
-    }
-
-    fun commitNodes(updatedNodes: List<EditorNode>) {
-        history = history.commit(
-            history.document.copy(nodes = updatedNodes)
-        )
-    }
-
-    fun updateSelection() {
-        selectedNodeId = selectedNodeId?.takeIf { id ->
-            history.document.nodes.any { it.id == id }
-        }
-    }
-
-    fun undo() {
-        if (widthPreview != null) {
-            widthPreview = null
-            return
-        }
-
-        history = history.undo()
-        updateSelection()
-    }
-
-    fun redo() {
-        widthPreview = null
-        history = history.redo()
-        updateSelection()
-    }
-
-    fun deleteSelectedNode() {
-        val id = selectedNodeId ?: return
-
-        widthPreview = null
-
-        commitNodes(
-            history.document.nodes.filterNot { it.id == id }
-        )
-
-        selectedNodeId = null
     }
 
     fun updateToolStyle(style: NodeStyle) {
@@ -204,66 +137,26 @@ fun EditorScreen(
     }
 
     fun previewStyle(style: NodeStyle) {
-        val id = selectedNodeId
-
-        if (id != null && nodes.any { it.id == id }) {
-            widthPreview = id to style
-        } else {
+        if (!documentState.previewSelectedStyle(style)) {
             updateToolStyle(style)
         }
     }
 
-    fun finishStyleChange() {
-        val pending = widthPreview ?: return
-        val (id, style) = pending
-
-        widthPreview = null
-
-        commitNodes(
-            history.document.nodes.map { node ->
-                if (node.id == id) {
-                    node.withStyle(style)
-                } else {
-                    node
-                }
-            }
-        )
-    }
-
     fun selectTool(tool: EditorTool) {
-        widthPreview = null
+        documentState.clearSelection()
         selectedTool = tool
-        selectedNodeId = null
     }
 
-    val activeStyle =
-        widthPreview
-            ?.takeIf { it.first == selectedNodeId }
-            ?.second
-            ?: selectedNode?.style
-            ?: when (selectedTool) {
-                EditorTool.RECTANGLE -> rectangleStyle
-                EditorTool.ELLIPSE -> ellipseStyle
-                EditorTool.PEN -> penStyle
-                else -> null
-            }
+    val activeStyle = documentState.selectedStyle ?: when (selectedTool) {
+        EditorTool.RECTANGLE -> rectangleStyle
+        EditorTool.ELLIPSE -> ellipseStyle
+        EditorTool.PEN -> penStyle
+        else -> null
+    }
 
     val onStyleChanged: (NodeStyle) -> Unit = { updated ->
-        widthPreview = null
-
-        val id = selectedNodeId
-
-        if (id != null && history.document.nodes.any { it.id == id }) {
-            commitNodes(
-                history.document.nodes.map { node ->
-                    if (node.id == id) {
-                        node.withStyle(updated)
-                    } else {
-                        node
-                    }
-                }
-            )
-        } else {
+        documentState.cancelStylePreview()
+        if (!documentState.commitSelectedStyle(updated)) {
             updateToolStyle(updated)
         }
     }
@@ -278,8 +171,8 @@ fun EditorScreen(
                     println(
                         "KEY=${event.key}, " +
                                 "CTRL=${event.isCtrlPressed}, " +
-                                "UNDO=${history.undoStack.size}, " +
-                                "REDO=${history.redoStack.size}"
+                                "UNDO=${documentState.history.undoStack.size}, " +
+                                "REDO=${documentState.history.redoStack.size}"
                     )
                 }
                 event.type == KeyEventType.KeyDown && when {
@@ -301,8 +194,8 @@ fun EditorScreen(
                     event.isCtrlPressed &&
                             event.key == Key.Z &&
                             !event.isShiftPressed -> {
-                        if (history.canUndo) {
-                            undo()
+                        if (documentState.canUndo) {
+                            documentState.undo()
                             true
                         } else {
                             false
@@ -317,8 +210,8 @@ fun EditorScreen(
                                                             event.isShiftPressed
                                                     )
                                     ) -> {
-                        if (history.canRedo) {
-                            redo()
+                        if (documentState.canRedo) {
+                            documentState.redo()
                             true
                         } else {
                             false
@@ -329,7 +222,7 @@ fun EditorScreen(
                             !event.isCtrlPressed &&
                             !event.isAltPressed -> {
                         if (selectedNodeId != null) {
-                            deleteSelectedNode()
+                            documentState.deleteSelectedNode()
                             true
                         } else {
                             false
@@ -339,13 +232,12 @@ fun EditorScreen(
                     event.key == Key.Escape -> {
                         when {
                             selectedNodeId != null -> {
-                                widthPreview = null
-                                selectedNodeId = null
+                                documentState.clearSelection()
                                 true
                             }
 
                             selectedTool != EditorTool.SELECT -> {
-                                widthPreview = null
+                                documentState.cancelStylePreview()
                                 selectedTool = EditorTool.SELECT
                                 true
                             }
@@ -402,42 +294,24 @@ fun EditorScreen(
             ellipseStyle = ellipseStyle,
             penStyle = penStyle,
             onCameraChanged = cameraState::updateCamera,
-            onNodeCreated = { node ->
-                widthPreview = null
-                commitNodes(history.document.nodes + node)
-            },
-            onNodeUpdated = { updated ->
-                widthPreview = null
-
-                commitNodes(
-                    history.document.nodes.map { node ->
-                        if (node.id == updated.id) updated
-                        else node
-                    }
-                )
-            },
+            onNodeCreated = documentState::addNode,
+            onNodeUpdated = documentState::updateNode,
             selectedNodeId = selectedNodeId,
-            onNodeSelected = { id ->
-                if (id != selectedNodeId) {
-                    widthPreview = null
-                }
-
-                selectedNodeId = id
-            },
+            onNodeSelected = documentState::selectNode,
         )
 
         EditorActionBar(
-            canUndo = history.canUndo,
-            canRedo = history.canRedo,
+            canUndo = documentState.canUndo,
+            canRedo = documentState.canRedo,
             zoom = cameraState.camera.zoom,
-            onUndo = ::undo,
-            onRedo = ::redo,
+            onUndo = documentState::undo,
+            onRedo = documentState::redo,
             onZoomReset = cameraState::resetZoom,
             onZoomIn = cameraState::zoomIn,
             onZoomOut = cameraState::zoomOut,
             onFitToContent = {
                 cameraState.fitToNodes(
-                    nodes = history.document.nodes,
+                    nodes = documentState.nodes,
                     padding = with(density) { 64.dp.toPx() },
                 )
             },
@@ -491,7 +365,7 @@ fun EditorScreen(
                         style = style,
                         onStyleChanged = onStyleChanged,
                         onStylePreview = ::previewStyle,
-                        onStyleChangeFinished = ::finishStyleChange,
+                        onStyleChangeFinished = documentState::finishStyleChange,
                         orientation = ToolbarOrientation.VERTICAL
                     )
                 }
