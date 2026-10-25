@@ -3,6 +3,12 @@ package org.stickynodes.editor.tools.components
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.Text
+import androidx.compose.material3.TooltipAnchorPosition
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -22,22 +28,34 @@ fun ToolButton(
     } else {
         Color.Transparent
     }
-    IconButton(
-        onClick,
-        Modifier,
-        colors = IconButtonDefaults.iconButtonColors(
-            containerColor = containerColor,
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
+            positioning = TooltipAnchorPosition.Above,
         ),
+        tooltip = {
+            PlainTooltip {
+                Text("${tool.label} (${tool.shortcut})")
+            }
+        },
+        state = rememberTooltipState()
     ) {
-        MaterialSymbol.Outlined(
-            icon = tool.iconName,
-            size = 24.dp,
-            tint = if (selected) {
-                MaterialTheme.colorScheme.onSecondaryContainer
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
-        )
+        IconButton(
+            onClick,
+            Modifier,
+            colors = IconButtonDefaults.iconButtonColors(
+                containerColor = containerColor,
+            ),
+        ) {
+            MaterialSymbol.Outlined(
+                icon = tool.iconName,
+                size = 24.dp,
+                tint = if (selected) {
+                    MaterialTheme.colorScheme.onSecondaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+        }
     }
 }
 
