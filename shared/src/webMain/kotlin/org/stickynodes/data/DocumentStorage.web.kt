@@ -4,6 +4,7 @@
 package org.stickynodes.data
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.stickynodes.editor.history.EditorDocument
@@ -14,7 +15,6 @@ import kotlin.js.JsString
 import kotlin.js.Promise
 import kotlin.js.toJsString
 
-
 @JsFun(
     """() => new Promise((resolve, reject) => {
         const input = document.createElement("input");
@@ -24,11 +24,22 @@ import kotlin.js.toJsString
 
         let settled = false;
 
+        function cleanup() {
+            input.remove();
+        }
+
         function finish(value) {
             if (settled) return;
             settled = true;
-            input.remove();
+            cleanup();
             resolve(value);
+        }
+
+        function fail(error) {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            reject(error);
         }
 
         input.addEventListener("change", function () {
@@ -46,8 +57,7 @@ import kotlin.js.toJsString
                     finish(content);
                 },
                 function (error) {
-                    input.remove();
-                    reject(error);
+                    fail(error);
                 }
             );
         }, { once: true });
@@ -74,14 +84,50 @@ private external fun pickDocument(): Promise<JsString?>
 
         link.href = url;
         link.download = "Untitled.stn";
+
         document.body.appendChild(link);
         link.click();
         link.remove();
 
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setTimeout(function () {
+            URL.revokeObjectURL(url);
+        }, 1000);
     }"""
 )
 private external fun downloadDocument(content: JsString)
+
+@JsFun(
+    """() => {
+        if (window.stickyNodesOpenShortcutHandler) return;
+
+        const handler = function(event) {
+            if (
+                (event.ctrlKey || event.metaKey) &&
+                !event.shiftKey &&
+                !event.altKey &&
+                event.key.toLowerCase() === "o"
+            ) {
+                event.preventDefault();
+            }
+        };
+
+        window.addEventListener("keydown", handler, true);
+        window.stickyNodesOpenShortcutHandler = handler;
+    }"""
+)
+private external fun installOpenShortcutHandler()
+
+@JsFun(
+    """() => {
+        const handler = window.stickyNodesOpenShortcutHandler;
+
+        if (handler) {
+            window.removeEventListener("keydown", handler, true);
+            delete window.stickyNodesOpenShortcutHandler;
+        }
+    }"""
+)
+private external fun removeOpenShortcutHandler()
 
 private suspend fun Promise<JsString?>.awaitValue(): JsString? =
     suspendCancellableCoroutine { continuation ->
@@ -112,16 +158,26 @@ private class WebDocumentStorage : DocumentStorage {
         return DocumentCodec.decode(content.toString())
     }
 
-    override suspend fun save(
-        document: EditorDocument,
-    ): Boolean {
+    override suspend fun save(document: EditorDocument): Boolean {
         downloadDocument(
             DocumentCodec.encode(document).toJsString()
         )
+
         return true
     }
 }
 
 @Composable
-actual fun rememberDocumentStorage(): DocumentStorage =
-    remember { WebDocumentStorage() }
+actual fun rememberDocumentStorage(): DocumentStorage {
+    DisposableEffect(Unit) {
+        installOpenShortcutHandler()
+
+        onDispose {
+            removeOpenShortcutHandler()
+        }
+    }
+
+    return remember {
+        WebDocumentStorage()
+    }
+}
