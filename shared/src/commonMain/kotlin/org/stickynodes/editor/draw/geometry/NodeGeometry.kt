@@ -1,11 +1,15 @@
+
 package org.stickynodes.editor.draw.geometry
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
 import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorPath
 import org.stickynodes.editor.draw.model.EditorRectangle
+import org.stickynodes.editor.draw.model.EditorText
 import org.stickynodes.editor.draw.style.NodeStyle
 
 val EditorNode.bounds: Rect
@@ -16,15 +20,17 @@ val EditorNode.bounds: Rect
             right = x + width,
             bottom = y + height,
         )
+
         is EditorEllipse -> Rect(
             left = x,
             top = y,
             right = x + width,
             bottom = y + height,
         )
-        is EditorPath -> {
 
+        is EditorPath -> {
             val segments = bezierSegments(points)
+
             val positions = if (segments.isEmpty()) {
                 points
             } else {
@@ -37,47 +43,80 @@ val EditorNode.bounds: Rect
                     )
                 }
             }
+
             if (positions.isEmpty()) {
                 Rect(x, y, x, y)
             } else {
                 val strokeRadius = (style.stroke?.width ?: 0f) / 2f
 
-                val left = positions.minOf { it.x }
-                val top = positions.minOf { it.y }
-                val right = positions.maxOf { it.x }
-                val bottom = positions.maxOf { it.y }
-
                 Rect(
-                    left = x + left - strokeRadius,
-                    top = y + top - strokeRadius,
-                    right = x + right + strokeRadius,
-                    bottom = y + bottom + strokeRadius,
+                    left = x + positions.minOf { it.x } - strokeRadius,
+                    top = y + positions.minOf { it.y } - strokeRadius,
+                    right = x + positions.maxOf { it.x } + strokeRadius,
+                    bottom = y + positions.maxOf { it.y } + strokeRadius,
                 )
             }
         }
+
+        // Accurate text bounds require a TextMeasurer.
+        // Use measuredBounds() for text-aware geometry.
+        is EditorText -> Rect(x, y, x, y)
     }
 
-fun EditorNode.contains(point: Offset, zoom: Float = 1f): Boolean =
-    when (this) {
-        is EditorRectangle -> bounds.contains(point)
-        is EditorEllipse -> {
-            if (width <= 0f || height <= 0f) {
-                false
-            } else {
-                val centreX = x + width / 2f
-                val centreY = y + height / 2f
+fun EditorNode.measuredBounds(
+    textMeasurer: TextMeasurer,
+    textStyle: (EditorText) -> TextStyle,
+): Rect = when (this) {
+    is EditorText -> measureBounds(
+        textMeasurer = textMeasurer,
+        style = textStyle(this),
+    )
 
-                val radiusX = width / 2f
-                val radiusY = height / 2f
+    else -> bounds
+}
 
-                val dx = (point.x - centreX) / radiusX
-                val dy = (point.y - centreY) / radiusY
+fun EditorNode.contains(
+    point: Offset,
+    zoom: Float = 1f,
+): Boolean = when (this) {
+    is EditorRectangle -> bounds.contains(point)
 
-                dx * dx + dy * dy <= 1f
-            }
+    is EditorEllipse -> {
+        if (width <= 0f || height <= 0f) {
+            false
+        } else {
+            val centreX = x + width / 2f
+            val centreY = y + height / 2f
+
+            val radiusX = width / 2f
+            val radiusY = height / 2f
+
+            val dx = (point.x - centreX) / radiusX
+            val dy = (point.y - centreY) / radiusY
+
+            dx * dx + dy * dy <= 1f
         }
-        is EditorPath -> containsStroke(point, zoom)
     }
+
+    is EditorPath -> containsStroke(point, zoom)
+
+    // Use the text-aware contains() overload below.
+    is EditorText -> false
+}
+
+fun EditorNode.contains(
+    point: Offset,
+    textMeasurer: TextMeasurer,
+    textStyle: (EditorText) -> TextStyle,
+    zoom: Float = 1f,
+): Boolean = when (this) {
+    is EditorText -> measuredBounds(
+        textMeasurer = textMeasurer,
+        textStyle = textStyle,
+    ).contains(point)
+
+    else -> contains(point, zoom)
+}
 
 fun EditorNode.translatedBy(delta: Offset): EditorNode =
     when (this) {
@@ -85,11 +124,18 @@ fun EditorNode.translatedBy(delta: Offset): EditorNode =
             x = x + delta.x,
             y = y + delta.y,
         )
+
         is EditorEllipse -> copy(
             x = x + delta.x,
             y = y + delta.y,
         )
+
         is EditorPath -> copy(
+            x = x + delta.x,
+            y = y + delta.y,
+        )
+
+        is EditorText -> copy(
             x = x + delta.x,
             y = y + delta.y,
         )
@@ -100,4 +146,5 @@ fun EditorNode.withStyle(style: NodeStyle): EditorNode =
         is EditorRectangle -> copy(style = style)
         is EditorEllipse -> copy(style = style)
         is EditorPath -> copy(style = style)
+        is EditorText -> copy(style = style)
     }

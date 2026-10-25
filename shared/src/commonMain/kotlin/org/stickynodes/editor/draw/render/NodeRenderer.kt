@@ -4,22 +4,49 @@ package org.stickynodes.editor.draw.render
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.DrawStyle
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import org.stickynodes.editor.draw.geometry.smoothPath
 import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorPath
 import org.stickynodes.editor.draw.model.EditorRectangle
+import org.stickynodes.editor.draw.model.EditorText
 import org.stickynodes.editor.draw.style.FillStyle
+import androidx.compose.ui.unit.sp
 
 fun DrawScope.drawNode(
     node: EditorNode,
+    textMeasurer: TextMeasurer,
     alpha: Float = 1f,
 ) {
+    if (node is EditorText) {
+        val fill = node.style.fill as? FillStyle.Solid
+            ?: return
+
+        val color = fill.color.toComposeColor()
+
+        drawText(
+            textMeasurer = textMeasurer,
+            text = node.text,
+            topLeft = Offset(node.x, node.y),
+            style = TextStyle(
+                color = color.copy(
+                    alpha = color.alpha * alpha,
+                ),
+                fontSize = node.fontSize.toSp(),
+            ),
+            softWrap = false,
+        )
+
+        return
+    }
+
     fun drawShape(
         color: Color,
         style: DrawStyle,
@@ -42,20 +69,20 @@ fun DrawScope.drawNode(
             )
 
             is EditorPath -> {
-                if(node.points.isEmpty()) return
+                if (node.points.isEmpty()) return
 
-                if(node.points.size == 1) {
-                    val point = node.points[0]
+                if (node.points.size == 1) {
+                    val point = node.points.first()
 
-                    if(style is Stroke) {
+                    if (style is Stroke) {
                         drawCircle(
                             color = color,
-                            radius = style.width/2f,
+                            radius = style.width / 2f,
                             center = Offset(
-                                node.x + point.x,
-                                node.y + point.y
+                                x = node.x + point.x,
+                                y = node.y + point.y,
                             ),
-                            alpha
+                            alpha = alpha,
                         )
                     }
 
@@ -76,6 +103,9 @@ fun DrawScope.drawNode(
                     alpha = alpha,
                 )
             }
+
+            // Text is rendered separately above.
+            is EditorText -> Unit
         }
     }
 
@@ -91,7 +121,7 @@ fun DrawScope.drawNode(
         }
     }
 
-    // Strokes apply to both shapes and freehand paths.
+    // Strokes apply to shapes and freehand paths.
     node.style.stroke?.let { stroke ->
         drawShape(
             color = stroke.color.toComposeColor(),
