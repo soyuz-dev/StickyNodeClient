@@ -38,8 +38,9 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -380,8 +381,18 @@ fun EditorScreen(
         EditorCanvas(
             modifier = Modifier
                 .fillMaxSize()
-                .onPointerEvent(PointerEventType.Press) {
-                    focusRequester.requestFocus()
+                .pointerInput(focusRequester) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent(
+                                PointerEventPass.Initial
+                            )
+
+                            if (event.type == PointerEventType.Press) {
+                                focusRequester.requestFocus()
+                            }
+                        }
+                    }
                 },
             nodes = displayNodes,
             selectedTool = selectedTool,
@@ -424,6 +435,16 @@ fun EditorScreen(
             onRedo = ::redo,
             onZoomReset = {
                 camera = camera.copy(zoom = 1f)
+            },
+            onZoomIn = {
+                camera = camera.copy(
+                    zoom = (camera.zoom / 1.25f).coerceIn(0.1f, 10f)
+                )
+            },
+            onZoomOut = {
+                camera = camera.copy(
+                    zoom = (camera.zoom * 1.25f).coerceIn(0.1f, 10f)
+                )
             },
             onOpen = ::open,
             onSave = ::save,
