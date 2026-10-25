@@ -42,6 +42,7 @@ fun EditorActionBar(
     onZoomReset: () -> Unit,
     onZoomOut: () -> Unit,
     onZoomIn: () -> Unit,
+    onFitToContent: () -> Unit,
     onOpen: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
@@ -126,6 +127,14 @@ fun EditorActionBar(
                 tooltip = "Zoom in",
                 onClick = onZoomIn,
             )
+
+            ActionBarDivider()
+
+            ActionBarButton(
+                icon = "fit_screen",
+                tooltip = "Fit to content",
+                onClick = onFitToContent,
+            )
         }
 
     }
@@ -161,6 +170,7 @@ private fun EditorActionBarPreview() {
             onZoomReset = {
                 zoom = 1f
             },
+            onFitToContent = {},
             onOpen = {},
             onSave = {},
         )

@@ -1,4 +1,3 @@
-
 package org.stickynodes.editor
 
 import androidx.compose.animation.AnimatedVisibility
@@ -29,6 +28,9 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isAltPressed
@@ -42,6 +44,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.stickynodes.data.rememberDocumentStorage
@@ -68,6 +71,17 @@ fun EditorScreen(
     var camera by remember {
         mutableStateOf(EditorCamera())
     }
+
+    var viewportSize by remember {
+        mutableStateOf(IntSize.Zero)
+    }
+
+    val density = LocalDensity.current
+
+    fun viewportCentre() = Offset(
+        viewportSize.width / 2f,
+        viewportSize.height / 2f,
+    )
 
     var selectedTool by remember {
         mutableStateOf(EditorTool.SELECT)
@@ -381,6 +395,7 @@ fun EditorScreen(
         EditorCanvas(
             modifier = Modifier
                 .fillMaxSize()
+                .onSizeChanged { viewportSize = it }
                 .pointerInput(focusRequester) {
                     awaitPointerEventScope {
                         while (true) {
@@ -434,16 +449,19 @@ fun EditorScreen(
             onUndo = ::undo,
             onRedo = ::redo,
             onZoomReset = {
-                camera = camera.copy(zoom = 1f)
+                camera = camera.zoomAt(viewportCentre(), 1f)
             },
             onZoomIn = {
-                camera = camera.copy(
-                    zoom = (camera.zoom / 1.25f).coerceIn(0.1f, 10f)
-                )
+                camera = camera.zoomAt(viewportCentre(), camera.zoom * 1.25f)
             },
             onZoomOut = {
-                camera = camera.copy(
-                    zoom = (camera.zoom * 1.25f).coerceIn(0.1f, 10f)
+                camera = camera.zoomAt(viewportCentre(), camera.zoom / 1.25f)
+            },
+            onFitToContent = {
+                camera = camera.fitToNodes(
+                    nodes = history.document.nodes,
+                    viewport = viewportSize,
+                    padding = with(density) { 64.dp.toPx() },
                 )
             },
             onOpen = ::open,
