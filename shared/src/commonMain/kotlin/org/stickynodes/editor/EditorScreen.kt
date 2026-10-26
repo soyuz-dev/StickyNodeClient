@@ -28,6 +28,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.input.key.Key
@@ -47,7 +48,9 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.stickynodes.data.rememberDocumentStorage
 import org.stickynodes.editor.draw.EditorCanvas
+import org.stickynodes.editor.draw.EditorTextOverlay
 import org.stickynodes.editor.draw.camera.rememberEditorCameraState
+import org.stickynodes.editor.draw.model.EditorText
 import org.stickynodes.editor.draw.style.FillStyle
 import org.stickynodes.editor.draw.style.NodeStyle
 import org.stickynodes.editor.draw.style.StrokeStyle
@@ -57,6 +60,7 @@ import org.stickynodes.editor.tools.EditorTool
 import org.stickynodes.editor.tools.EditorToolbar
 import org.stickynodes.editor.tools.StylingToolbar
 import org.stickynodes.editor.tools.ToolbarOrientation
+import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -93,6 +97,14 @@ fun EditorScreen(
                 ),
             )
         )
+    }
+
+    var textEditPosition by remember {
+        mutableStateOf<Offset?>(null)
+    }
+
+    var textDraft by remember {
+        mutableStateOf("")
     }
 
     val focusRequester = remember {
@@ -161,111 +173,136 @@ fun EditorScreen(
         }
     }
 
+    fun cancelTextEdit() {
+        textEditPosition = null
+        textDraft = ""
+        focusRequester.requestFocus()
+    }
+
+    fun commitTextEdit() {
+        val position = textEditPosition ?: return
+
+        if (textDraft.isNotBlank()) {
+            documentState.addNode(
+                EditorText(
+                    id = Uuid.random(),
+                    x = position.x,
+                    y = position.y,
+                    text = textDraft,
+                    fontSize = 24f,
+                )
+            )
+        }
+
+        cancelTextEdit()
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
             .focusRequester(focusRequester)
             .onPreviewKeyEvent { event ->
-                if (event.type == KeyEventType.KeyDown) {
-                    println(
-                        "KEY=${event.key}, " +
-                                "CTRL=${event.isCtrlPressed}, " +
-                                "UNDO=${documentState.history.undoStack.size}, " +
-                                "REDO=${documentState.history.redoStack.size}"
-                    )
-                }
-                event.type == KeyEventType.KeyDown && when {
-                    event.isCtrlPressed &&
-                            !event.isShiftPressed &&
-                            !event.isAltPressed &&
-                            event.key == Key.S -> {
-                        save()
+                if (textEditPosition != null) {
+                    if (event.type == KeyEventType.KeyDown && event.key == Key.Escape) {
+                        commitTextEdit()
                         true
+                    } else {
+                        false
                     }
-
-                    event.isCtrlPressed &&
-                            !event.isShiftPressed &&
-                            !event.isAltPressed &&
-                            event.key == Key.O -> {
-                        open()
-                        true
-                    }
-                    event.isCtrlPressed &&
-                            event.key == Key.Z &&
-                            !event.isShiftPressed -> {
-                        if (documentState.canUndo) {
-                            documentState.undo()
+                } else {
+                    event.type == KeyEventType.KeyDown && when {
+                        event.isCtrlPressed &&
+                                !event.isShiftPressed &&
+                                !event.isAltPressed &&
+                                event.key == Key.S -> {
+                            save()
                             true
-                        } else {
-                            false
                         }
-                    }
 
-                    event.isCtrlPressed &&
-                            (
-                                    event.key == Key.Y ||
-                                            (
-                                                    event.key == Key.Z &&
-                                                            event.isShiftPressed
-                                                    )
-                                    ) -> {
-                        if (documentState.canRedo) {
-                            documentState.redo()
+                        event.isCtrlPressed &&
+                                !event.isShiftPressed &&
+                                !event.isAltPressed &&
+                                event.key == Key.O -> {
+                            open()
                             true
-                        } else {
-                            false
                         }
-                    }
-
-                    event.key == Key.Delete &&
-                            !event.isCtrlPressed &&
-                            !event.isAltPressed -> {
-                        if (selectedNodeId != null) {
-                            documentState.deleteSelectedNode()
-                            true
-                        } else {
-                            false
-                        }
-                    }
-
-                    event.key == Key.Escape -> {
-                        when {
-                            selectedNodeId != null -> {
-                                documentState.clearSelection()
+                        event.isCtrlPressed &&
+                                event.key == Key.Z &&
+                                !event.isShiftPressed -> {
+                            if (documentState.canUndo) {
+                                documentState.undo()
                                 true
+                            } else {
+                                false
+                            }
+                        }
+
+                        event.isCtrlPressed &&
+                                (
+                                        event.key == Key.Y ||
+                                                (
+                                                        event.key == Key.Z &&
+                                                                event.isShiftPressed
+                                                        )
+                                        ) -> {
+                            if (documentState.canRedo) {
+                                documentState.redo()
+                                true
+                            } else {
+                                false
+                            }
+                        }
+
+                        event.key == Key.Delete &&
+                                !event.isCtrlPressed &&
+                                !event.isAltPressed -> {
+                            if (selectedNodeId != null) {
+                                documentState.deleteSelectedNode()
+                                true
+                            } else {
+                                false
+                            }
+                        }
+
+                        event.key == Key.Escape -> {
+                            when {
+                                selectedNodeId != null -> {
+                                    documentState.clearSelection()
+                                    true
+                                }
+
+                                selectedTool != EditorTool.SELECT -> {
+                                    documentState.cancelStylePreview()
+                                    selectedTool = EditorTool.SELECT
+                                    true
+                                }
+
+                                else -> false
+                            }
+                        }
+
+                        !event.isCtrlPressed &&
+                                !event.isAltPressed &&
+                                !event.isMetaPressed -> {
+                            val tool = when (event.key) {
+                                Key.S -> EditorTool.SELECT
+                                Key.D -> EditorTool.PEN
+                                Key.E -> EditorTool.ELLIPSE
+                                Key.R -> EditorTool.RECTANGLE
+                                Key.T -> EditorTool.TEXT
+                                Key.W -> EditorTool.PAN
+                                else -> null
                             }
 
-                            selectedTool != EditorTool.SELECT -> {
-                                documentState.cancelStylePreview()
-                                selectedTool = EditorTool.SELECT
+                            if (tool != null && !event.isShiftPressed) {
+                                selectTool(tool)
                                 true
-                            }
-
-                            else -> false
-                        }
-                    }
-
-                    !event.isCtrlPressed &&
-                            !event.isAltPressed &&
-                            !event.isMetaPressed -> {
-                        val tool = when (event.key) {
-                            Key.S -> EditorTool.SELECT
-                            Key.D -> EditorTool.PEN
-                            Key.E -> EditorTool.ELLIPSE
-                            Key.R -> EditorTool.RECTANGLE
-                            Key.T -> EditorTool.TEXT
-                            Key.W -> EditorTool.PAN
-                            else -> null
+                            } else false
                         }
 
-                        if (tool != null && !event.isShiftPressed) {
-                            selectTool(tool)
-                            true
-                        } else false
+                        else -> false
                     }
-
-                    else -> false
                 }
             }
             .focusable(),
@@ -298,7 +335,23 @@ fun EditorScreen(
             onNodeUpdated = documentState::updateNode,
             selectedNodeId = selectedNodeId,
             onNodeSelected = documentState::selectNode,
+            onTextPlacement = { position ->
+                textEditPosition = position
+                textDraft = ""
+            }
         )
+
+        textEditPosition?.let { position ->
+            EditorTextOverlay(
+                position = position,
+                text = textDraft,
+                camera = cameraState.camera,
+                onTextChanged = {
+                    textDraft = it
+                },
+                onCommit = ::commitTextEdit,
+            )
+        }
 
         EditorActionBar(
             canUndo = documentState.canUndo,

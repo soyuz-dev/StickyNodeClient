@@ -51,6 +51,7 @@ fun EditorCanvas(
     onCameraChanged: (EditorCamera) -> Unit,
     onNodeCreated: (EditorNode) -> Unit,
     onNodeUpdated: (EditorNode) -> Unit,
+    onTextPlacement: (Offset) -> Unit,
     selectedNodeId: Uuid?,
     onNodeSelected: (Uuid?) -> Unit,
 ) {
@@ -73,6 +74,7 @@ fun EditorCanvas(
     val currentOnNodeCreated by rememberUpdatedState(onNodeCreated)
     val currentOnNodeUpdated by rememberUpdatedState(onNodeUpdated)
     val currentOnNodeSelected by rememberUpdatedState(onNodeSelected)
+    val currentOnTextPlacement by rememberUpdatedState(onTextPlacement)
 
     Canvas(
         modifier = modifier
@@ -110,17 +112,7 @@ fun EditorCanvas(
                     EditorTool.TEXT -> {
                         detectTextCreation(
                             screenToWorld = {camera.screenToWorld(it)},
-                            onCreate = { position ->
-                                currentOnNodeCreated(
-                                    EditorText(
-                                        id = Uuid.random(),
-                                        x = position.x,
-                                        y = position.y,
-                                        text = "Testing!",
-                                        fontSize = 24f
-                                    )
-                                )
-                            }
+                            onCreate = { currentOnTextPlacement(it) }
                         )
                     }
 
@@ -235,5 +227,6 @@ fun EditorCanvasPreview() {
         },
         selectedNodeId = selectedNodeId,
         onNodeSelected = { selectedNodeId = it },
+        onTextPlacement = {},
     )
 }
