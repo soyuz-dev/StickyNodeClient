@@ -1,46 +1,163 @@
-This is a Kotlin Multiplatform project targeting Android, iOS, Web, Desktop (JVM).
+# StickyNodes
 
-* [/iosApp](./iosApp/iosApp) contains an iOS application. Even if you’re sharing your UI with Compose Multiplatform,
-  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
+**A lightweight, cross-platform vector whiteboard built with Kotlin and Compose Multiplatform.**
 
-* [/shared](./shared/src) is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-  - [commonMain](./shared/src/commonMain/kotlin) is for code that’s common for all targets.
-  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-    For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-    the [iosMain](./shared/src/iosMain/kotlin) folder would be the right place for such calls.
-    Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./shared/src/jvmMain/kotlin)
-    folder is the appropriate location.
+StickyNodes is a simple canvas editor for sketching ideas, drawing shapes, adding text, and organising things visually.
 
-### Running the apps
+It's currently in early development, with a focus on keeping the editing experience straightforward and responsive.
 
-Use the run configurations provided by the run widget in your IDE's toolbar. You can also use these commands and options:
+**[Try it online](https://stickynodes.vercel.app/) · [Download for desktop](https://github.com/soyuz-dev/StickyNodeClient/releases) · [Report an issue](https://github.com/soyuz-dev/StickyNodeClient/issues)**
 
-- Android app: `./gradlew :androidApp:assembleDebug`
-- Desktop app:
-  - Hot reload: `./gradlew :desktopApp:hotRun --auto`
-  - Standard run: `./gradlew :desktopApp:run`
-- Web app:
-  - Wasm target (faster, modern browsers): `./gradlew :webApp:wasmJsBrowserDevelopmentRun`
-  - JS target (slower, supports older browsers): `./gradlew :webApp:jsBrowserDevelopmentRun`
-- iOS app: open the [/iosApp](./iosApp) directory in Xcode and run it from there.
+## Features
 
-### Running tests
+- **Infinite canvas** — Pan, zoom, and navigate freely.
+- **Drawing tools** — Create rectangles, ellipses, and freehand paths.
+- **Text** — Place and edit text directly on the canvas.
+- **Selection and styling** — Select objects and customise their appearance.
+- **Undo and redo** — Easily reverse or restore changes.
+- **Fit to content** — Automatically frame your drawing with an animated camera transition.
+- **Document persistence** — Save and open `.stn` documents.
 
-Use the run button in your IDE's editor gutter, or run tests using Gradle tasks:
+## Getting started
 
-- Android tests: `./gradlew :shared:testAndroidHostTest`
-- Desktop tests: `./gradlew :shared:jvmTest`
-- Web tests:
-  - Wasm target: `./gradlew :shared:wasmJsTest`
-  - JS target: `./gradlew :shared:jsTest`
-- iOS tests: `./gradlew :shared:iosSimulatorArm64Test`
+### Web
+
+Use StickyNodes directly in your browser:
+
+**https://stickynodes.vercel.app/**
+
+No installation required.
+
+### Desktop
+
+Download the latest build from the [GitHub Releases page](https://github.com/soyuz-dev/StickyNodeClient/releases).
+
+| Platform | Architecture          |
+|----------|-----------------------|
+| Windows  | x64                   |
+| Linux    | x64                   |
+| macOS    | Apple Silicon (ARM64) |
+| macOS    | Intel (x64)           |
+
+The desktop application is currently distributed as an executable JAR and requires a compatible Java runtime.
+
+Run it using:
+
+```bash
+java -jar StickyNodes-0.1.0-windows-x64.jar
+```
+
+Replace the filename with the downloaded JAR for your platform.
+
+Depending on your operating system and Java configuration, double-clicking the JAR may also work.
+
+> **Note:** Windows has been tested locally. Linux and macOS builds are generated through GitHub Actions but have not yet been manually runtime-tested.
+
+## Building from source
+
+### Requirements
+
+- A JDK compatible with the project's Gradle version
+- Git
+
+Clone the repository:
+
+```bash
+git clone https://github.com/soyuz-dev/StickyNodeClient.git
+cd StickyNodeClient
+```
+
+### Desktop
+
+Run the application:
+
+```bash
+./gradlew :desktopApp:run
+```
+
+Build an executable JAR for your current operating system:
+
+```bash
+./gradlew :desktopApp:packageUberJarForCurrentOS
+```
+
+The generated JAR can be found under:
+
+```text
+desktopApp/build/compose/jars/
+```
+
+For development with Compose Hot Reload:
+
+```bash
+./gradlew :desktopApp:hotRun --auto
+```
+
+On Windows, use `.\gradlew` instead of `./gradlew`.
+
+### Web
+
+Run the Kotlin/Wasm development server:
+
+```bash
+./gradlew :webApp:wasmJsBrowserDevelopmentRun
+```
+
+Or use the JavaScript target:
+
+```bash
+./gradlew :webApp:jsBrowserDevelopmentRun
+```
+
+### Android
+
+Build the Android debug APK:
+
+```bash
+./gradlew :androidApp:assembleDebug
+```
+
+Android and iOS are not currently part of the published desktop release.
+
+## Project structure
+
+```text
+StickyNodeClient/
+├── shared/       Shared editor UI, models and logic
+├── desktopApp/   Desktop JVM application
+├── webApp/       Web application
+├── androidApp/   Android application
+└── iosApp/       iOS application
+```
+
+Most of the editor's functionality lives in the `shared` module, allowing platform-specific applications to reuse the same underlying implementation.
+
+## Technology
+
+StickyNodes is built using:
+
+- **Kotlin Multiplatform** — Shared application logic across platforms
+- **Compose Multiplatform** — Declarative user interface and canvas rendering
+- **Kotlinx Serialization** — Document serialisation
+- **Gradle** — Builds and dependency management
+- **GitHub Actions** — Automated desktop builds for Windows, Linux and macOS
+
+## Development status
+
+StickyNodes is an early-stage project.
+
+The current priority is building a reliable single-user vector editor before introducing more advanced functionality.
+
+Features and the `.stn` document format may change as development continues.
+
+Bug reports, feedback and suggestions are welcome through [GitHub Issues](https://github.com/soyuz-dev/StickyNodeClient/issues).
+
+## Links
+
+- **Web app:** https://stickynodes.vercel.app/
+- **Desktop releases:** https://github.com/soyuz-dev/StickyNodeClient/releases
+- **Source code:** https://github.com/soyuz-dev/StickyNodeClient
 
 ---
 
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html),
-[Compose Multiplatform](https://kotlinlang.org/compose-multiplatform/),
-[Kotlin/Wasm](https://kotl.in/wasm/)…
-
-We would appreciate your feedback on Compose/Web and Kotlin/Wasm in the public Slack channel [#compose-web](https://slack-chats.kotlinlang.org/c/compose-web).
-If you face any issues, please report them on [YouTrack](https://youtrack.jetbrains.com/newIssue?project=CMP).
+Made with Kotlin, Compose Multiplatform, and a healthy amount of experimentation.
