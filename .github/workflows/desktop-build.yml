@@ -1,0 +1,48 @@
+name: Build StickyNodes Desktop
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows-x64
+
+          - os: ubuntu-latest
+            platform: linux-x64
+
+          - os: macos-15-intel
+            platform: macos-x64
+
+          - os: macos-latest
+            platform: macos-arm64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build Desktop JAR
+        run: ./gradlew :desktopApp:packageUberJarForCurrentOS
+
+      - name: Upload JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: StickyNodes-${{ matrix.platform }}
+          path: desktopApp/build/compose/jars/*.jar
+          if-no-files-found: error
