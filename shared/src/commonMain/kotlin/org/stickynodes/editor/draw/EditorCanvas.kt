@@ -52,8 +52,9 @@ fun EditorCanvas(
     onNodeCreated: (EditorNode) -> Unit,
     onNodeUpdated: (EditorNode) -> Unit,
     onTextPlacement: (Offset) -> Unit,
-    selectedNodeId: Uuid?,
+    selectedNodeIds: Set<Uuid>,
     onNodeSelected: (Uuid?) -> Unit,
+    onNodeSelectionToggled: (Uuid) -> Unit,
 ) {
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
@@ -73,6 +74,8 @@ fun EditorCanvas(
     val currentOnCameraChanged by rememberUpdatedState(onCameraChanged)
     val currentOnNodeCreated by rememberUpdatedState(onNodeCreated)
     val currentOnNodeUpdated by rememberUpdatedState(onNodeUpdated)
+    val currentSelectedNodeIds by rememberUpdatedState(selectedNodeIds)
+    val currentOnNodeSelectionToggled by rememberUpdatedState(onNodeSelectionToggled)
     val currentOnNodeSelected by rememberUpdatedState(onNodeSelected)
     val currentOnTextPlacement by rememberUpdatedState(onTextPlacement)
 
@@ -139,7 +142,9 @@ fun EditorCanvas(
                                     zoom = zoom,
                                 )
                             },
-                            onSelect = { currentOnNodeSelected(it) },
+                            selectedNodeIds = { currentSelectedNodeIds },
+                            onToggleSelection = { currentOnNodeSelectionToggled(it) },
+                            onSelect = {currentOnNodeSelected(it)},
                             onPreview = { previewNode = it },
                             onCommit = { currentOnNodeUpdated(it) },
                         )
@@ -181,13 +186,15 @@ fun EditorCanvas(
                     )
                 }
 
-                val selectedNode = previewNode
-                    ?.takeIf { it.id == selectedNodeId }
-                    ?: nodes.firstOrNull { it.id == selectedNodeId }
+                for (node in nodes) {
+                    if (node.id !in selectedNodeIds) continue
 
-                selectedNode?.let {
+                    val displayedNode = previewNode
+                        ?.takeIf { it.id == node.id }
+                        ?: node
+
                     drawSelection(
-                        node = it,
+                        node = displayedNode,
                         color = selectionColor,
                         textMeasurer = textMeasurer,
                     )
@@ -225,7 +232,8 @@ fun EditorCanvasPreview() {
                 if (node.id == updated.id) updated else node
             }
         },
-        selectedNodeId = selectedNodeId,
+        selectedNodeIds = selectedNodeId?.let(::setOf) ?: emptySet(),
+        onNodeSelectionToggled = { id -> selectedNodeId = if (selectedNodeId == id) null else id },
         onNodeSelected = { selectedNodeId = it },
         onTextPlacement = {},
     )

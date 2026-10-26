@@ -16,8 +16,11 @@ class EditorDocumentState(
     var history by mutableStateOf(EditorHistory(document = initialDocument))
         private set
 
-    var selectedNodeId by mutableStateOf<Uuid?>(null)
+    var selectedNodeIds by mutableStateOf<Set<Uuid>>(emptySet())
         private set
+
+    val selectedNodeId: Uuid?
+        get() = selectedNodeIds.singleOrNull()
 
     private var stylePreview by mutableStateOf<Pair<Uuid, NodeStyle>?>(null)
 
@@ -50,18 +53,32 @@ class EditorDocumentState(
 
     fun open(document: EditorDocument) {
         history = EditorHistory(document = document)
-        selectedNodeId = null
+        selectedNodeIds = emptySet()
         stylePreview = null
     }
 
     fun selectNode(id: Uuid?) {
-        if (id != selectedNodeId) stylePreview = null
-        selectedNodeId = id
+        val selection = if (id == null) emptySet() else setOf(id)
+
+        if (selection != selectedNodeIds) {
+            stylePreview = null
+            selectedNodeIds = selection
+        }
+    }
+
+    fun toggleNodeSelection(id: Uuid) {
+        stylePreview = null
+
+        selectedNodeIds = if (id in selectedNodeIds) {
+            selectedNodeIds - id
+        } else {
+            selectedNodeIds + id
+        }
     }
 
     fun clearSelection() {
         stylePreview = null
-        selectedNodeId = null
+        selectedNodeIds = emptySet()
     }
 
     fun cancelStylePreview() {
@@ -84,10 +101,11 @@ class EditorDocumentState(
         })
     }
 
-    fun deleteSelectedNode() {
-        val id = selectedNodeId ?: return
-        commitNodes(nodes.filterNot { it.id == id })
-        selectedNodeId = null
+    fun deleteSelectedNodes() {
+        if (selectedNodeIds.isEmpty()) return
+
+        commitNodes(nodes.filterNot { it.id in selectedNodeIds })
+        clearSelection()
     }
 
     fun undo() {
@@ -132,9 +150,8 @@ class EditorDocumentState(
     }
 
     private fun validateSelection() {
-        selectedNodeId = selectedNodeId?.takeIf { id ->
-            nodes.any { it.id == id }
-        }
+        val existingIds = nodes.mapTo(mutableSetOf()) { it.id }
+        selectedNodeIds = selectedNodeIds.intersect(existingIds)
     }
 }
 

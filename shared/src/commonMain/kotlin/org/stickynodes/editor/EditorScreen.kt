@@ -76,7 +76,7 @@ fun EditorScreen(
 
     val documentState = rememberEditorDocumentState()
     val nodes = documentState.nodes
-    val selectedNodeId = documentState.selectedNodeId
+    val selectedNodeIds = documentState.selectedNodeIds
     val displayNodes = documentState.displayNodes
 
     var rectangleStyle by remember {
@@ -257,8 +257,8 @@ fun EditorScreen(
                         event.key == Key.Delete &&
                                 !event.isCtrlPressed &&
                                 !event.isAltPressed -> {
-                            if (selectedNodeId != null) {
-                                documentState.deleteSelectedNode()
+                            if (selectedNodeIds.isNotEmpty()) {
+                                documentState.deleteSelectedNodes()
                                 true
                             } else {
                                 false
@@ -267,7 +267,7 @@ fun EditorScreen(
 
                         event.key == Key.Escape -> {
                             when {
-                                selectedNodeId != null -> {
+                                selectedNodeIds.isNotEmpty() -> {
                                     documentState.clearSelection()
                                     true
                                 }
@@ -333,8 +333,9 @@ fun EditorScreen(
             onCameraChanged = cameraState::updateCamera,
             onNodeCreated = documentState::addNode,
             onNodeUpdated = documentState::updateNode,
-            selectedNodeId = selectedNodeId,
+            selectedNodeIds = selectedNodeIds,
             onNodeSelected = documentState::selectNode,
+            onNodeSelectionToggled = documentState::toggleNodeSelection,
             onTextPlacement = { position ->
                 textEditPosition = position
                 textDraft = ""
