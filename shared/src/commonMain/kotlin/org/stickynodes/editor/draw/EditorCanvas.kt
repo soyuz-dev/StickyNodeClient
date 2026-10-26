@@ -26,9 +26,11 @@ import org.stickynodes.editor.draw.gesture.detectCanvasZoom
 import org.stickynodes.editor.draw.gesture.detectNodeInteraction
 import org.stickynodes.editor.draw.gesture.detectPathCreation
 import org.stickynodes.editor.draw.gesture.detectShapeCreation
+import org.stickynodes.editor.draw.gesture.detectTextCreation
 import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorRectangle
+import org.stickynodes.editor.draw.model.EditorText
 import org.stickynodes.editor.draw.render.drawNode
 import org.stickynodes.editor.draw.render.drawSelection
 import org.stickynodes.editor.draw.style.FillStyle
@@ -105,6 +107,23 @@ fun EditorCanvas(
                         )
                     }
 
+                    EditorTool.TEXT -> {
+                        detectTextCreation(
+                            screenToWorld = {camera.screenToWorld(it)},
+                            onCreate = { position ->
+                                currentOnNodeCreated(
+                                    EditorText(
+                                        id = Uuid.random(),
+                                        x = position.x,
+                                        y = position.y,
+                                        text = "Testing!",
+                                        fontSize = 24f
+                                    )
+                                )
+                            }
+                        )
+                    }
+
                     EditorTool.PEN -> {
                         detectPathCreation(
                             screenToWorld = { currentCamera.screenToWorld(it) },
@@ -137,7 +156,7 @@ fun EditorCanvas(
                     EditorTool.PAN -> {
                         detectCanvasPan(
                             camera = { currentCamera },
-                            onCameraChanged = { currentOnCameraChanged(it) },
+                            onCameraChanged = currentOnCameraChanged,
                         )
                     }
 

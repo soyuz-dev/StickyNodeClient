@@ -9,10 +9,12 @@ import org.stickynodes.data.model.PointDto
 import org.stickynodes.data.model.RectangleDto
 import org.stickynodes.data.model.StrokeDto
 import org.stickynodes.data.model.StyleDto
+import org.stickynodes.data.model.TextDto
 import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorPath
 import org.stickynodes.editor.draw.model.EditorRectangle
+import org.stickynodes.editor.draw.model.EditorText
 import org.stickynodes.editor.draw.style.FillStyle
 import org.stickynodes.editor.draw.style.NodeStyle
 import org.stickynodes.editor.draw.style.StrokeCap
@@ -63,6 +65,15 @@ private fun EditorNode.toDto(): NodeDto = when (this) {
             PointDto(it.x, it.y)
         },
     )
+
+    is EditorText -> TextDto(
+        id = id.toString(),
+        x = x,
+        y = y,
+        style = style.toDto(),
+        text = text,
+        fontSize = fontSize
+    )
 }
 
 
@@ -93,6 +104,15 @@ private fun NodeDto.toNode(): EditorNode = when (this) {
         points = points.map {
             Offset(it.x, it.y)
         },
+    )
+
+    is TextDto -> EditorText(
+        id = Uuid.parse(id),
+        x = x,
+        y = y,
+        style = style.toStyle(),
+        text = text,
+        fontSize = fontSize
     )
 }
 
