@@ -76,6 +76,15 @@ class EditorDocumentState(
         }
     }
 
+    fun selectNodes(ids: Set<Uuid>) {
+        val validIds = nodes.mapTo(mutableSetOf()) { it.id }
+        val selection = ids.intersect(validIds)
+
+        if (selection != selectedNodeIds) {
+            stylePreview = null
+            selectedNodeIds = selection
+        }
+    }
     fun clearSelection() {
         stylePreview = null
         selectedNodeIds = emptySet()

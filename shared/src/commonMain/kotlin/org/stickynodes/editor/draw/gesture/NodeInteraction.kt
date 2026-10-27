@@ -6,11 +6,26 @@ import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.isShiftPressed
+import org.stickynodes.editor.draw.geometry.bounds
 import org.stickynodes.editor.draw.geometry.translatedBy
 import org.stickynodes.editor.draw.model.EditorNode
 import kotlin.uuid.Uuid
+
+private fun rectangleBetween(a: Offset, b: Offset) = Rect(
+    left = minOf(a.x, b.x),
+    top = minOf(a.y, b.y),
+    right = maxOf(a.x, b.x),
+    bottom = maxOf(a.y, b.y),
+)
+
+private fun Rect.fullyContains(other: Rect): Boolean =
+    other.left >= left &&
+            other.top >= top &&
+            other.right <= right &&
+            other.bottom <= bottom
 
 suspend fun PointerInputScope.detectNodeInteraction(
     nodes: () -> List<EditorNode>,
@@ -20,14 +35,17 @@ suspend fun PointerInputScope.detectNodeInteraction(
     zoom: () -> Float,
     hitTest: (EditorNode, Offset, Float) -> Boolean,
     onSelect: (Uuid?) -> Unit,
+    onSelectNodes: (Set<Uuid>) -> Unit,
     onToggleSelection: (Uuid) -> Unit,
     onPreview: (List<EditorNode>) -> Unit,
+    onMarquee: (Rect?) -> Unit,
     onCommit: (List<EditorNode>) -> Unit,
 ) {
     try {
         awaitEachGesture {
             val down = awaitFirstDown()
-            val shiftPressed = currentEvent.keyboardModifiers.isShiftPressed
+            val shiftPressed =
+                currentEvent.keyboardModifiers.isShiftPressed
 
             val worldPoint = screenToWorld(down.position)
 
@@ -37,22 +55,69 @@ suspend fun PointerInputScope.detectNodeInteraction(
                     hitTest(node, worldPoint, zoom())
                 }
 
-            val wasSelected = hitNode?.id in selectedNodeIds()
+            val initialSelection = selectedNodeIds()
+            val wasSelected = hitNode?.id in initialSelection
 
             onPreview(emptyList())
+            onMarquee(null)
 
-            if (shiftPressed) {
-                if (hitNode != null) {
-                    onToggleSelection(hitNode.id)
-                }
-
+            if (shiftPressed && hitNode != null) {
+                onToggleSelection(hitNode.id)
                 waitForUpOrCancellation()
                 return@awaitEachGesture
             }
 
             if (hitNode == null) {
-                onSelect(null)
-                waitForUpOrCancellation()
+                val dragStart = awaitTouchSlopOrCancellation(
+                    pointerId = down.id,
+                ) { change, _ ->
+                    change.consume()
+                }
+
+                if (dragStart == null) {
+                    if (!shiftPressed) {
+                        onSelect(null)
+                    }
+                    return@awaitEachGesture
+                }
+
+                val initialNodes = nodes()
+
+                fun updateMarquee(position: Offset) {
+                    val marquee = rectangleBetween(
+                        worldPoint,
+                        screenToWorld(position),
+                    )
+
+                    onMarquee(marquee)
+
+                    val containedIds = initialNodes
+                        .asSequence()
+                        .filter { marquee.fullyContains(it.bounds) }
+                        .map { it.id }
+                        .toSet()
+
+                    onSelectNodes(
+                        if (shiftPressed) {
+                            initialSelection + containedIds
+                        } else {
+                            containedIds
+                        }
+                    )
+                }
+
+                updateMarquee(dragStart.position)
+
+                val completed = drag(dragStart.id) { change ->
+                    updateMarquee(change.position)
+                    change.consume()
+                }
+
+                if (!completed) {
+                    onSelectNodes(initialSelection)
+                }
+
+                onMarquee(null)
                 return@awaitEachGesture
             }
 
@@ -61,7 +126,7 @@ suspend fun PointerInputScope.detectNodeInteraction(
             }
 
             val startingSelection = if (wasSelected) {
-                selectedNodeIds()
+                initialSelection
             } else {
                 setOf(hitNode.id)
             }
@@ -112,5 +177,6 @@ suspend fun PointerInputScope.detectNodeInteraction(
         }
     } finally {
         onPreview(emptyList())
+        onMarquee(null)
     }
 }

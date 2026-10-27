@@ -10,7 +10,9 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.input.pointer.pointerInput
@@ -55,6 +57,7 @@ fun EditorCanvas(
     onTextPlacement: (Offset) -> Unit,
     selectedNodeIds: Set<Uuid>,
     onNodeSelected: (Uuid?) -> Unit,
+    onNodesSelected: (Set<Uuid>) -> Unit,
     onNodeSelectionToggled: (Uuid) -> Unit,
 ) {
     val textMeasurer = rememberTextMeasurer()
@@ -79,7 +82,10 @@ fun EditorCanvas(
     val currentSelectedNodeIds by rememberUpdatedState(selectedNodeIds)
     val currentOnNodeSelectionToggled by rememberUpdatedState(onNodeSelectionToggled)
     val currentOnNodeSelected by rememberUpdatedState(onNodeSelected)
+    val currentOnNodesSelected by rememberUpdatedState(onNodesSelected)
     val currentOnTextPlacement by rememberUpdatedState(onTextPlacement)
+
+    var marquee by remember { mutableStateOf<Rect?>(null) }
 
     Canvas(
         modifier = modifier
@@ -146,6 +152,8 @@ fun EditorCanvas(
                             },
                             selectedNodeIds = { currentSelectedNodeIds },
                             onToggleSelection = { currentOnNodeSelectionToggled(it) },
+                            onSelectNodes = { currentOnNodesSelected(it) },
+                            onMarquee = { marquee = it },
                             onSelect = {currentOnNodeSelected(it)},
                             onPreview = { interactionPreview = it },
                             onCommit = { currentOnNodesUpdated(it) },
@@ -206,6 +214,21 @@ fun EditorCanvas(
                         textMeasurer = textMeasurer,
                     )
                 }
+
+                marquee?.let { rect ->
+                    drawRect(
+                        color = selectionColor.copy(alpha = 0.12f),
+                        topLeft = rect.topLeft,
+                        size = rect.size,
+                    )
+
+                    drawRect(
+                        color = selectionColor,
+                        topLeft = rect.topLeft,
+                        size = rect.size,
+                        style = Stroke(width = 1.5.dp.toPx() / camera.zoom),
+                    )
+                }
             }
         }
     }
@@ -249,6 +272,7 @@ fun EditorCanvasPreview() {
         selectedNodeIds = selectedNodeId?.let(::setOf) ?: emptySet(),
         onNodeSelectionToggled = { id -> selectedNodeId = if (selectedNodeId == id) null else id },
         onNodeSelected = { selectedNodeId = it },
+        onNodesSelected = { ids -> selectedNodeId = ids.singleOrNull() },
         onTextPlacement = {},
     )
 }

@@ -336,6 +336,7 @@ fun EditorScreen(
             onNodesUpdated = documentState::updateNodes,
             selectedNodeIds = selectedNodeIds,
             onNodeSelected = documentState::selectNode,
+            onNodesSelected = documentState::selectNodes,
             onNodeSelectionToggled = documentState::toggleNodeSelection,
             onTextPlacement = { position ->
                 textEditPosition = position
