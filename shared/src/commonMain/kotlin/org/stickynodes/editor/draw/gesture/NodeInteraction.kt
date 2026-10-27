@@ -13,6 +13,7 @@ import androidx.compose.ui.input.pointer.isShiftPressed
 import org.stickynodes.editor.draw.geometry.ResizeHandle
 import org.stickynodes.editor.draw.geometry.bounds
 import org.stickynodes.editor.draw.geometry.resizedBy
+import org.stickynodes.editor.draw.geometry.resizedProportionallyBy
 import org.stickynodes.editor.draw.geometry.translatedBy
 import org.stickynodes.editor.draw.model.EditorNode
 import kotlin.uuid.Uuid
@@ -61,17 +62,32 @@ suspend fun PointerInputScope.detectNodeInteraction(
                 if(originalNode != null) {
                     var preview: EditorNode? = null
 
-                    fun updateResize(position: Offset) {
-                        val delta = screenDeltaToWorld(position - down.position)
 
-                        preview = originalNode.resizedBy(
-                            handle = resizeHandle,
-                            delta = delta,
-                            minimumSize = 1f,
+                    fun updateResize(
+                        position: Offset,
+                        preserveAspectRatio: Boolean,
+                    ) {
+                        val delta = screenDeltaToWorld(
+                            position - down.position
                         )
+
+                        preview = if (preserveAspectRatio) {
+                            originalNode.resizedProportionallyBy(
+                                handle = resizeHandle,
+                                delta = delta,
+                                minimumSize = 1f,
+                            )
+                        } else {
+                            originalNode.resizedBy(
+                                handle = resizeHandle,
+                                delta = delta,
+                                minimumSize = 1f,
+                            )
+                        }
 
                         onPreview(listOfNotNull(preview))
                     }
+
 
                     val dragStart = awaitTouchSlopOrCancellation(
                         pointerId = down.id,
@@ -80,10 +96,10 @@ suspend fun PointerInputScope.detectNodeInteraction(
                     }
 
                     if (dragStart != null) {
-                        updateResize(dragStart.position)
+                        updateResize(dragStart.position, currentEvent.keyboardModifiers.isShiftPressed)
 
                         val completed = drag(dragStart.id) { change ->
-                            updateResize(change.position)
+                            updateResize(change.position, currentEvent.keyboardModifiers.isShiftPressed)
                             change.consume()
                         }
 

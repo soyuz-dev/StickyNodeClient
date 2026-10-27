@@ -46,6 +46,66 @@ fun resizeBounds(
     return Rect(left, top, right, bottom)
 }
 
+fun resizeBoundsProportionally(
+    original: Rect,
+    handle: ResizeHandle,
+    delta: Offset,
+    minimumSize: Float = 1f
+): Rect {
+    require(minimumSize > 0f)
+
+    if(
+        !(handle.movesLeft || handle.movesRight) ||
+        !(handle.movesTop || handle.movesBottom)
+    ) {
+        return resizeBounds(original, handle, delta, minimumSize)
+    }
+
+    val width = original.width
+    val height = original.height
+
+    if (width <= 0f || height <= 0f) return original
+
+    val direction = Offset(
+        x = if (handle.movesRight) width else -width,
+        y = if (handle.movesBottom) height else -height,
+    )
+
+    val scale = (
+            1f + (
+                    delta.x * direction.x +
+                            delta.y * direction.y
+                    ) / direction.getDistanceSquared()
+            ).coerceAtLeast(
+            maxOf(minimumSize / width, minimumSize / height)
+        )
+
+    val newWidth = width * scale
+    val newHeight = height * scale
+
+    return Rect(
+        left = if (handle.movesLeft)
+            original.right - newWidth
+        else
+            original.left,
+
+        top = if (handle.movesTop)
+            original.bottom - newHeight
+        else
+            original.top,
+
+        right = if (handle.movesRight)
+            original.left + newWidth
+        else
+            original.right,
+
+        bottom = if (handle.movesBottom)
+            original.top + newHeight
+        else
+            original.bottom,
+    )
+}
+
 fun EditorNode.withBounds(bounds: Rect): EditorNode =
     when (this) {
         is EditorRectangle -> copy(
@@ -72,6 +132,20 @@ fun EditorNode.resizedBy(
 ): EditorNode =
     withBounds(
         resizeBounds(
+            original = bounds,
+            handle = handle,
+            delta = delta,
+            minimumSize = minimumSize,
+        )
+    )
+
+fun EditorNode.resizedProportionallyBy(
+    handle: ResizeHandle,
+    delta: Offset,
+    minimumSize: Float = 1f,
+): EditorNode =
+    withBounds(
+        resizeBoundsProportionally(
             original = bounds,
             handle = handle,
             delta = delta,

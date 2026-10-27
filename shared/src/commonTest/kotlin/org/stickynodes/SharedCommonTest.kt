@@ -10,6 +10,7 @@ import org.stickynodes.editor.draw.geometry.bezierSegments
 import org.stickynodes.editor.draw.geometry.bounds
 import org.stickynodes.editor.draw.geometry.containsStroke
 import org.stickynodes.editor.draw.geometry.resizeBounds
+import org.stickynodes.editor.draw.geometry.resizeBoundsProportionally
 import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorPath
 import org.stickynodes.editor.draw.model.EditorRectangle
@@ -440,5 +441,94 @@ class SharedCommonTest {
             )
         }
     }
+
+
+
+    @Test
+    fun southeastProportionalResize() {
+        val result = resizeBoundsProportionally(
+            original,
+            ResizeHandle.SE,
+            Offset(50f, 25f),
+        )
+
+        assertEquals(10f, result.left)
+        assertEquals(20f, result.top)
+        assertEquals(157.794f, result.right, 0.001f)
+        assertEquals(108.676f, result.bottom, 0.001f)
+
+        assertEquals(
+            original.width / original.height,
+            result.width / result.height,
+            0.0001f,
+        )
+    }
+
+
+    @Test
+    fun northwestProportionalResize() {
+        val result = resizeBoundsProportionally(
+            original,
+            ResizeHandle.NW,
+            Offset(20f, 12f),
+        )
+
+        assertEquals(Rect(30f, 32f, 110f, 80f), result)
+    }
+
+    @Test
+    fun northeastProportionalResize() {
+        val result = resizeBoundsProportionally(
+            original,
+            ResizeHandle.NE,
+            Offset(50f, -30f),
+        )
+
+        assertEquals(Rect(10f, -10f, 160f, 80f), result)
+    }
+
+    @Test
+    fun southwestProportionalResize() {
+        val result = resizeBoundsProportionally(
+            original,
+            ResizeHandle.SW,
+            Offset(-50f, 30f),
+        )
+
+        assertEquals(Rect(-40f, 20f, 110f, 110f), result)
+    }
+
+    @Test
+    fun proportionalResizeCannotCollapse() {
+        val result = resizeBoundsProportionally(
+            original,
+            ResizeHandle.SE,
+            Offset(-500f, -500f),
+            minimumSize = 5f,
+        )
+
+        assertEquals(5f, result.height)
+        assertEquals(5f * original.width / original.height, result.width, 0.0001f)
+    }
+
+    @Test
+    fun zeroDeltaPreservesAspectRatio() {
+        for (handle in listOf(
+            ResizeHandle.NW,
+            ResizeHandle.NE,
+            ResizeHandle.SE,
+            ResizeHandle.SW,
+        )) {
+            assertEquals(
+                original,
+                resizeBoundsProportionally(
+                    original,
+                    handle,
+                    Offset.Zero,
+                )
+            )
+        }
+    }
+
 
 }
