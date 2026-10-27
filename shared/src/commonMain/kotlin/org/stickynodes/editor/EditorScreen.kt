@@ -333,6 +333,7 @@ fun EditorScreen(
             onCameraChanged = cameraState::updateCamera,
             onNodeCreated = documentState::addNode,
             onNodeUpdated = documentState::updateNode,
+            onNodesUpdated = documentState::updateNodes,
             selectedNodeIds = selectedNodeIds,
             onNodeSelected = documentState::selectNode,
             onNodeSelectionToggled = documentState::toggleNodeSelection,

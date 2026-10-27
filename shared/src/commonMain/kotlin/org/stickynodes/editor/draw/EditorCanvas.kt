@@ -51,6 +51,7 @@ fun EditorCanvas(
     onCameraChanged: (EditorCamera) -> Unit,
     onNodeCreated: (EditorNode) -> Unit,
     onNodeUpdated: (EditorNode) -> Unit,
+    onNodesUpdated: (List<EditorNode>) -> Unit,
     onTextPlacement: (Offset) -> Unit,
     selectedNodeIds: Set<Uuid>,
     onNodeSelected: (Uuid?) -> Unit,
@@ -59,9 +60,9 @@ fun EditorCanvas(
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
 
-    var previewNode by remember {
-        mutableStateOf<EditorNode?>(null)
-    }
+    var previewNode by remember { mutableStateOf<EditorNode?>(null) }
+
+    var interactionPreview by remember { mutableStateOf<List<EditorNode>>(listOf()) }
 
     val selectionColor = Color(0xFF4492FF)
 
@@ -74,6 +75,7 @@ fun EditorCanvas(
     val currentOnCameraChanged by rememberUpdatedState(onCameraChanged)
     val currentOnNodeCreated by rememberUpdatedState(onNodeCreated)
     val currentOnNodeUpdated by rememberUpdatedState(onNodeUpdated)
+    val currentOnNodesUpdated by rememberUpdatedState(onNodesUpdated)
     val currentSelectedNodeIds by rememberUpdatedState(selectedNodeIds)
     val currentOnNodeSelectionToggled by rememberUpdatedState(onNodeSelectionToggled)
     val currentOnNodeSelected by rememberUpdatedState(onNodeSelected)
@@ -145,8 +147,8 @@ fun EditorCanvas(
                             selectedNodeIds = { currentSelectedNodeIds },
                             onToggleSelection = { currentOnNodeSelectionToggled(it) },
                             onSelect = {currentOnNodeSelected(it)},
-                            onPreview = { previewNode = it },
-                            onCommit = { currentOnNodeUpdated(it) },
+                            onPreview = { interactionPreview = it },
+                            onCommit = { currentOnNodesUpdated(it) },
                         )
                     }
 
@@ -172,10 +174,19 @@ fun EditorCanvas(
                 left = -camera.position.x,
                 top = -camera.position.y,
             ) {
+                val previewById = interactionPreview.associateBy { it.id }
+
                 for (node in nodes) {
-                    if (node.id != previewNode?.id) {
-                        drawNode(node = node, textMeasurer = textMeasurer)
-                    }
+                    val displayedNode = previewById[node.id]
+                        ?: previewNode?.takeIf { it.id == node.id }
+                        ?: node
+
+                    if (displayedNode.id == previewNode?.id) continue
+
+                    drawNode(
+                        node = displayedNode,
+                        textMeasurer = textMeasurer,
+                    )
                 }
 
                 previewNode?.let {
@@ -189,12 +200,8 @@ fun EditorCanvas(
                 for (node in nodes) {
                     if (node.id !in selectedNodeIds) continue
 
-                    val displayedNode = previewNode
-                        ?.takeIf { it.id == node.id }
-                        ?: node
-
                     drawSelection(
-                        node = displayedNode,
+                        node = previewById[node.id] ?: node,
                         color = selectionColor,
                         textMeasurer = textMeasurer,
                     )
@@ -230,6 +237,13 @@ fun EditorCanvasPreview() {
         onNodeUpdated = { updated ->
             nodes = nodes.map { node ->
                 if (node.id == updated.id) updated else node
+            }
+        },
+        onNodesUpdated = { updated ->
+            val replacements = updated.associateBy { it.id }
+
+            nodes = nodes.map { node ->
+                replacements[node.id] ?: node
             }
         },
         selectedNodeIds = selectedNodeId?.let(::setOf) ?: emptySet(),

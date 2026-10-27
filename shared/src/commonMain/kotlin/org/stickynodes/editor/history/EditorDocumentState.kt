@@ -101,6 +101,16 @@ class EditorDocumentState(
         })
     }
 
+    fun updateNodes(updatedNodes: List<EditorNode>) {
+        if (updatedNodes.isEmpty()) return
+
+        val replacements = updatedNodes.associateBy { it.id }
+
+        commitNodes(nodes.map { node ->
+            replacements[node.id] ?: node
+        })
+    }
+
     fun deleteSelectedNodes() {
         if (selectedNodeIds.isEmpty()) return
 

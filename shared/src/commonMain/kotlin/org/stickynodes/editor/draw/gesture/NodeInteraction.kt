@@ -1,9 +1,9 @@
 package org.stickynodes.editor.draw.gesture
 
 import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.drag
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerInputScope
@@ -21,8 +21,8 @@ suspend fun PointerInputScope.detectNodeInteraction(
     hitTest: (EditorNode, Offset, Float) -> Boolean,
     onSelect: (Uuid?) -> Unit,
     onToggleSelection: (Uuid) -> Unit,
-    onPreview: (EditorNode?) -> Unit,
-    onCommit: (EditorNode) -> Unit,
+    onPreview: (List<EditorNode>) -> Unit,
+    onCommit: (List<EditorNode>) -> Unit,
 ) {
     try {
         awaitEachGesture {
@@ -39,7 +39,7 @@ suspend fun PointerInputScope.detectNodeInteraction(
 
             val wasSelected = hitNode?.id in selectedNodeIds()
 
-            onPreview(null)
+            onPreview(emptyList())
 
             if (shiftPressed) {
                 if (hitNode != null) {
@@ -60,6 +60,16 @@ suspend fun PointerInputScope.detectNodeInteraction(
                 onSelect(hitNode.id)
             }
 
+            val startingSelection = if (wasSelected) {
+                selectedNodeIds()
+            } else {
+                setOf(hitNode.id)
+            }
+
+            val originalNodes = nodes().filter { node ->
+                node.id in startingSelection
+            }
+
             val dragStart = awaitTouchSlopOrCancellation(
                 pointerId = down.id,
             ) { change, _ ->
@@ -67,22 +77,23 @@ suspend fun PointerInputScope.detectNodeInteraction(
             }
 
             if (dragStart == null) {
-                // A click on an already-selected node
-                // collapses the selection to that node.
                 if (wasSelected) {
                     onSelect(hitNode.id)
                 }
                 return@awaitEachGesture
             }
 
-            var preview: EditorNode? = null
+            var preview = emptyList<EditorNode>()
 
             fun updatePreview(position: Offset) {
                 val delta = screenDeltaToWorld(
                     position - down.position
                 )
 
-                preview = hitNode.translatedBy(delta)
+                preview = originalNodes.map { node ->
+                    node.translatedBy(delta)
+                }
+
                 onPreview(preview)
             }
 
@@ -94,12 +105,12 @@ suspend fun PointerInputScope.detectNodeInteraction(
             }
 
             if (completed) {
-                preview?.let(onCommit)
+                onCommit(preview)
             }
 
-            onPreview(null)
+            onPreview(emptyList())
         }
     } finally {
-        onPreview(null)
+        onPreview(emptyList())
     }
 }
