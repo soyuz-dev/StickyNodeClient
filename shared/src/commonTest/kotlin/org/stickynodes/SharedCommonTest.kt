@@ -2,11 +2,14 @@
 package org.stickynodes
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import org.stickynodes.data.DocumentCodec
 import org.stickynodes.editor.draw.geometry.PathSampler
+import org.stickynodes.editor.draw.geometry.ResizeHandle
 import org.stickynodes.editor.draw.geometry.bezierSegments
 import org.stickynodes.editor.draw.geometry.bounds
 import org.stickynodes.editor.draw.geometry.containsStroke
+import org.stickynodes.editor.draw.geometry.resizeBounds
 import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorPath
 import org.stickynodes.editor.draw.model.EditorRectangle
@@ -374,6 +377,68 @@ class SharedCommonTest {
                 DocumentCodec.encode(original)
             ),
         )
+    }
+
+    private val original = Rect(
+        left = 10f,
+        top = 20f,
+        right = 110f,
+        bottom = 80f,
+    )
+
+    @Test
+    fun southeastResize() {
+        val result = resizeBounds(
+            original,
+            ResizeHandle.SE,
+            Offset(30f, 20f),
+        )
+
+        assertEquals(Rect(10f, 20f, 140f, 100f), result)
+    }
+
+    @Test
+    fun northwestResize() {
+        val result = resizeBounds(
+            original,
+            ResizeHandle.NW,
+            Offset(15f, 10f),
+        )
+
+        assertEquals(Rect(25f, 30f, 110f, 80f), result)
+    }
+
+    @Test
+    fun eastResizePreservesVerticalBounds() {
+        val result = resizeBounds(
+            original,
+            ResizeHandle.E,
+            Offset(25f, 100f),
+        )
+
+        assertEquals(Rect(10f, 20f, 135f, 80f), result)
+    }
+
+    @Test
+    fun cannotCrossOppositeCorner() {
+        val result = resizeBounds(
+            original,
+            ResizeHandle.NW,
+            Offset(200f, 200f),
+            minimumSize = 5f,
+        )
+
+        assertEquals(Rect(105f, 75f, 110f, 80f), result)
+    }
+
+    @Test
+    fun zeroDeltaPreservesBounds() {
+        for (handle in ResizeHandle.entries) {
+            assertEquals(
+                original,
+                resizeBounds(original, handle, Offset.Zero),
+            )
+        }
     }
 
 }

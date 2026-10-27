@@ -1,5 +1,6 @@
 package org.stickynodes.editor.draw.gesture
 
+import androidx.collection.longIntMapOf
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
@@ -9,7 +10,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.isShiftPressed
+import org.stickynodes.editor.draw.geometry.ResizeHandle
 import org.stickynodes.editor.draw.geometry.bounds
+import org.stickynodes.editor.draw.geometry.resizedBy
 import org.stickynodes.editor.draw.geometry.translatedBy
 import org.stickynodes.editor.draw.model.EditorNode
 import kotlin.uuid.Uuid
@@ -40,10 +43,60 @@ suspend fun PointerInputScope.detectNodeInteraction(
     onPreview: (List<EditorNode>) -> Unit,
     onMarquee: (Rect?) -> Unit,
     onCommit: (List<EditorNode>) -> Unit,
+    resizeHandleAt: (Offset) -> ResizeHandle?,
 ) {
     try {
         awaitEachGesture {
             val down = awaitFirstDown()
+
+            val resizeHandle = resizeHandleAt(down.position)
+
+            if(resizeHandle != null) {
+                val selectedId = selectedNodeIds().singleOrNull()
+
+                val originalNode = nodes().firstOrNull { node ->
+                    node.id == selectedId
+                }
+
+                if(originalNode != null) {
+                    var preview: EditorNode? = null
+
+                    fun updateResize(position: Offset) {
+                        val delta = screenDeltaToWorld(position - down.position)
+
+                        preview = originalNode.resizedBy(
+                            handle = resizeHandle,
+                            delta = delta,
+                            minimumSize = 1f,
+                        )
+
+                        onPreview(listOfNotNull(preview))
+                    }
+
+                    val dragStart = awaitTouchSlopOrCancellation(
+                        pointerId = down.id,
+                    ) { change, _ ->
+                        change.consume()
+                    }
+
+                    if (dragStart != null) {
+                        updateResize(dragStart.position)
+
+                        val completed = drag(dragStart.id) { change ->
+                            updateResize(change.position)
+                            change.consume()
+                        }
+
+                        if (completed) {
+                            preview?.let { onCommit(listOf(it)) }
+                        }
+                    }
+
+                    onPreview(listOf())
+                    return@awaitEachGesture
+                }
+            }
+
             val shiftPressed =
                 currentEvent.keyboardModifiers.isShiftPressed
 

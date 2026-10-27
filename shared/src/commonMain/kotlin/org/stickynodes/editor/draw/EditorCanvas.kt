@@ -9,8 +9,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
@@ -21,8 +23,11 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import org.stickynodes.editor.draw.camera.EditorCamera
+import org.stickynodes.editor.draw.geometry.bounds
 import org.stickynodes.editor.draw.geometry.contains
+import org.stickynodes.editor.draw.geometry.hitTestResizeHandle
 import org.stickynodes.editor.draw.geometry.layoutStyle
+import org.stickynodes.editor.draw.geometry.resizeHandlePositions
 import org.stickynodes.editor.draw.gesture.detectCanvasPan
 import org.stickynodes.editor.draw.gesture.detectCanvasZoom
 import org.stickynodes.editor.draw.gesture.detectNodeInteraction
@@ -157,6 +162,30 @@ fun EditorCanvas(
                             onSelect = {currentOnNodeSelected(it)},
                             onPreview = { interactionPreview = it },
                             onCommit = { currentOnNodesUpdated(it) },
+                            resizeHandleAt = { screenPoint ->
+                                val selectedId = currentSelectedNodeIds.singleOrNull()
+
+                                val node = currentNodes.firstOrNull {
+                                    it.id == selectedId
+                                }
+
+                                if (node is EditorRectangle || node is EditorEllipse) {
+                                    val bounds = node.bounds
+
+                                    val topLeft = currentCamera.worldToScreen(bounds.topLeft)
+                                    val bottomRight = currentCamera.worldToScreen(Offset(bounds.right, bounds.bottom))
+
+                                    val padding = with(density) { 8.dp.toPx() }
+
+                                    hitTestResizeHandle(
+                                        bounds = Rect(topLeft, bottomRight).inflate(padding),
+                                        pointer = screenPoint,
+                                        radius = with(density) { 10.dp.toPx() },
+                                    )
+                                } else {
+                                    null
+                                }
+                            }
                         )
                     }
 
@@ -208,6 +237,13 @@ fun EditorCanvas(
                 for (node in nodes) {
                     if (node.id !in selectedNodeIds) continue
 
+                    val displayedNode = previewById[node.id] ?: node
+                    if (
+                        selectedNodeIds.size == 1 &&
+                        (displayedNode is EditorRectangle ||
+                                displayedNode is EditorEllipse)
+                    ) continue
+
                     drawSelection(
                         node = previewById[node.id] ?: node,
                         color = selectionColor,
@@ -227,6 +263,69 @@ fun EditorCanvas(
                         topLeft = rect.topLeft,
                         size = rect.size,
                         style = Stroke(width = 1.5.dp.toPx() / camera.zoom),
+                    )
+                }
+            }
+        }
+
+        if (selectedTool == EditorTool.SELECT) {
+            val selectedId = selectedNodeIds.singleOrNull()
+
+            val originalNode = nodes.firstOrNull {
+                it.id == selectedId
+            }
+
+            val previewNodeForSelection = interactionPreview
+                .firstOrNull { it.id == selectedId }
+
+            val selectedNode = previewNodeForSelection ?: originalNode
+
+            if (
+                selectedNode is EditorRectangle ||
+                selectedNode is EditorEllipse
+            ) {
+                val bounds = selectedNode.bounds
+
+                val topLeft = camera.worldToScreen(bounds.topLeft)
+                val bottomRight = camera.worldToScreen(
+                    Offset(bounds.right, bounds.bottom)
+                )
+
+                val selectionPadding = 8.dp.toPx()
+
+                val screenBounds = Rect(topLeft, bottomRight).inflate(selectionPadding)
+
+                val handleSize = 10.dp.toPx()
+                val outlineWidth = 1.5.dp.toPx()
+                val cornerRadius = CornerRadius(3.dp.toPx())
+
+                drawRoundRect(
+                    color = selectionColor,
+                    topLeft = screenBounds.topLeft,
+                    size = screenBounds.size,
+                    cornerRadius = CornerRadius(6.dp.toPx()),
+                    style = Stroke(width = outlineWidth),
+                )
+
+                for (position in screenBounds.resizeHandlePositions().values) {
+                    val topLeft = position - Offset(
+                        handleSize / 2f,
+                        handleSize / 2f,
+                    )
+
+                    drawRoundRect(
+                        color = Color.White,
+                        topLeft = topLeft,
+                        size = Size(handleSize, handleSize),
+                        cornerRadius = cornerRadius,
+                    )
+
+                    drawRoundRect(
+                        color = selectionColor,
+                        topLeft = topLeft,
+                        size = Size(handleSize, handleSize),
+                        cornerRadius = cornerRadius,
+                        style = Stroke(width = outlineWidth),
                     )
                 }
             }
