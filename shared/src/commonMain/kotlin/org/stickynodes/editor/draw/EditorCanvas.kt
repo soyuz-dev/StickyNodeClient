@@ -24,6 +24,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import org.stickynodes.editor.draw.camera.EditorCamera
 import org.stickynodes.editor.draw.geometry.bounds
+import org.stickynodes.editor.draw.geometry.combinedBounds
 import org.stickynodes.editor.draw.geometry.contains
 import org.stickynodes.editor.draw.geometry.hitTestResizeHandle
 import org.stickynodes.editor.draw.geometry.layoutStyle
@@ -164,27 +165,40 @@ fun EditorCanvas(
                             onPreview = { interactionPreview = it },
                             onCommit = { currentOnNodesUpdated(it) },
                             resizeHandleAt = { screenPoint ->
-                                val selectedId = currentSelectedNodeIds.singleOrNull()
-
-                                val node = currentNodes.firstOrNull {
-                                    it.id == selectedId
+                                val selected = currentNodes.filter {
+                                    it.id in currentSelectedNodeIds
                                 }
 
-                                if (node is EditorShape) {
-                                    val bounds = node.bounds
+                                val shapes = selected
+                                    .filterIsInstance<EditorShape>()
 
-                                    val topLeft = currentCamera.worldToScreen(bounds.topLeft)
-                                    val bottomRight = currentCamera.worldToScreen(Offset(bounds.right, bounds.bottom))
-
-                                    val padding = with(density) { 8.dp.toPx() }
-
-                                    hitTestResizeHandle(
-                                        bounds = Rect(topLeft, bottomRight).inflate(padding),
-                                        pointer = screenPoint,
-                                        radius = with(density) { 10.dp.toPx() },
-                                    )
-                                } else {
+                                if (
+                                    selected.isEmpty() ||
+                                    shapes.size != selected.size
+                                ) {
                                     null
+                                } else {
+                                    val bounds = shapes.combinedBounds()
+
+                                    bounds?.let {
+                                        val topLeft = currentCamera.worldToScreen(it.topLeft)
+                                        val bottomRight = currentCamera.worldToScreen(
+                                            Offset(it.right, it.bottom)
+                                        )
+                                        val padding = with(density) { 8.dp.toPx() }
+
+
+                                        val screenBounds = Rect(topLeft, bottomRight)
+                                            .inflate(padding)
+
+                                        val handle = hitTestResizeHandle(
+                                            bounds = screenBounds,
+                                            pointer = screenPoint,
+                                            radius = with(density) { 10.dp.toPx() },
+                                        )
+
+                                        handle
+                                    }
                                 }
                             }
                         )
@@ -235,14 +249,16 @@ fun EditorCanvas(
                     )
                 }
 
+                val allSelectedAreShapes =
+                    selectedNodeIds.isNotEmpty() &&
+                            nodes.filter { it.id in selectedNodeIds }.let { selected ->
+                                selected.size == selectedNodeIds.size &&
+                                        selected.all { it is EditorShape }
+                            }
+
                 for (node in nodes) {
                     if (node.id !in selectedNodeIds) continue
-
-                    val displayedNode = previewById[node.id] ?: node
-                    if (
-                        selectedNodeIds.size == 1 &&
-                        (displayedNode is EditorShape)
-                    ) continue
+                    if (allSelectedAreShapes) continue
 
                     drawSelection(
                         node = previewById[node.id] ?: node,
@@ -269,64 +285,64 @@ fun EditorCanvas(
         }
 
         if (selectedTool == EditorTool.SELECT) {
-            val selectedId = selectedNodeIds.singleOrNull()
+            val selected = nodes.filter { it.id in currentSelectedNodeIds }
+            val shapes = selected.filterIsInstance<EditorShape>()
 
-            val originalNode = nodes.firstOrNull {
-                it.id == selectedId
-            }
+            if (
+                selected.isNotEmpty() &&
+                shapes.size == selected.size
+            ) {
+                val previewById = interactionPreview.associateBy { it.id }
 
-            val previewNodeForSelection = interactionPreview
-                .firstOrNull { it.id == selectedId }
+                val displayedShapes = shapes.map { shape ->
+                    (previewById[shape.id] as? EditorShape) ?: shape
+                }
 
-            val selectedNode = previewNodeForSelection ?: originalNode
+                displayedShapes.combinedBounds()?.let { bounds ->
+                    val screenBounds = Rect(
+                        camera.worldToScreen(bounds.topLeft),
+                        camera.worldToScreen(
+                            Offset(bounds.right, bounds.bottom)
+                        )
+                    ).inflate(8.dp.toPx())
 
-            if (selectedNode is EditorShape) {
-                val bounds = selectedNode.bounds
-
-                val topLeft = camera.worldToScreen(bounds.topLeft)
-                val bottomRight = camera.worldToScreen(
-                    Offset(bounds.right, bounds.bottom)
-                )
-
-                val selectionPadding = 8.dp.toPx()
-
-                val screenBounds = Rect(topLeft, bottomRight).inflate(selectionPadding)
-
-                val handleSize = 10.dp.toPx()
-                val outlineWidth = 1.5.dp.toPx()
-                val cornerRadius = CornerRadius(3.dp.toPx())
-
-                drawRoundRect(
-                    color = selectionColor,
-                    topLeft = screenBounds.topLeft,
-                    size = screenBounds.size,
-                    cornerRadius = CornerRadius(6.dp.toPx()),
-                    style = Stroke(width = outlineWidth),
-                )
-
-                for (position in screenBounds.resizeHandlePositions().values) {
-                    val topLeft = position - Offset(
-                        handleSize / 2f,
-                        handleSize / 2f,
-                    )
-
-                    drawRoundRect(
-                        color = Color.White,
-                        topLeft = topLeft,
-                        size = Size(handleSize, handleSize),
-                        cornerRadius = cornerRadius,
-                    )
+                    val handleSize = 10.dp.toPx()
+                    val outlineWidth = 1.5.dp.toPx()
+                    val cornerRadius = CornerRadius(3.dp.toPx())
 
                     drawRoundRect(
                         color = selectionColor,
-                        topLeft = topLeft,
-                        size = Size(handleSize, handleSize),
-                        cornerRadius = cornerRadius,
+                        topLeft = screenBounds.topLeft,
+                        size = screenBounds.size,
+                        cornerRadius = CornerRadius(6.dp.toPx()),
                         style = Stroke(width = outlineWidth),
                     )
+
+                    for (position in screenBounds.resizeHandlePositions().values) {
+                        val handleTopLeft = position - Offset(
+                            handleSize / 2f,
+                            handleSize / 2f,
+                        )
+
+                        drawRoundRect(
+                            color = Color.White,
+                            topLeft = handleTopLeft,
+                            size = Size(handleSize, handleSize),
+                            cornerRadius = cornerRadius,
+                        )
+
+                        drawRoundRect(
+                            color = selectionColor,
+                            topLeft = handleTopLeft,
+                            size = Size(handleSize, handleSize),
+                            cornerRadius = cornerRadius,
+                            style = Stroke(width = outlineWidth),
+                        )
+                    }
                 }
             }
         }
+
     }
 }
 

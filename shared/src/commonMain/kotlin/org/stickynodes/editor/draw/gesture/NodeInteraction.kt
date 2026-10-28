@@ -1,6 +1,5 @@
 package org.stickynodes.editor.draw.gesture
 
-import androidx.collection.longIntMapOf
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
@@ -14,6 +13,7 @@ import org.stickynodes.editor.draw.geometry.ResizeHandle
 import org.stickynodes.editor.draw.geometry.bounds
 import org.stickynodes.editor.draw.geometry.resizedBy
 import org.stickynodes.editor.draw.geometry.resizedProportionallyBy
+import org.stickynodes.editor.draw.geometry.resizedTogether
 import org.stickynodes.editor.draw.geometry.translatedBy
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorShape
@@ -54,14 +54,17 @@ suspend fun PointerInputScope.detectNodeInteraction(
             val resizeHandle = resizeHandleAt(down.position)
 
             if(resizeHandle != null) {
-                val selectedId = selectedNodeIds().singleOrNull()
+                val selection = selectedNodeIds()
 
-                val originalNode = nodes()
+                val originalShapes = nodes()
+                    .filter { it.id in selection }
                     .filterIsInstance<EditorShape>()
-                    .firstOrNull { it.id == selectedId }
 
-                if(originalNode != null) {
-                    var preview: EditorNode? = null
+                if(
+                    originalShapes.isNotEmpty() &&
+                    originalShapes.size == selection.size
+                    ) {
+                    var preview = listOf<EditorShape>()
 
 
                     fun updateResize(
@@ -72,21 +75,13 @@ suspend fun PointerInputScope.detectNodeInteraction(
                             position - down.position
                         )
 
-                        preview = if (preserveAspectRatio) {
-                            originalNode.resizedProportionallyBy(
-                                handle = resizeHandle,
-                                delta = delta,
-                                minimumSize = 1f,
-                            )
-                        } else {
-                            originalNode.resizedBy(
-                                handle = resizeHandle,
-                                delta = delta,
-                                minimumSize = 1f,
-                            )
-                        }
+                        preview = originalShapes.resizedTogether(
+                            handle = resizeHandle,
+                            delta = delta,
+                            proportional = preserveAspectRatio
+                        )
 
-                        onPreview(listOfNotNull(preview))
+                        onPreview(preview)
                     }
 
 
@@ -105,7 +100,7 @@ suspend fun PointerInputScope.detectNodeInteraction(
                         }
 
                         if (completed) {
-                            preview?.let { onCommit(listOf(it)) }
+                            onCommit(preview)
                         }
                     }
 

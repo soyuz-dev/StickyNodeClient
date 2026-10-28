@@ -8,12 +8,15 @@ import org.stickynodes.editor.draw.geometry.PathSampler
 import org.stickynodes.editor.draw.geometry.ResizeHandle
 import org.stickynodes.editor.draw.geometry.bezierSegments
 import org.stickynodes.editor.draw.geometry.bounds
+import org.stickynodes.editor.draw.geometry.combinedBounds
 import org.stickynodes.editor.draw.geometry.containsStroke
 import org.stickynodes.editor.draw.geometry.resizeBounds
 import org.stickynodes.editor.draw.geometry.resizeBoundsProportionally
+import org.stickynodes.editor.draw.geometry.resizedTogether
 import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorPath
 import org.stickynodes.editor.draw.model.EditorRectangle
+import org.stickynodes.editor.draw.model.EditorShape
 import org.stickynodes.editor.draw.style.FillStyle
 import org.stickynodes.editor.draw.style.NodeStyle
 import org.stickynodes.editor.draw.style.StrokeStyle
@@ -22,6 +25,7 @@ import org.stickynodes.editor.history.EditorHistory
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class SharedCommonTest {
@@ -529,6 +533,63 @@ class SharedCommonTest {
             )
         }
     }
+
+    val a = EditorRectangle(
+        x = 0f, y = 0f,
+        width = 20f, height = 20f,
+    )
+
+    val b = EditorEllipse(
+        x = 40f, y = 30f,
+        width = 20f, height = 20f,
+    )
+
+    val shapes = listOf<EditorShape>(a, b)
+
+
+    @Test
+    fun groupBoundsEncloseAllShapes() {
+        val result = shapes.combinedBounds()
+
+        assertEquals(
+            Rect(0f, 0f, 60f, 50f),
+            result,
+        )
+    }
+
+    @Test
+    fun groupResizeScalesPositionsAndDimensions() {
+        val result = shapes.resizedTogether(
+            handle = ResizeHandle.SE,
+            delta = Offset(60f, 50f),
+        )
+
+        assertEquals(
+            Rect(0f, 0f, 40f, 40f),
+            result[0].bounds,
+        )
+
+        assertEquals(
+            Rect(80f, 60f, 120f, 100f),
+            result[1].bounds,
+        )
+    }
+
+    @Test
+    fun zeroDeltaPreservesGroup() {
+        val result = shapes.resizedTogether(
+            handle = ResizeHandle.NW,
+            delta = Offset.Zero,
+        )
+
+        assertEquals(shapes, result)
+    }
+
+    @Test
+    fun emptySelectionHasNoBounds() {
+        assertNull(emptyList<EditorShape>().combinedBounds())
+    }
+
 
 
 }
