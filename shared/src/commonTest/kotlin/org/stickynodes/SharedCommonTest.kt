@@ -1,4 +1,3 @@
-
 package org.stickynodes
 
 import androidx.compose.ui.geometry.Offset
@@ -9,6 +8,7 @@ import org.stickynodes.editor.draw.geometry.ResizeHandle
 import org.stickynodes.editor.draw.geometry.bezierSegments
 import org.stickynodes.editor.draw.geometry.bounds
 import org.stickynodes.editor.draw.geometry.combinedBounds
+import org.stickynodes.editor.draw.geometry.contains
 import org.stickynodes.editor.draw.geometry.containsStroke
 import org.stickynodes.editor.draw.geometry.resizeBounds
 import org.stickynodes.editor.draw.geometry.resizeBoundsProportionally
@@ -22,6 +22,7 @@ import org.stickynodes.editor.draw.style.NodeStyle
 import org.stickynodes.editor.draw.style.StrokeStyle
 import org.stickynodes.editor.history.EditorDocument
 import org.stickynodes.editor.history.EditorHistory
+import kotlin.math.PI
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -392,7 +393,7 @@ class SharedCommonTest {
     )
 
     @Test
-    fun southeastResize() {
+    fun `southeast handle resizes right and bottom edges`() {
         val result = resizeBounds(
             original,
             ResizeHandle.SE,
@@ -403,7 +404,7 @@ class SharedCommonTest {
     }
 
     @Test
-    fun northwestResize() {
+    fun `northwest handle resizes left and top edges`() {
         val result = resizeBounds(
             original,
             ResizeHandle.NW,
@@ -414,7 +415,7 @@ class SharedCommonTest {
     }
 
     @Test
-    fun eastResizePreservesVerticalBounds() {
+    fun `east handle preserves vertical bounds`() {
         val result = resizeBounds(
             original,
             ResizeHandle.E,
@@ -425,7 +426,7 @@ class SharedCommonTest {
     }
 
     @Test
-    fun cannotCrossOppositeCorner() {
+    fun `resize cannot cross opposite corner`() {
         val result = resizeBounds(
             original,
             ResizeHandle.NW,
@@ -437,7 +438,7 @@ class SharedCommonTest {
     }
 
     @Test
-    fun zeroDeltaPreservesBounds() {
+    fun `zero resize delta preserves bounds`() {
         for (handle in ResizeHandle.entries) {
             assertEquals(
                 original,
@@ -449,7 +450,7 @@ class SharedCommonTest {
 
 
     @Test
-    fun southeastProportionalResize() {
+    fun `southeast proportional resize preserves aspect ratio`() {
         val result = resizeBoundsProportionally(
             original,
             ResizeHandle.SE,
@@ -470,7 +471,7 @@ class SharedCommonTest {
 
 
     @Test
-    fun northwestProportionalResize() {
+    fun `northwest proportional resize preserves aspect ratio`() {
         val result = resizeBoundsProportionally(
             original,
             ResizeHandle.NW,
@@ -481,7 +482,7 @@ class SharedCommonTest {
     }
 
     @Test
-    fun northeastProportionalResize() {
+    fun `northeast proportional resize preserves aspect ratio`() {
         val result = resizeBoundsProportionally(
             original,
             ResizeHandle.NE,
@@ -492,7 +493,7 @@ class SharedCommonTest {
     }
 
     @Test
-    fun southwestProportionalResize() {
+    fun `southwest proportional resize preserves aspect ratio`() {
         val result = resizeBoundsProportionally(
             original,
             ResizeHandle.SW,
@@ -503,7 +504,7 @@ class SharedCommonTest {
     }
 
     @Test
-    fun proportionalResizeCannotCollapse() {
+    fun `proportional resize cannot collapse below minimum size`() {
         val result = resizeBoundsProportionally(
             original,
             ResizeHandle.SE,
@@ -516,7 +517,7 @@ class SharedCommonTest {
     }
 
     @Test
-    fun zeroDeltaPreservesAspectRatio() {
+    fun `zero proportional resize delta preserves bounds`() {
         for (handle in listOf(
             ResizeHandle.NW,
             ResizeHandle.NE,
@@ -548,7 +549,7 @@ class SharedCommonTest {
 
 
     @Test
-    fun groupBoundsEncloseAllShapes() {
+    fun `group bounds enclose all shapes`() {
         val result = shapes.combinedBounds()
 
         assertEquals(
@@ -558,7 +559,7 @@ class SharedCommonTest {
     }
 
     @Test
-    fun groupResizeScalesPositionsAndDimensions() {
+    fun `group resize scales positions and dimensions`() {
         val result = shapes.resizedTogether(
             handle = ResizeHandle.SE,
             delta = Offset(60f, 50f),
@@ -576,7 +577,7 @@ class SharedCommonTest {
     }
 
     @Test
-    fun zeroDeltaPreservesGroup() {
+    fun `zero group resize delta preserves all shapes`() {
         val result = shapes.resizedTogether(
             handle = ResizeHandle.NW,
             delta = Offset.Zero,
@@ -586,10 +587,40 @@ class SharedCommonTest {
     }
 
     @Test
-    fun emptySelectionHasNoBounds() {
+    fun `empty selection has no combined bounds`() {
         assertNull(emptyList<EditorShape>().combinedBounds())
     }
 
+    @Test
+    fun `rotated rectangle contains point outside original bounds`() {
+        val rectangle = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 100f,
+            height = 20f,
+            rotation = (PI / 2).toFloat(),
+        )
 
+        // Rectangle rotates around (50, 10).
+        // It now spans roughly x=40..60, y=-40..60.
+        assertTrue(
+            rectangle.contains(Offset(50f, -20f))
+        )
+    }
 
+    @Test
+    fun `rotated rectangle rejects point inside original bounds`() {
+        val rectangle = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 100f,
+            height = 20f,
+            rotation = (PI / 2).toFloat(),
+        )
+
+        // Inside original bounds, but outside rotated geometry.
+        assertFalse(
+            rectangle.contains(Offset(5f, 10f))
+        )
+    }
 }

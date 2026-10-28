@@ -1,3 +1,4 @@
+
 package org.stickynodes.editor.draw
 
 import androidx.compose.foundation.Canvas
@@ -15,6 +16,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.input.pointer.pointerInput
@@ -23,12 +25,12 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import org.stickynodes.editor.draw.camera.EditorCamera
-import org.stickynodes.editor.draw.geometry.bounds
 import org.stickynodes.editor.draw.geometry.combinedBounds
 import org.stickynodes.editor.draw.geometry.contains
 import org.stickynodes.editor.draw.geometry.hitTestResizeHandle
 import org.stickynodes.editor.draw.geometry.layoutStyle
 import org.stickynodes.editor.draw.geometry.resizeHandlePositions
+import org.stickynodes.editor.draw.geometry.rotationHandlePosition
 import org.stickynodes.editor.draw.gesture.detectCanvasPan
 import org.stickynodes.editor.draw.gesture.detectCanvasZoom
 import org.stickynodes.editor.draw.gesture.detectNodeInteraction
@@ -39,13 +41,13 @@ import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorRectangle
 import org.stickynodes.editor.draw.model.EditorShape
-import org.stickynodes.editor.draw.model.EditorText
 import org.stickynodes.editor.draw.render.drawNode
 import org.stickynodes.editor.draw.render.drawSelection
 import org.stickynodes.editor.draw.style.FillStyle
 import org.stickynodes.editor.draw.style.NodeStyle
 import org.stickynodes.editor.draw.style.StrokeStyle
 import org.stickynodes.editor.tools.EditorTool
+import kotlin.math.PI
 import kotlin.uuid.Uuid
 
 @Composable
@@ -70,13 +72,21 @@ fun EditorCanvas(
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
 
-    var previewNode by remember { mutableStateOf<EditorNode?>(null) }
+    var previewNode by remember {
+        mutableStateOf<EditorNode?>(null)
+    }
 
-    var interactionPreview by remember { mutableStateOf<List<EditorNode>>(listOf()) }
+    var interactionPreview by remember {
+        mutableStateOf<List<EditorNode>>(emptyList())
+    }
+
+    var marquee by remember {
+        mutableStateOf<Rect?>(null)
+    }
 
     val selectionColor = Color(0xFF4492FF)
 
-    // Keep callbacks and state current inside long-running pointerInput handlers.
+    // Keep state and callbacks current inside long-running pointer handlers.
     val currentCamera by rememberUpdatedState(camera)
     val currentNodes by rememberUpdatedState(nodes)
     val currentRectangleStyle by rememberUpdatedState(rectangleStyle)
@@ -92,15 +102,16 @@ fun EditorCanvas(
     val currentOnNodesSelected by rememberUpdatedState(onNodesSelected)
     val currentOnTextPlacement by rememberUpdatedState(onTextPlacement)
 
-    var marquee by remember { mutableStateOf<Rect?>(null) }
-
     Canvas(
         modifier = modifier
             .pointerInput(selectedTool, textMeasurer, density) {
                 when (selectedTool) {
-                    EditorTool.RECTANGLE, EditorTool.ELLIPSE -> {
+                    EditorTool.RECTANGLE,
+                    EditorTool.ELLIPSE -> {
                         detectShapeCreation(
-                            screenToWorld = { currentCamera.screenToWorld(it) },
+                            screenToWorld = {
+                                currentCamera.screenToWorld(it)
+                            },
                             createNode = { id, rect ->
                                 when (selectedTool) {
                                     EditorTool.RECTANGLE -> EditorRectangle(
@@ -111,6 +122,7 @@ fun EditorCanvas(
                                         height = rect.height,
                                         style = currentRectangleStyle,
                                     )
+
                                     EditorTool.ELLIPSE -> EditorEllipse(
                                         id = id,
                                         x = rect.left,
@@ -119,95 +131,145 @@ fun EditorCanvas(
                                         height = rect.height,
                                         style = currentEllipseStyle,
                                     )
+
                                     else -> error("Unsupported creation tool")
                                 }
                             },
-                            onPreview = { previewNode = it },
-                            onCommit = { currentOnNodeCreated(it) },
+                            onPreview = {
+                                previewNode = it
+                            },
+                            onCommit = {
+                                currentOnNodeCreated(it)
+                            },
                         )
                     }
 
                     EditorTool.TEXT -> {
                         detectTextCreation(
-                            screenToWorld = {camera.screenToWorld(it)},
-                            onCreate = { currentOnTextPlacement(it) }
+                            screenToWorld = {
+                                currentCamera.screenToWorld(it)
+                            },
+                            onCreate = {
+                                currentOnTextPlacement(it)
+                            },
                         )
                     }
 
                     EditorTool.PEN -> {
                         detectPathCreation(
-                            screenToWorld = { currentCamera.screenToWorld(it) },
-                            style = { currentPenStyle },
-                            onPreview = { previewNode = it },
-                            onCommit = { currentOnNodeCreated(it) },
+                            screenToWorld = {
+                                currentCamera.screenToWorld(it)
+                            },
+                            style = {
+                                currentPenStyle
+                            },
+                            onPreview = {
+                                previewNode = it
+                            },
+                            onCommit = {
+                                currentOnNodeCreated(it)
+                            },
                         )
                     }
 
                     EditorTool.SELECT -> {
                         detectNodeInteraction(
-                            nodes = { currentNodes },
-                            screenToWorld = { currentCamera.screenToWorld(it) },
-                            screenDeltaToWorld = { it / currentCamera.zoom },
-                            zoom = { currentCamera.zoom },
+                            nodes = {
+                                currentNodes
+                            },
+                            selectedNodeIds = {
+                                currentSelectedNodeIds
+                            },
+                            screenToWorld = {
+                                currentCamera.screenToWorld(it)
+                            },
+                            screenDeltaToWorld = {
+                                it / currentCamera.zoom
+                            },
+                            zoom = {
+                                currentCamera.zoom
+                            },
                             hitTest = { node, point, zoom ->
                                 node.contains(
                                     point = point,
                                     textMeasurer = textMeasurer,
-                                    textStyle = { text -> text.layoutStyle(density) },
+                                    textStyle = { text ->
+                                        text.layoutStyle(density)
+                                    },
                                     zoom = zoom,
                                 )
                             },
-                            selectedNodeIds = { currentSelectedNodeIds },
-                            onToggleSelection = { currentOnNodeSelectionToggled(it) },
-                            onSelectNodes = { currentOnNodesSelected(it) },
-                            onMarquee = { marquee = it },
-                            onSelect = {currentOnNodeSelected(it)},
-                            onPreview = { interactionPreview = it },
-                            onCommit = { currentOnNodesUpdated(it) },
+                            onToggleSelection = {
+                                currentOnNodeSelectionToggled(it)
+                            },
+                            onSelectNodes = {
+                                currentOnNodesSelected(it)
+                            },
+                            onMarquee = {
+                                marquee = it
+                            },
+                            onSelect = {
+                                currentOnNodeSelected(it)
+                            },
+                            onPreview = {
+                                interactionPreview = it
+                            },
+                            onCommit = {
+                                currentOnNodesUpdated(it)
+                            },
                             resizeHandleAt = { screenPoint ->
                                 val selected = currentNodes.filter {
                                     it.id in currentSelectedNodeIds
                                 }
 
-                                val shapes = selected
-                                    .filterIsInstance<EditorShape>()
+                                val shapes = selected.filterIsInstance<EditorShape>()
 
                                 if (
                                     selected.isEmpty() ||
-                                    shapes.size != selected.size
+                                    shapes.size != selected.size ||
+                                    shapes.any { it.rotation != 0f }
                                 ) {
                                     null
                                 } else {
-                                    val bounds = shapes.combinedBounds()
+                                    shapes.combinedBounds()?.let { bounds ->
+                                        val topLeft =
+                                            currentCamera.worldToScreen(bounds.topLeft)
 
-                                    bounds?.let {
-                                        val topLeft = currentCamera.worldToScreen(it.topLeft)
-                                        val bottomRight = currentCamera.worldToScreen(
-                                            Offset(it.right, it.bottom)
-                                        )
-                                        val padding = with(density) { 8.dp.toPx() }
+                                        val bottomRight =
+                                            currentCamera.worldToScreen(
+                                                Offset(bounds.right, bounds.bottom)
+                                            )
 
+                                        val padding = with(density) {
+                                            8.dp.toPx()
+                                        }
 
-                                        val screenBounds = Rect(topLeft, bottomRight)
-                                            .inflate(padding)
+                                        val screenBounds = Rect(
+                                            topLeft,
+                                            bottomRight,
+                                        ).inflate(padding)
 
-                                        val handle = hitTestResizeHandle(
+                                        hitTestResizeHandle(
                                             bounds = screenBounds,
                                             pointer = screenPoint,
-                                            radius = with(density) { 10.dp.toPx() },
+                                            radius = with(density) {
+                                                10.dp.toPx()
+                                            },
                                         )
-
-                                        handle
                                     }
                                 }
-                            }
+                            },
                         )
                     }
 
                     EditorTool.PAN -> {
                         detectCanvasPan(
-                            camera = { currentCamera },
-                            onCameraChanged = currentOnCameraChanged,
+                            camera = {
+                                currentCamera
+                            },
+                            onCameraChanged = {
+                                currentOnCameraChanged(it)
+                            },
                         )
                     }
 
@@ -216,24 +278,38 @@ fun EditorCanvas(
             }
             .pointerInput(Unit) {
                 detectCanvasZoom(
-                    camera = { currentCamera },
-                    onCameraChanged = { currentOnCameraChanged(it) },
+                    camera = {
+                        currentCamera
+                    },
+                    onCameraChanged = {
+                        currentOnCameraChanged(it)
+                    },
                 )
             },
     ) {
-        scale(scale = camera.zoom, pivot = Offset.Zero) {
+        // World-space rendering.
+        scale(
+            scale = camera.zoom,
+            pivot = Offset.Zero,
+        ) {
             translate(
                 left = -camera.position.x,
                 top = -camera.position.y,
             ) {
-                val previewById = interactionPreview.associateBy { it.id }
+                val previewById = interactionPreview.associateBy {
+                    it.id
+                }
 
                 for (node in nodes) {
                     val displayedNode = previewById[node.id]
-                        ?: previewNode?.takeIf { it.id == node.id }
+                        ?: previewNode?.takeIf {
+                            it.id == node.id
+                        }
                         ?: node
 
-                    if (displayedNode.id == previewNode?.id) continue
+                    if (displayedNode.id == previewNode?.id) {
+                        continue
+                    }
 
                     drawNode(
                         node = displayedNode,
@@ -278,71 +354,129 @@ fun EditorCanvas(
                         color = selectionColor,
                         topLeft = rect.topLeft,
                         size = rect.size,
-                        style = Stroke(width = 1.5.dp.toPx() / camera.zoom),
+                        style = Stroke(
+                            width = 1.5.dp.toPx() / camera.zoom
+                        ),
                     )
                 }
             }
         }
 
+        // Screen-space rendering for selection outlines and handles.
         if (selectedTool == EditorTool.SELECT) {
-            val selected = nodes.filter { it.id in currentSelectedNodeIds }
+            val selected = nodes.filter {
+                it.id in selectedNodeIds
+            }
+
             val shapes = selected.filterIsInstance<EditorShape>()
 
             if (
                 selected.isNotEmpty() &&
                 shapes.size == selected.size
             ) {
-                val previewById = interactionPreview.associateBy { it.id }
+                val previewById = interactionPreview.associateBy {
+                    it.id
+                }
 
                 val displayedShapes = shapes.map { shape ->
                     (previewById[shape.id] as? EditorShape) ?: shape
                 }
+
+                val singleShape = displayedShapes.singleOrNull()
 
                 displayedShapes.combinedBounds()?.let { bounds ->
                     val screenBounds = Rect(
                         camera.worldToScreen(bounds.topLeft),
                         camera.worldToScreen(
                             Offset(bounds.right, bounds.bottom)
-                        )
+                        ),
                     ).inflate(8.dp.toPx())
 
                     val handleSize = 10.dp.toPx()
                     val outlineWidth = 1.5.dp.toPx()
                     val cornerRadius = CornerRadius(3.dp.toPx())
 
-                    drawRoundRect(
-                        color = selectionColor,
-                        topLeft = screenBounds.topLeft,
-                        size = screenBounds.size,
-                        cornerRadius = CornerRadius(6.dp.toPx()),
-                        style = Stroke(width = outlineWidth),
-                    )
-
-                    for (position in screenBounds.resizeHandlePositions().values) {
-                        val handleTopLeft = position - Offset(
-                            handleSize / 2f,
-                            handleSize / 2f,
-                        )
-
-                        drawRoundRect(
-                            color = Color.White,
-                            topLeft = handleTopLeft,
-                            size = Size(handleSize, handleSize),
-                            cornerRadius = cornerRadius,
-                        )
-
+                    if (
+                        singleShape == null ||
+                        singleShape.rotation == 0f
+                    ) {
+                        // Unrotated selection or group selection:
+                        // keep the original outline and eight resize handles.
                         drawRoundRect(
                             color = selectionColor,
-                            topLeft = handleTopLeft,
-                            size = Size(handleSize, handleSize),
-                            cornerRadius = cornerRadius,
+                            topLeft = screenBounds.topLeft,
+                            size = screenBounds.size,
+                            cornerRadius = CornerRadius(6.dp.toPx()),
                             style = Stroke(width = outlineWidth),
                         )
+
+                        for (position in screenBounds.resizeHandlePositions().values) {
+                            val handleTopLeft = position - Offset(
+                                handleSize / 2f,
+                                handleSize / 2f,
+                            )
+
+                            drawRoundRect(
+                                color = Color.White,
+                                topLeft = handleTopLeft,
+                                size = Size(handleSize, handleSize),
+                                cornerRadius = cornerRadius,
+                            )
+
+                            drawRoundRect(
+                                color = selectionColor,
+                                topLeft = handleTopLeft,
+                                size = Size(handleSize, handleSize),
+                                cornerRadius = cornerRadius,
+                                style = Stroke(width = outlineWidth),
+                            )
+                        }
+                    } else {
+                        // Rotated shape: rotate the outline about the shape centre.
+                        // Resize handles remain hidden until local-axis resizing
+                        // is supported.
+                        rotate(
+                            degrees = singleShape.rotation *
+                                    180f / PI.toFloat(),
+                            pivot = camera.worldToScreen(
+                                singleShape.bounds.center
+                            ),
+                        ) {
+                            drawRoundRect(
+                                color = selectionColor,
+                                topLeft = screenBounds.topLeft,
+                                size = screenBounds.size,
+                                cornerRadius = CornerRadius(6.dp.toPx()),
+                                style = Stroke(width = outlineWidth),
+                            )
+                        }
                     }
+                }
+
+                // One circular rotation handle for one selected shape.
+                singleShape?.let { shape ->
+                    val handlePosition = shape.rotationHandlePosition(
+                        camera = camera,
+                        offset = 28.dp.toPx(),
+                    )
+
+                    drawCircle(
+                        color = Color.White,
+                        radius = 7.dp.toPx(),
+                        center = handlePosition,
+                    )
+
+                    drawCircle(
+                        color = selectionColor,
+                        radius = 7.dp.toPx(),
+                        center = handlePosition,
+                        style = Stroke(
+                            width = 1.5.dp.toPx()
+                        ),
+                    )
                 }
             }
         }
-
     }
 }
 
@@ -367,24 +501,37 @@ fun EditorCanvasPreview() {
                 width = 3f,
             ),
         ),
-        onCameraChanged = { camera = it },
-        onNodeCreated = { nodes += it },
+        onCameraChanged = {
+            camera = it
+        },
+        onNodeCreated = {
+            nodes += it
+        },
         onNodeUpdated = { updated ->
             nodes = nodes.map { node ->
                 if (node.id == updated.id) updated else node
             }
         },
         onNodesUpdated = { updated ->
-            val replacements = updated.associateBy { it.id }
+            val replacements = updated.associateBy {
+                it.id
+            }
 
             nodes = nodes.map { node ->
                 replacements[node.id] ?: node
             }
         },
         selectedNodeIds = selectedNodeId?.let(::setOf) ?: emptySet(),
-        onNodeSelectionToggled = { id -> selectedNodeId = if (selectedNodeId == id) null else id },
-        onNodeSelected = { selectedNodeId = it },
-        onNodesSelected = { ids -> selectedNodeId = ids.singleOrNull() },
+        onNodeSelectionToggled = { id ->
+            selectedNodeId =
+                if (selectedNodeId == id) null else id
+        },
+        onNodeSelected = {
+            selectedNodeId = it
+        },
+        onNodesSelected = { ids ->
+            selectedNodeId = ids.singleOrNull()
+        },
         onTextPlacement = {},
     )
 }

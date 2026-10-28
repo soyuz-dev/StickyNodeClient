@@ -1,3 +1,4 @@
+
 package org.stickynodes.editor.draw.render
 
 import androidx.compose.ui.geometry.Offset
@@ -7,6 +8,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.DrawStyle
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.drawText
 import org.stickynodes.editor.draw.geometry.layoutStyle
@@ -15,8 +17,10 @@ import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorPath
 import org.stickynodes.editor.draw.model.EditorRectangle
+import org.stickynodes.editor.draw.model.EditorShape
 import org.stickynodes.editor.draw.model.EditorText
 import org.stickynodes.editor.draw.style.FillStyle
+import kotlin.math.PI
 
 fun DrawScope.drawNode(
     node: EditorNode,
@@ -66,7 +70,10 @@ fun DrawScope.drawNode(
                         drawCircle(
                             color = color,
                             radius = style.width / 2f,
-                            center = Offset(node.x + point.x, node.y + point.y),
+                            center = Offset(
+                                node.x + point.x,
+                                node.y + point.y,
+                            ),
                             alpha = alpha,
                         )
                     }
@@ -74,8 +81,12 @@ fun DrawScope.drawNode(
                 }
 
                 val worldPoints = node.points.map { point ->
-                    Offset(node.x + point.x, node.y + point.y)
+                    Offset(
+                        node.x + point.x,
+                        node.y + point.y,
+                    )
                 }
+
                 drawPath(
                     path = smoothPath(worldPoints),
                     color = color,
@@ -88,20 +99,34 @@ fun DrawScope.drawNode(
         }
     }
 
-    if (node !is EditorPath) {
-        when (val fill = node.style.fill) {
-            FillStyle.None -> Unit
-            is FillStyle.Solid -> drawShape(
-                color = fill.color.toComposeColor(),
-                style = Fill,
+    fun drawContent() {
+        if (node !is EditorPath) {
+            when (val fill = node.style.fill) {
+                FillStyle.None -> Unit
+
+                is FillStyle.Solid -> drawShape(
+                    color = fill.color.toComposeColor(),
+                    style = Fill,
+                )
+            }
+        }
+
+        node.style.stroke?.let { stroke ->
+            drawShape(
+                color = stroke.color.toComposeColor(),
+                style = stroke.toDrawStyle(),
             )
         }
     }
 
-    node.style.stroke?.let { stroke ->
-        drawShape(
-            color = stroke.color.toComposeColor(),
-            style = stroke.toDrawStyle(),
-        )
+    if (node is EditorShape) {
+        rotate(
+            degrees = node.rotation * 180f / PI.toFloat(),
+            pivot = node.bounds.center,
+        ) {
+            drawContent()
+        }
+    } else {
+        drawContent()
     }
 }

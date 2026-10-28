@@ -11,6 +11,7 @@ data class EditorRectangle(
     override val style: NodeStyle = NodeStyle(),
     override val width: Float,
     override val height: Float,
+    override val rotation: Float = 0f,
 ) : EditorShape {
     override fun withBounds(bounds: Rect): EditorRectangle =
         copy(
@@ -20,4 +21,6 @@ data class EditorRectangle(
             height = bounds.height,
         )
 
+    override fun withRotation(rotation: Float): EditorShape =
+        copy(rotation = rotation)
 }

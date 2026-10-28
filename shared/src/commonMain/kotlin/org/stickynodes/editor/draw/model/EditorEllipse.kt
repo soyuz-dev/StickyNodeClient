@@ -11,6 +11,7 @@ data class EditorEllipse(
     override val style: NodeStyle = NodeStyle(),
     override val width: Float,
     override val height: Float,
+    override val rotation: Float = 0f,
 ) : EditorShape {
     override fun withBounds(bounds: Rect): EditorEllipse =
         copy(
@@ -19,4 +20,7 @@ data class EditorEllipse(
             width = bounds.width,
             height = bounds.height,
         )
+
+    override fun withRotation(rotation: Float): EditorShape =
+        copy(rotation = rotation)
 }

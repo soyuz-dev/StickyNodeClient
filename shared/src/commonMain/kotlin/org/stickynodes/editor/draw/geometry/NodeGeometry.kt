@@ -65,34 +65,46 @@ fun EditorNode.measuredBounds(
     else -> bounds
 }
 
+
 fun EditorNode.contains(
     point: Offset,
     zoom: Float = 1f,
-): Boolean = when (this) {
-    is EditorRectangle -> bounds.contains(point)
-
-    is EditorEllipse -> {
-        if (width <= 0f || height <= 0f) {
-            false
-        } else {
-            val centreX = x + width / 2f
-            val centreY = y + height / 2f
-
-            val radiusX = width / 2f
-            val radiusY = height / 2f
-
-            val dx = (point.x - centreX) / radiusX
-            val dy = (point.y - centreY) / radiusY
-
-            dx * dx + dy * dy <= 1f
-        }
+): Boolean {
+    val localPoint = if (this is EditorShape) {
+        point.rotatedAround(
+            center = bounds.center,
+            angle = -rotation,
+        )
+    } else {
+        point
     }
 
-    is EditorPath -> containsStroke(point, zoom)
+    return when (this) {
+        is EditorRectangle -> bounds.contains(localPoint)
 
-    // Use the text-aware contains() overload below.
-    is EditorText -> false
+        is EditorEllipse -> {
+            if (width <= 0f || height <= 0f) {
+                false
+            } else {
+                val center = bounds.center
+
+                val radiusX = width / 2f
+                val radiusY = height / 2f
+
+                val dx = (localPoint.x - center.x) / radiusX
+                val dy = (localPoint.y - center.y) / radiusY
+
+                dx * dx + dy * dy <= 1f
+            }
+        }
+
+        is EditorPath -> containsStroke(point, zoom)
+
+        // Text requires its measured bounds.
+        is EditorText -> false
+    }
 }
+
 
 fun EditorNode.contains(
     point: Offset,
