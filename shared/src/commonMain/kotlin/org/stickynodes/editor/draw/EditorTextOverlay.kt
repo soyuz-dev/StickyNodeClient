@@ -42,7 +42,7 @@ fun EditorTextOverlay(
             .fillMaxSize()
             .pointerInput(onCommit) {
                 detectTapGestures{
-                    onCommit
+                    onCommit()
                 }
             },
     ) {

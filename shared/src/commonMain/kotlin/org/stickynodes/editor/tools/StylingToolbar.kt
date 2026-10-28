@@ -1,132 +1,77 @@
 
 package org.stickynodes.editor.tools
 
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import org.stickynodes.editor.draw.style.FillStyle
+import androidx.compose.foundation.layout.Column
 import org.stickynodes.editor.draw.style.NodeStyle
-import org.stickynodes.editor.draw.style.StrokeStyle
-import org.stickynodes.editor.tools.components.ColorPicker
-import org.stickynodes.editor.tools.components.StrokeWidthPicker
 
 @Composable
 fun StylingToolbar(
-    modifier: Modifier = Modifier,
-    orientation: ToolbarOrientation = ToolbarOrientation.VERTICAL,
+    type: StyleToolbarType,
+    onTypeSelected: (StyleToolbarType) -> Unit,
     style: NodeStyle,
+    fontSize: Float,
     onStyleChanged: (NodeStyle) -> Unit,
     onStylePreview: (NodeStyle) -> Unit,
     onStyleChangeFinished: () -> Unit,
+    onFontSizeChanged: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+    orientation: ToolbarOrientation = ToolbarOrientation.VERTICAL,
 ) {
-    val fillColor = when (val fill = style.fill) {
-        FillStyle.None -> null
-        is FillStyle.Solid -> Color(fill.color)
-    }
-
-    val strokeColor = style.stroke?.let {
-        Color(it.color)
-    }
-
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        tonalElevation = 3.dp,
-        shadowElevation = 4.dp,
+    Column(
         modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        ToolbarLayout(
-            orientation = orientation,
-            modifier = Modifier.padding(4.dp),
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            ColorPicker(
-                color = fillColor,
-                description = "Fill colour",
-                onColorChanged = { color ->
-                    onStyleChanged(
-                        style.copy(
-                            fill = if (color == null) {
-                                FillStyle.None
-                            } else {
-                                FillStyle.Solid(color.toArgb())
+            for (option in StyleToolbarType.entries) {
+                FilterChip(
+                    selected = type == option,
+                    onClick = { onTypeSelected(option) },
+                    label = {
+                        Text(
+                            when (option) {
+                                StyleToolbarType.SHAPE -> "Shape"
+                                StyleToolbarType.TEXT -> "Text"
+                                StyleToolbarType.FREEHAND -> "Pen"
                             }
                         )
-                    )
-                },
+                    },
+                )
+            }
+        }
+
+        when (type) {
+            StyleToolbarType.SHAPE -> ShapeStyleToolbar(
+                style = style,
+                onStyleChanged = onStyleChanged,
+                onStylePreview = onStylePreview,
+                onStyleChangeFinished = onStyleChangeFinished,
+                orientation = orientation,
             )
 
-            ColorPicker(
-                color = strokeColor,
-                description = "Stroke colour",
-                onColorChanged = { color ->
-                    onStyleChanged(
-                        style.copy(
-                            stroke = if (color == null) {
-                                null
-                            } else {
-                                style.stroke?.copy(
-                                    color = color.toArgb()
-                                ) ?: StrokeStyle(
-                                    color = color.toArgb()
-                                )
-                            }
-                        )
-                    )
-                },
+            StyleToolbarType.TEXT -> TextStyleToolbar(
+                style = style,
+                fontSize = fontSize,
+                onStyleChanged = onStyleChanged,
+                onFontSizeChanged = onFontSizeChanged,
+                orientation = orientation,
             )
 
-            StrokeWidthPicker(
-                width = style.stroke?.width ?: 2f,
-                enabled = style.stroke != null,
-                onWidthChanged = { width ->
-                    style.stroke?.let { stroke ->
-                        onStylePreview(
-                            style.copy(
-                                stroke = stroke.copy(
-                                    width = width
-                                )
-                            )
-                        )
-                    }
-                },
-                onWidthChangeFinished = {
-                    onStyleChangeFinished()
-                },
+            StyleToolbarType.FREEHAND -> FreehandStyleToolbar(
+                style = style,
+                onStyleChanged = onStyleChanged,
+                onStylePreview = onStylePreview,
+                onStyleChangeFinished = onStyleChangeFinished,
+                orientation = orientation,
             )
         }
-    }
-}
-
-@Preview
-@Composable
-fun StylingToolbarPreview() {
-    var style by remember {
-        mutableStateOf(NodeStyle())
-    }
-
-    MaterialTheme {
-        StylingToolbar(
-            style = style,
-            onStyleChanged = {
-                style = it
-            },
-            onStylePreview = {
-                style = it
-            },
-            onStyleChangeFinished = {
-                // No history in the standalone preview.
-            },
-        )
     }
 }

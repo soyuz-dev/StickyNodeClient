@@ -50,6 +50,9 @@ import org.stickynodes.data.rememberDocumentStorage
 import org.stickynodes.editor.draw.EditorCanvas
 import org.stickynodes.editor.draw.EditorTextOverlay
 import org.stickynodes.editor.draw.camera.rememberEditorCameraState
+import org.stickynodes.editor.draw.model.EditorNode
+import org.stickynodes.editor.draw.model.EditorPath
+import org.stickynodes.editor.draw.model.EditorShape
 import org.stickynodes.editor.draw.model.EditorText
 import org.stickynodes.editor.draw.style.FillStyle
 import org.stickynodes.editor.draw.style.NodeStyle
@@ -58,7 +61,10 @@ import org.stickynodes.editor.history.rememberEditorDocumentState
 import org.stickynodes.editor.tools.EditorActionBar
 import org.stickynodes.editor.tools.EditorTool
 import org.stickynodes.editor.tools.EditorToolbar
-import org.stickynodes.editor.tools.StylingToolbar
+import org.stickynodes.editor.tools.ShapeStyleToolbar
+import org.stickynodes.editor.tools.FreehandStyleToolbar
+import org.stickynodes.editor.tools.TextStyleToolbar
+import org.stickynodes.editor.tools.StyleToolbarType
 import org.stickynodes.editor.tools.ToolbarOrientation
 import kotlin.uuid.Uuid
 
@@ -97,6 +103,19 @@ fun EditorScreen(
                 ),
             )
         )
+    }
+
+    var textStyle by remember {
+        mutableStateOf(
+            NodeStyle(
+                fill = FillStyle.Solid(0xFF0D0D0D.toInt()),
+                stroke = null,
+            )
+        )
+    }
+
+    var defaultFontSize by remember {
+        mutableStateOf(24f)
     }
 
     var textEditPosition by remember {
@@ -139,37 +158,72 @@ fun EditorScreen(
         }
     }
 
-    fun updateToolStyle(style: NodeStyle) {
-        when (selectedTool) {
-            EditorTool.RECTANGLE -> rectangleStyle = style
-            EditorTool.ELLIPSE -> ellipseStyle = style
-            EditorTool.PEN -> penStyle = style
-            else -> Unit
-        }
-    }
-
-    fun previewStyle(style: NodeStyle) {
-        if (!documentState.previewSelectedStyle(style)) {
-            updateToolStyle(style)
-        }
-    }
-
     fun selectTool(tool: EditorTool) {
+        documentState.cancelStylePreview()
         documentState.clearSelection()
         selectedTool = tool
     }
 
-    val activeStyle = documentState.selectedStyle ?: when (selectedTool) {
-        EditorTool.RECTANGLE -> rectangleStyle
-        EditorTool.ELLIPSE -> ellipseStyle
-        EditorTool.PEN -> penStyle
-        else -> null
+    // The existing editing tool determines which style controls appear.
+    // SELECT uses the single selected node's type instead.
+    val selectedNode = documentState.selectedNode
+    val styleToolbarType: StyleToolbarType? = when (selectedTool) {
+        EditorTool.RECTANGLE, EditorTool.ELLIPSE -> StyleToolbarType.SHAPE
+        EditorTool.PEN -> StyleToolbarType.FREEHAND
+        EditorTool.TEXT -> StyleToolbarType.TEXT
+        EditorTool.SELECT -> selectedNode?.styleToolbarType()
+        EditorTool.PAN -> null
+    }
+
+    val editableNode = if (selectedTool == EditorTool.SELECT) selectedNode else null
+    val activeStyle: NodeStyle? = when (styleToolbarType) {
+        StyleToolbarType.SHAPE ->
+            (editableNode as? EditorShape)?.let { documentState.selectedStyle }
+                ?: if (selectedTool == EditorTool.ELLIPSE) ellipseStyle else rectangleStyle
+        StyleToolbarType.FREEHAND ->
+            (editableNode as? EditorPath)?.let { documentState.selectedStyle } ?: penStyle
+        StyleToolbarType.TEXT ->
+            (editableNode as? EditorText)?.let { documentState.selectedStyle } ?: textStyle
+        null -> null
+    }
+
+    val activeFontSize = (editableNode as? EditorText)?.fontSize ?: defaultFontSize
+
+    fun updateDefaultStyle(style: NodeStyle) {
+        when (styleToolbarType) {
+            StyleToolbarType.SHAPE -> {
+                if (selectedTool == EditorTool.ELLIPSE) ellipseStyle = style
+                else rectangleStyle = style
+            }
+            StyleToolbarType.FREEHAND -> penStyle = style
+            StyleToolbarType.TEXT -> textStyle = style
+            null -> Unit
+        }
+    }
+
+    fun previewStyle(style: NodeStyle) {
+        if (editableNode != null) {
+            documentState.previewSelectedStyle(style)
+        } else {
+            updateDefaultStyle(style)
+        }
     }
 
     val onStyleChanged: (NodeStyle) -> Unit = { updated ->
         documentState.cancelStylePreview()
-        if (!documentState.commitSelectedStyle(updated)) {
-            updateToolStyle(updated)
+        if (editableNode != null) {
+            documentState.commitSelectedStyle(updated)
+        } else {
+            updateDefaultStyle(updated)
+        }
+    }
+
+    val onFontSizeChanged: (Float) -> Unit = { size ->
+        val textNode = editableNode as? EditorText
+        if (textNode != null) {
+            documentState.updateNode(textNode.copy(fontSize = size))
+        } else {
+            defaultFontSize = size
         }
     }
 
@@ -189,7 +243,8 @@ fun EditorScreen(
                     x = position.x,
                     y = position.y,
                     text = textDraft,
-                    fontSize = 24f,
+                    fontSize = defaultFontSize,
+                    style = textStyle,
                 )
             )
         }
@@ -238,9 +293,7 @@ fun EditorScreen(
                             }
                         }
 
-                        event.isCtrlPressed &&
-                                (
-                                        event.key == Key.Y ||
+                        event.isCtrlPressed && (event.key == Key.Y ||
                                                 (
                                                         event.key == Key.Z &&
                                                                 event.isShiftPressed
@@ -349,6 +402,7 @@ fun EditorScreen(
                 position = position,
                 text = textDraft,
                 camera = cameraState.camera,
+                fontSize = defaultFontSize,
                 onTextChanged = {
                     textDraft = it
                 },
@@ -396,34 +450,44 @@ fun EditorScreen(
             )
 
             AnimatedVisibility(
-                visible = activeStyle != null,
-                enter = fadeIn(
-                    animationSpec = tween(180)
-                ) + expandVertically(
-                    animationSpec = tween(220),
-                    expandFrom = Alignment.Top
-                ) + slideInVertically(
-                    animationSpec = tween(220),
-                    initialOffsetY = { -it/3 }
-                ),
-                exit = fadeOut(
-                    animationSpec = tween(120),
-                ) + shrinkVertically(
-                    animationSpec = tween(180),
-                    shrinkTowards = Alignment.Top,
-                ) + slideOutVertically(
-                    animationSpec = tween(180),
-                    targetOffsetY = { -it / 3 },
-                ),
+                visible = styleToolbarType != null,
+                enter = fadeIn(animationSpec = tween(180)) +
+                        expandVertically(animationSpec = tween(220), expandFrom = Alignment.Top) +
+                        slideInVertically(animationSpec = tween(220), initialOffsetY = { -it / 3 }),
+                exit = fadeOut(animationSpec = tween(120)) +
+                        shrinkVertically(animationSpec = tween(180), shrinkTowards = Alignment.Top) +
+                        slideOutVertically(animationSpec = tween(180), targetOffsetY = { -it / 3 }),
             ) {
-                activeStyle?.let { style ->
-                    StylingToolbar(
-                        style = style,
-                        onStyleChanged = onStyleChanged,
-                        onStylePreview = ::previewStyle,
-                        onStyleChangeFinished = documentState::finishStyleChange,
-                        orientation = ToolbarOrientation.VERTICAL
-                    )
+                val style = activeStyle
+                when (styleToolbarType) {
+                    StyleToolbarType.SHAPE -> if (style != null) {
+                        ShapeStyleToolbar(
+                            style = style,
+                            onStyleChanged = onStyleChanged,
+                            onStylePreview = ::previewStyle,
+                            onStyleChangeFinished = documentState::finishStyleChange,
+                            orientation = ToolbarOrientation.VERTICAL,
+                        )
+                    }
+                    StyleToolbarType.FREEHAND -> if (style != null) {
+                        FreehandStyleToolbar(
+                            style = style,
+                            onStyleChanged = onStyleChanged,
+                            onStylePreview = ::previewStyle,
+                            onStyleChangeFinished = documentState::finishStyleChange,
+                            orientation = ToolbarOrientation.VERTICAL,
+                        )
+                    }
+                    StyleToolbarType.TEXT -> if (style != null) {
+                        TextStyleToolbar(
+                            style = style,
+                            fontSize = activeFontSize,
+                            onStyleChanged = onStyleChanged,
+                            onFontSizeChanged = onFontSizeChanged,
+                            orientation = ToolbarOrientation.VERTICAL,
+                        )
+                    }
+                    null -> Unit
                 }
             }
         }
@@ -433,3 +497,10 @@ fun EditorScreen(
 @Composable
 @Preview(widthDp = 800, heightDp = 800)
 fun EditorScreenPreview() = EditorScreen()
+
+private fun EditorNode.styleToolbarType(): StyleToolbarType =
+    when (this) {
+        is EditorShape -> StyleToolbarType.SHAPE
+        is EditorText -> StyleToolbarType.TEXT
+        is EditorPath -> StyleToolbarType.FREEHAND
+    }

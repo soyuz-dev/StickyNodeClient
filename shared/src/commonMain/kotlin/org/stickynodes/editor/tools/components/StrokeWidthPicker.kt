@@ -1,6 +1,7 @@
 
 package org.stickynodes.editor.tools.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -11,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -26,12 +28,31 @@ internal fun StrokeWidthPicker(
     }
 
     Box(modifier) {
-        OutlinedButton(
+        Surface(
             onClick = { expanded = true },
             enabled = enabled,
-            contentPadding = PaddingValues(horizontal = 4.dp),
+            shape = CircleShape,
+            color = Color.Transparent,
+            border = BorderStroke(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant,
+            ),
         ) {
-            Text("${width.toInt()}px")
+            Text(
+                text = "${width.toInt()}px",
+                modifier = Modifier.padding(
+                    horizontal = 8.dp,
+                    vertical = 6.dp,
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = if (enabled) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(
+                        alpha = 0.38f
+                    )
+                },
+            )
         }
 
         DropdownMenu(
