@@ -6,6 +6,7 @@ import androidx.compose.ui.geometry.Rect
 import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorRectangle
+import org.stickynodes.editor.draw.model.EditorShape
 
 fun resizeBounds(
     original: Rect,
@@ -106,30 +107,11 @@ fun resizeBoundsProportionally(
     )
 }
 
-fun EditorNode.withBounds(bounds: Rect): EditorNode =
-    when (this) {
-        is EditorRectangle -> copy(
-            x = bounds.left,
-            y = bounds.top,
-            width = bounds.width,
-            height = bounds.height,
-        )
-
-        is EditorEllipse -> copy(
-            x = bounds.left,
-            y = bounds.top,
-            width = bounds.width,
-            height = bounds.height,
-        )
-
-        else -> this
-    }
-
-fun EditorNode.resizedBy(
+fun EditorShape.resizedBy(
     handle: ResizeHandle,
     delta: Offset,
     minimumSize: Float = 1f,
-): EditorNode =
+): EditorShape =
     withBounds(
         resizeBounds(
             original = bounds,
@@ -139,11 +121,11 @@ fun EditorNode.resizedBy(
         )
     )
 
-fun EditorNode.resizedProportionallyBy(
+fun EditorShape.resizedProportionallyBy(
     handle: ResizeHandle,
     delta: Offset,
     minimumSize: Float = 1f,
-): EditorNode =
+): EditorShape =
     withBounds(
         resizeBoundsProportionally(
             original = bounds,

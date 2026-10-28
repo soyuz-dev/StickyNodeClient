@@ -37,6 +37,7 @@ import org.stickynodes.editor.draw.gesture.detectTextCreation
 import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorRectangle
+import org.stickynodes.editor.draw.model.EditorShape
 import org.stickynodes.editor.draw.model.EditorText
 import org.stickynodes.editor.draw.render.drawNode
 import org.stickynodes.editor.draw.render.drawSelection
@@ -169,7 +170,7 @@ fun EditorCanvas(
                                     it.id == selectedId
                                 }
 
-                                if (node is EditorRectangle || node is EditorEllipse) {
+                                if (node is EditorShape) {
                                     val bounds = node.bounds
 
                                     val topLeft = currentCamera.worldToScreen(bounds.topLeft)
@@ -240,8 +241,7 @@ fun EditorCanvas(
                     val displayedNode = previewById[node.id] ?: node
                     if (
                         selectedNodeIds.size == 1 &&
-                        (displayedNode is EditorRectangle ||
-                                displayedNode is EditorEllipse)
+                        (displayedNode is EditorShape)
                     ) continue
 
                     drawSelection(
@@ -280,10 +280,7 @@ fun EditorCanvas(
 
             val selectedNode = previewNodeForSelection ?: originalNode
 
-            if (
-                selectedNode is EditorRectangle ||
-                selectedNode is EditorEllipse
-            ) {
+            if (selectedNode is EditorShape) {
                 val bounds = selectedNode.bounds
 
                 val topLeft = camera.worldToScreen(bounds.topLeft)

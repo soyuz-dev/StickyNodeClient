@@ -16,6 +16,7 @@ import org.stickynodes.editor.draw.geometry.resizedBy
 import org.stickynodes.editor.draw.geometry.resizedProportionallyBy
 import org.stickynodes.editor.draw.geometry.translatedBy
 import org.stickynodes.editor.draw.model.EditorNode
+import org.stickynodes.editor.draw.model.EditorShape
 import kotlin.uuid.Uuid
 
 private fun rectangleBetween(a: Offset, b: Offset) = Rect(
@@ -55,9 +56,9 @@ suspend fun PointerInputScope.detectNodeInteraction(
             if(resizeHandle != null) {
                 val selectedId = selectedNodeIds().singleOrNull()
 
-                val originalNode = nodes().firstOrNull { node ->
-                    node.id == selectedId
-                }
+                val originalNode = nodes()
+                    .filterIsInstance<EditorShape>()
+                    .firstOrNull { it.id == selectedId }
 
                 if(originalNode != null) {
                     var preview: EditorNode? = null

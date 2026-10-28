@@ -9,24 +9,14 @@ import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorPath
 import org.stickynodes.editor.draw.model.EditorRectangle
+import org.stickynodes.editor.draw.model.EditorShape
 import org.stickynodes.editor.draw.model.EditorText
 import org.stickynodes.editor.draw.style.NodeStyle
 
 val EditorNode.bounds: Rect
     get() = when (this) {
-        is EditorRectangle -> Rect(
-            left = x,
-            top = y,
-            right = x + width,
-            bottom = y + height,
-        )
 
-        is EditorEllipse -> Rect(
-            left = x,
-            top = y,
-            right = x + width,
-            bottom = y + height,
-        )
+        is EditorShape -> this.bounds
 
         is EditorPath -> {
             val segments = bezierSegments(points)
