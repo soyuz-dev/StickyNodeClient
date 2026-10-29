@@ -11,9 +11,10 @@ import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.isShiftPressed
 import org.stickynodes.editor.draw.geometry.ResizeHandle
 import org.stickynodes.editor.draw.geometry.bounds
-import org.stickynodes.editor.draw.geometry.resizedBy
-import org.stickynodes.editor.draw.geometry.resizedProportionallyBy
+import org.stickynodes.editor.draw.geometry.resizedRotatedBy
 import org.stickynodes.editor.draw.geometry.resizedTogether
+import org.stickynodes.editor.draw.geometry.rotationAngle
+import org.stickynodes.editor.draw.geometry.snapRotation
 import org.stickynodes.editor.draw.geometry.translatedBy
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorShape
@@ -46,10 +47,89 @@ suspend fun PointerInputScope.detectNodeInteraction(
     onMarquee: (Rect?) -> Unit,
     onCommit: (List<EditorNode>) -> Unit,
     resizeHandleAt: (Offset) -> ResizeHandle?,
+    rotationHandleAt: (Offset) -> Uuid?,
 ) {
     try {
         awaitEachGesture {
             val down = awaitFirstDown()
+
+
+            val rotationId = rotationHandleAt(down.position)
+
+            if (rotationId != null) {
+                val originalShape = nodes()
+                    .firstOrNull { it.id == rotationId } as? EditorShape
+
+                // Only a single selected shape can be rotated for now.
+                if (
+                    originalShape != null &&
+                    selectedNodeIds() == setOf(rotationId)
+                ) {
+                    val center = originalShape.bounds.center
+
+                    // Keep an accumulated angle so dragging through 180 degrees
+                    // doesn't jump back to the opposite direction.
+                    var previousPointer = screenToWorld(down.position)
+                    var accumulatedAngle = 0f
+
+                    var preview: EditorShape? = null
+
+                    fun updateRotation(
+                        position: Offset,
+                        snap: Boolean,
+                    ) {
+                        val currentPointer = screenToWorld(position)
+
+                        val delta = rotationAngle(
+                            center = center,
+                            start = previousPointer,
+                            current = currentPointer,
+                        )
+
+                        accumulatedAngle += delta
+                        previousPointer = currentPointer
+
+                        val angle = originalShape.rotation + accumulatedAngle
+
+                        preview = originalShape.withRotation(
+                            if (snap) snapRotation(angle) else angle
+                        )
+
+                        onPreview(listOf(preview))
+                    }
+
+                    val dragStart = awaitTouchSlopOrCancellation(
+                        pointerId = down.id,
+                    ) { change, _ ->
+                        change.consume()
+                    }
+
+                    if (dragStart != null) {
+                        updateRotation(
+                            position = dragStart.position,
+                            snap = currentEvent.keyboardModifiers.isShiftPressed,
+                        )
+
+                        val completed = drag(dragStart.id) { change ->
+                            updateRotation(
+                                position = change.position,
+                                snap = currentEvent.keyboardModifiers.isShiftPressed,
+                            )
+                            change.consume()
+                        }
+
+                        if (completed) {
+                            preview?.let {
+                                onCommit(listOf(it))
+                            }
+                        }
+                    }
+
+                    onPreview(emptyList())
+                    return@awaitEachGesture
+                }
+            }
+
 
             val resizeHandle = resizeHandleAt(down.position)
 
@@ -75,11 +155,21 @@ suspend fun PointerInputScope.detectNodeInteraction(
                             position - down.position
                         )
 
-                        preview = originalShapes.resizedTogether(
-                            handle = resizeHandle,
-                            delta = delta,
-                            proportional = preserveAspectRatio
-                        )
+                        preview = if (originalShapes.size == 1) {
+                            listOf(
+                                originalShapes.single().resizedRotatedBy(
+                                    handle = resizeHandle,
+                                    delta = delta,
+                                    proportional = preserveAspectRatio,
+                                )
+                            )
+                        } else {
+                            originalShapes.resizedTogether(
+                                handle = resizeHandle,
+                                delta = delta,
+                                proportional = preserveAspectRatio,
+                            )
+                        }
 
                         onPreview(preview)
                     }

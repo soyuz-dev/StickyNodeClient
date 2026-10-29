@@ -134,3 +134,50 @@ fun EditorShape.resizedProportionallyBy(
             minimumSize = minimumSize,
         )
     )
+
+fun EditorShape.resizedRotatedBy(
+    handle: ResizeHandle,
+    delta: Offset,
+    proportional: Boolean = false,
+    minimumSize: Float = 1f
+): EditorShape {
+    val originalBounds = bounds
+
+    val localDelta = delta.rotatedAround(
+        center = Offset.Zero,
+        angle = -rotation
+    )
+
+    val resizedBounds = if (proportional) {
+        resizeBoundsProportionally(
+            original = originalBounds,
+            handle = handle,
+            delta = localDelta,
+            minimumSize = minimumSize,
+        )
+    } else {
+        resizeBounds(
+            original = originalBounds,
+            handle = handle,
+            delta = localDelta,
+            minimumSize = minimumSize,
+        )
+    }
+
+    val centerDelta = (resizedBounds.center - originalBounds.center)
+        .rotatedAround(
+            center = Offset.Zero,
+            angle = rotation
+        )
+
+    val newCenter = originalBounds.center + centerDelta
+
+    val newBounds = Rect(
+        left = newCenter.x - resizedBounds.width / 2f,
+        top = newCenter.y - resizedBounds.height / 2f,
+        right = newCenter.x + resizedBounds.width / 2f,
+        bottom = newCenter.y + resizedBounds.height / 2f,
+    )
+
+    return withBounds(newBounds)
+}

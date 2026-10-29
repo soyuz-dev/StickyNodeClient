@@ -25,11 +25,13 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import org.stickynodes.editor.draw.camera.EditorCamera
+import org.stickynodes.editor.draw.geometry.ResizeHandle
 import org.stickynodes.editor.draw.geometry.combinedBounds
 import org.stickynodes.editor.draw.geometry.contains
 import org.stickynodes.editor.draw.geometry.hitTestResizeHandle
 import org.stickynodes.editor.draw.geometry.layoutStyle
 import org.stickynodes.editor.draw.geometry.resizeHandlePositions
+import org.stickynodes.editor.draw.geometry.rotatedAround
 import org.stickynodes.editor.draw.geometry.rotationHandlePosition
 import org.stickynodes.editor.draw.gesture.detectCanvasPan
 import org.stickynodes.editor.draw.gesture.detectCanvasZoom
@@ -101,6 +103,33 @@ fun EditorCanvas(
     val currentOnNodeSelected by rememberUpdatedState(onNodeSelected)
     val currentOnNodesSelected by rememberUpdatedState(onNodesSelected)
     val currentOnTextPlacement by rememberUpdatedState(onTextPlacement)
+
+    fun resizeHandleScreenPositions(
+        shapes: List<EditorShape>,
+        camera: EditorCamera,
+        padding: Float
+    ): Map<ResizeHandle, Offset> {
+        val bounds = shapes.combinedBounds() ?: return emptyMap()
+
+        val screenBounds = Rect(
+            camera.worldToScreen(bounds.topLeft),
+            camera.worldToScreen(
+                Offset(bounds.right, bounds.bottom)
+            ),
+        ).inflate(padding)
+
+        val positions = screenBounds.resizeHandlePositions()
+
+        // Only rotate handles for a single selected shape.
+        val shape = shapes.singleOrNull() ?: return positions
+
+        return positions.mapValues { (_, position) ->
+            position.rotatedAround(
+                center = camera.worldToScreen(shape.bounds.center),
+                angle = shape.rotation,
+            )
+        }
+    }
 
     Canvas(
         modifier = modifier
@@ -227,38 +256,42 @@ fun EditorCanvas(
                                 if (
                                     selected.isEmpty() ||
                                     shapes.size != selected.size ||
-                                    shapes.any { it.rotation != 0f }
+                                    (shapes.size > 1 && shapes.any { it.rotation != 0f })
                                 ) {
                                     null
                                 } else {
-                                    shapes.combinedBounds()?.let { bounds ->
-                                        val topLeft =
-                                            currentCamera.worldToScreen(bounds.topLeft)
+                                    val positions = resizeHandleScreenPositions(
+                                        shapes = shapes,
+                                        camera = currentCamera,
+                                        padding = with(density) { 8.dp.toPx() },
+                                    )
 
-                                        val bottomRight =
-                                            currentCamera.worldToScreen(
-                                                Offset(bounds.right, bounds.bottom)
-                                            )
+                                    val radius = with(density) { 10.dp.toPx() }
 
-                                        val padding = with(density) {
-                                            8.dp.toPx()
-                                        }
-
-                                        val screenBounds = Rect(
-                                            topLeft,
-                                            bottomRight,
-                                        ).inflate(padding)
-
-                                        hitTestResizeHandle(
-                                            bounds = screenBounds,
-                                            pointer = screenPoint,
-                                            radius = with(density) {
-                                                10.dp.toPx()
-                                            },
-                                        )
-                                    }
+                                    positions.entries.firstOrNull { (_, position) ->
+                                        (screenPoint - position).getDistanceSquared() <=
+                                                radius * radius
+                                    }?.key
                                 }
                             },
+                            rotationHandleAt = { screenPoint ->
+                                val selected = currentNodes.filter {
+                                    it.id in currentSelectedNodeIds
+                                }
+
+                                val shape = selected.singleOrNull() as? EditorShape
+
+                                shape?.takeIf {
+                                    val handlePosition = it.rotationHandlePosition(
+                                        camera = currentCamera,
+                                        offset = with(density) { 28.dp.toPx() }
+                                    )
+
+                                    val radius = with(density) { 12.dp.toPx() }
+
+                                    (screenPoint - handlePosition).getDistanceSquared() <= radius * radius
+                                }?.id
+                            }
                         )
                     }
 
@@ -396,12 +429,26 @@ fun EditorCanvas(
                     val outlineWidth = 1.5.dp.toPx()
                     val cornerRadius = CornerRadius(3.dp.toPx())
 
-                    if (
-                        singleShape == null ||
-                        singleShape.rotation == 0f
-                    ) {
-                        // Unrotated selection or group selection:
-                        // keep the original outline and eight resize handles.
+
+                    val canResize = displayedShapes.size == 1 || displayedShapes.all { it.rotation == 0f }
+                    // Draw the selection outline.
+                    if (singleShape != null && singleShape.rotation != 0f) {
+                        rotate(
+                            degrees = singleShape.rotation *
+                                    180f / PI.toFloat(),
+                            pivot = camera.worldToScreen(
+                                singleShape.bounds.center
+                            ),
+                        ) {
+                            drawRoundRect(
+                                color = selectionColor,
+                                topLeft = screenBounds.topLeft,
+                                size = screenBounds.size,
+                                cornerRadius = CornerRadius(6.dp.toPx()),
+                                style = Stroke(width = outlineWidth),
+                            )
+                        }
+                    } else {
                         drawRoundRect(
                             color = selectionColor,
                             topLeft = screenBounds.topLeft,
@@ -409,8 +456,17 @@ fun EditorCanvas(
                             cornerRadius = CornerRadius(6.dp.toPx()),
                             style = Stroke(width = outlineWidth),
                         )
+                    }
 
-                        for (position in screenBounds.resizeHandlePositions().values) {
+// Draw the eight resize handles in screen space.
+                    if (canResize) {
+                        val positions = resizeHandleScreenPositions(
+                            shapes = displayedShapes,
+                            camera = camera,
+                            padding = 8.dp.toPx(),
+                        )
+
+                        for (position in positions.values) {
                             val handleTopLeft = position - Offset(
                                 handleSize / 2f,
                                 handleSize / 2f,
@@ -431,26 +487,8 @@ fun EditorCanvas(
                                 style = Stroke(width = outlineWidth),
                             )
                         }
-                    } else {
-                        // Rotated shape: rotate the outline about the shape centre.
-                        // Resize handles remain hidden until local-axis resizing
-                        // is supported.
-                        rotate(
-                            degrees = singleShape.rotation *
-                                    180f / PI.toFloat(),
-                            pivot = camera.worldToScreen(
-                                singleShape.bounds.center
-                            ),
-                        ) {
-                            drawRoundRect(
-                                color = selectionColor,
-                                topLeft = screenBounds.topLeft,
-                                size = screenBounds.size,
-                                cornerRadius = CornerRadius(6.dp.toPx()),
-                                style = Stroke(width = outlineWidth),
-                            )
-                        }
                     }
+
                 }
 
                 // One circular rotation handle for one selected shape.

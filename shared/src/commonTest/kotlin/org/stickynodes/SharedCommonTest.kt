@@ -12,7 +12,9 @@ import org.stickynodes.editor.draw.geometry.contains
 import org.stickynodes.editor.draw.geometry.containsStroke
 import org.stickynodes.editor.draw.geometry.resizeBounds
 import org.stickynodes.editor.draw.geometry.resizeBoundsProportionally
+import org.stickynodes.editor.draw.geometry.resizedRotatedBy
 import org.stickynodes.editor.draw.geometry.resizedTogether
+import org.stickynodes.editor.draw.geometry.rotatedAround
 import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorPath
 import org.stickynodes.editor.draw.model.EditorRectangle
@@ -623,4 +625,122 @@ class SharedCommonTest {
             rectangle.contains(Offset(5f, 10f))
         )
     }
+
+
+    @Test
+    fun `zero rotation uses existing resize behaviour`() {
+        val rectangle = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 60f,
+        )
+
+        val resized = rectangle.resizedRotatedBy(
+            handle = ResizeHandle.SE,
+            delta = Offset(30f, 20f),
+        )
+
+        assertEquals(
+            Rect(10f, 20f, 140f, 100f),
+            resized.bounds,
+        )
+    }
+
+    @Test
+    fun `rotated east handle follows local horizontal axis`() {
+        val rectangle = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 100f,
+            height = 40f,
+            rotation = (PI / 2).toFloat(),
+        )
+
+        val resized = rectangle.resizedRotatedBy(
+            handle = ResizeHandle.E,
+            delta = Offset(0f, 30f),
+        )
+
+        assertEquals(130f, resized.width, 0.0001f)
+        assertEquals(40f, resized.height, 0.0001f)
+
+        // The centre moves 15 units downward,
+        // because the opposite edge remains fixed.
+        assertEquals(50f, resized.bounds.center.x, 0.0001f)
+        assertEquals(35f, resized.bounds.center.y, 0.0001f)
+    }
+
+    @Test
+    fun `rotated southeast resize preserves northwest corner`() {
+        val rectangle = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 100f,
+            height = 40f,
+            rotation = (PI / 4).toFloat(),
+        )
+
+        fun northwestCorner(shape: EditorShape): Offset =
+            shape.bounds.topLeft.rotatedAround(
+                center = shape.bounds.center,
+                angle = shape.rotation,
+            )
+
+        val originalCorner = northwestCorner(rectangle)
+
+        val resized = rectangle.resizedRotatedBy(
+            handle = ResizeHandle.SE,
+            delta = Offset(30f, 20f),
+        )
+
+        val resizedCorner = northwestCorner(resized)
+
+        assertEquals(originalCorner.x, resizedCorner.x, 0.0001f)
+        assertEquals(originalCorner.y, resizedCorner.y, 0.0001f)
+    }
+
+    @Test
+    fun `rotated proportional resize preserves aspect ratio`() {
+        val rectangle = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 50f,
+            rotation = (PI / 3).toFloat(),
+        )
+
+        val resized = rectangle.resizedRotatedBy(
+            handle = ResizeHandle.SE,
+            delta = Offset(30f, 40f),
+            proportional = true,
+        )
+
+        assertEquals(
+            rectangle.width / rectangle.height,
+            resized.width / resized.height,
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun `zero delta preserves rotated shape`() {
+        val rectangle = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 50f,
+            rotation = (PI / 3).toFloat(),
+        )
+
+        for (handle in ResizeHandle.entries) {
+            val resized = rectangle.resizedRotatedBy(
+                handle = handle,
+                delta = Offset.Zero,
+            )
+
+            assertEquals(rectangle, resized)
+        }
+    }
+
 }
