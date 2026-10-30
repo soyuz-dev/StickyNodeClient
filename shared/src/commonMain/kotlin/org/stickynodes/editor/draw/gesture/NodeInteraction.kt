@@ -3,34 +3,15 @@ package org.stickynodes.editor.draw.gesture
 
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
-import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.isShiftPressed
 import org.stickynodes.editor.draw.geometry.ResizeHandle
-import org.stickynodes.editor.draw.geometry.bounds
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorShape
 import kotlin.uuid.Uuid
-
-private fun rectangleBetween(
-    a: Offset,
-    b: Offset,
-): Rect = Rect(
-    left = minOf(a.x, b.x),
-    top = minOf(a.y, b.y),
-    right = maxOf(a.x, b.x),
-    bottom = maxOf(a.y, b.y),
-)
-
-private fun Rect.fullyContains(other: Rect): Boolean =
-    other.left >= left &&
-            other.top >= top &&
-            other.right <= right &&
-            other.bottom <= bottom
 
 suspend fun PointerInputScope.detectNodeInteraction(
     nodes: () -> List<EditorNode>,
@@ -132,59 +113,18 @@ suspend fun PointerInputScope.detectNodeInteraction(
                 return@awaitEachGesture
             }
 
-            // Pressing empty canvas may start marquee selection.
             if (hitNode == null) {
-                val dragStart = awaitTouchSlopOrCancellation(
-                    pointerId = down.id,
-                ) { change, _ ->
-                    change.consume()
-                }
+                handleMarqueeSelection(
+                    down = down,
+                    nodes = nodes,
+                    initialSelection = initialSelection,
+                    screenToWorld = screenToWorld,
+                    additive = shiftPressed,
+                    onSelect = onSelect,
+                    onSelectNodes = onSelectNodes,
+                    onMarquee = onMarquee
+                )
 
-                if (dragStart == null) {
-                    if (!shiftPressed) {
-                        onSelect(null)
-                    }
-
-                    return@awaitEachGesture
-                }
-
-                val initialNodes = nodes()
-
-                fun updateMarquee(position: Offset) {
-                    val marquee = rectangleBetween(
-                        worldPoint,
-                        screenToWorld(position),
-                    )
-
-                    onMarquee(marquee)
-
-                    val containedIds = initialNodes
-                        .asSequence()
-                        .filter { marquee.fullyContains(it.bounds) }
-                        .map { it.id }
-                        .toSet()
-
-                    onSelectNodes(
-                        if (shiftPressed) {
-                            initialSelection + containedIds
-                        } else {
-                            containedIds
-                        }
-                    )
-                }
-
-                updateMarquee(dragStart.position)
-
-                val completed = drag(dragStart.id) { change ->
-                    updateMarquee(change.position)
-                    change.consume()
-                }
-
-                if (!completed) {
-                    onSelectNodes(initialSelection)
-                }
-
-                onMarquee(null)
                 return@awaitEachGesture
             }
 
