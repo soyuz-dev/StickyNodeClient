@@ -1,3 +1,4 @@
+
 package org.stickynodes.editor.draw.gesture
 
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -11,12 +12,14 @@ import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.isShiftPressed
 import org.stickynodes.editor.draw.geometry.ResizeHandle
 import org.stickynodes.editor.draw.geometry.bounds
-import org.stickynodes.editor.draw.geometry.translatedBy
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorShape
 import kotlin.uuid.Uuid
 
-private fun rectangleBetween(a: Offset, b: Offset) = Rect(
+private fun rectangleBetween(
+    a: Offset,
+    b: Offset,
+): Rect = Rect(
     left = minOf(a.x, b.x),
     top = minOf(a.y, b.y),
     right = maxOf(a.x, b.x),
@@ -49,16 +52,15 @@ suspend fun PointerInputScope.detectNodeInteraction(
         awaitEachGesture {
             val down = awaitFirstDown()
 
+            // Rotation takes priority over other interactions.
             val rotationId = rotationHandleAt(down.position)
 
             if (rotationId != null) {
                 val selection = selectedNodeIds()
 
-                val selected = nodes().filter {
-                    it.id in selection
-                }
-
-                val shapes = selected.filterIsInstance<EditorShape>()
+                val shapes = nodes()
+                    .filter { it.id in selection }
+                    .filterIsInstance<EditorShape>()
 
                 if (
                     rotationId in selection &&
@@ -77,6 +79,7 @@ suspend fun PointerInputScope.detectNodeInteraction(
                 }
             }
 
+            // Resize handles take priority over node movement.
             val resizeHandle = resizeHandleAt(down.position)
 
             if (resizeHandle != null) {
@@ -103,11 +106,13 @@ suspend fun PointerInputScope.detectNodeInteraction(
                 }
             }
 
+            // Regular selection, marquee and movement.
             val shiftPressed =
                 currentEvent.keyboardModifiers.isShiftPressed
 
             val worldPoint = screenToWorld(down.position)
 
+            // Reverse order ensures the topmost node is hit first.
             val hitNode = nodes()
                 .asReversed()
                 .firstOrNull { node ->
@@ -120,12 +125,14 @@ suspend fun PointerInputScope.detectNodeInteraction(
             onPreview(emptyList())
             onMarquee(null)
 
+            // Shift-click toggles a node's selection.
             if (shiftPressed && hitNode != null) {
                 onToggleSelection(hitNode.id)
                 waitForUpOrCancellation()
                 return@awaitEachGesture
             }
 
+            // Pressing empty canvas may start marquee selection.
             if (hitNode == null) {
                 val dragStart = awaitTouchSlopOrCancellation(
                     pointerId = down.id,
@@ -137,6 +144,7 @@ suspend fun PointerInputScope.detectNodeInteraction(
                     if (!shiftPressed) {
                         onSelect(null)
                     }
+
                     return@awaitEachGesture
                 }
 
@@ -180,6 +188,7 @@ suspend fun PointerInputScope.detectNodeInteraction(
                 return@awaitEachGesture
             }
 
+            // Select the node before initiating movement.
             if (!wasSelected) {
                 onSelect(hitNode.id)
             }
@@ -194,47 +203,25 @@ suspend fun PointerInputScope.detectNodeInteraction(
                 node.id in startingSelection
             }
 
-            val dragStart = awaitTouchSlopOrCancellation(
-                pointerId = down.id,
-            ) { change, _ ->
-                change.consume()
+            // Movement is handled by NodeDrag.kt.
+            // Boolean indicates whether drag slop was crossed.
+            val dragStarted = handleNodeDrag(
+                down = down,
+                nodes = originalNodes,
+                screenDeltaToWorld = screenDeltaToWorld,
+                onPreview = onPreview,
+                onCommit = onCommit,
+            )
+
+            // Clicking an already-selected node without dragging
+            // collapses a multi-selection to that node.
+            if (!dragStarted && wasSelected) {
+                onSelect(hitNode.id)
             }
-
-            if (dragStart == null) {
-                if (wasSelected) {
-                    onSelect(hitNode.id)
-                }
-                return@awaitEachGesture
-            }
-
-            var preview = emptyList<EditorNode>()
-
-            fun updatePreview(position: Offset) {
-                val delta = screenDeltaToWorld(
-                    position - down.position
-                )
-
-                preview = originalNodes.map { node ->
-                    node.translatedBy(delta)
-                }
-
-                onPreview(preview)
-            }
-
-            updatePreview(dragStart.position)
-
-            val completed = drag(dragStart.id) { change ->
-                updatePreview(change.position)
-                change.consume()
-            }
-
-            if (completed) {
-                onCommit(preview)
-            }
-
-            onPreview(emptyList())
         }
     } finally {
+        // Always clean up temporary interaction state,
+        // including when the pointer-input coroutine is cancelled.
         onPreview(emptyList())
         onMarquee(null)
     }
