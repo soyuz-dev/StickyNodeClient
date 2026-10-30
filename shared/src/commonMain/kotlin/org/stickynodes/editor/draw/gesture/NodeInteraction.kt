@@ -11,12 +11,8 @@ import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.isShiftPressed
 import org.stickynodes.editor.draw.geometry.ResizeHandle
 import org.stickynodes.editor.draw.geometry.bounds
-import org.stickynodes.editor.draw.geometry.combinedVisualBounds
 import org.stickynodes.editor.draw.geometry.resizedRotatedBy
 import org.stickynodes.editor.draw.geometry.resizedTogether
-import org.stickynodes.editor.draw.geometry.rotatedTogether
-import org.stickynodes.editor.draw.geometry.rotationAngle
-import org.stickynodes.editor.draw.geometry.snapRotation
 import org.stickynodes.editor.draw.geometry.translatedBy
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorShape
@@ -57,91 +53,28 @@ suspend fun PointerInputScope.detectNodeInteraction(
 
             val rotationId = rotationHandleAt(down.position)
 
-            if(rotationId != null) {
+            if (rotationId != null) {
                 val selection = selectedNodeIds()
 
                 val selected = nodes().filter {
                     it.id in selection
                 }
 
-                val originalShapes = selected.filterIsInstance<EditorShape>()
+                val shapes = selected.filterIsInstance<EditorShape>()
 
                 if (
                     rotationId in selection &&
-                    originalShapes.isNotEmpty() &&
-                    originalShapes.size == selection.size
+                    shapes.isNotEmpty() &&
+                    shapes.size == selection.size
                 ) {
-                    val singleShape = originalShapes.singleOrNull()
+                    handleRotationGesture(
+                        down = down,
+                        shapes = shapes,
+                        screenToWorld = screenToWorld,
+                        onPreview = onPreview,
+                        onCommit = onCommit,
+                    )
 
-                    val center = singleShape?.bounds?.center
-                        ?: originalShapes.combinedVisualBounds()!!.center
-
-                    var previousPointer = screenToWorld(down.position)
-                    var accumulatedAngle = 0f
-
-                    var preview = originalShapes
-
-                    fun updateRotation(
-                        position: Offset,
-                        snap: Boolean,
-                    ) {
-                        val currentPointer = screenToWorld(position)
-
-                        val delta = rotationAngle(
-                            center = center,
-                            start = previousPointer,
-                            current = currentPointer,
-                        )
-
-                        accumulatedAngle += delta
-                        previousPointer = currentPointer
-
-                        if (singleShape != null) {
-                            val angle = singleShape.rotation + accumulatedAngle
-
-                            preview = listOf(
-                                singleShape.withRotation(
-                                    if (snap) snapRotation(angle) else angle
-                                )
-                            )
-                        } else {
-                            val angle = if (snap) snapRotation(accumulatedAngle) else accumulatedAngle
-
-                            preview = originalShapes.rotatedTogether(
-                                angle = angle,
-                                center = center
-                            )
-                        }
-
-                        onPreview(preview)
-                    }
-
-                    val dragStart = awaitTouchSlopOrCancellation(
-                        pointerId = down.id,
-                    ) { change, _ ->
-                        change.consume()
-                    }
-
-                    if (dragStart != null) {
-                        updateRotation(
-                            position = dragStart.position,
-                            snap = currentEvent.keyboardModifiers.isShiftPressed,
-                        )
-
-                        val completed = drag(dragStart.id) { change ->
-                            updateRotation(
-                                position = change.position,
-                                snap = currentEvent.keyboardModifiers.isShiftPressed,
-                            )
-                            change.consume()
-                        }
-
-                        if (completed) {
-                            onCommit(preview)
-                        }
-                    }
-
-                    onPreview(emptyList())
                     return@awaitEachGesture
                 }
             }
