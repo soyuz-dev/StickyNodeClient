@@ -44,6 +44,7 @@ private fun EditorNode.toDto(): NodeDto = when (this) {
         y = y,
         width = width,
         height = height,
+        rotation = rotation,
         style = style.toDto(),
     )
 
@@ -53,6 +54,7 @@ private fun EditorNode.toDto(): NodeDto = when (this) {
         y = y,
         width = width,
         height = height,
+        rotation = rotation,
         style = style.toDto(),
     )
 
@@ -84,6 +86,7 @@ private fun NodeDto.toNode(): EditorNode = when (this) {
         y = y,
         width = width,
         height = height,
+        rotation = rotation,
         style = style.toStyle(),
     )
 
@@ -93,6 +96,7 @@ private fun NodeDto.toNode(): EditorNode = when (this) {
         y = y,
         width = width,
         height = height,
+        rotation = rotation,
         style = style.toStyle(),
     )
 

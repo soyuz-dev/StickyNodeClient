@@ -812,4 +812,60 @@ class SharedCommonTest {
             emptyList<EditorShape>().combinedVisualBounds()
         )
     }
+
+
+    @Test
+    fun `document preserves shape rotations through JSON round trip`() {
+        val original = EditorDocument(
+            nodes = listOf(
+                EditorRectangle(
+                    x = 10f,
+                    y = 20f,
+                    width = 100f,
+                    height = 50f,
+                    rotation = (PI / 4).toFloat(),
+                ),
+                EditorEllipse(
+                    x = 150f,
+                    y = 40f,
+                    width = 80f,
+                    height = 60f,
+                    rotation = (PI / 2).toFloat(),
+                ),
+            ),
+        )
+
+        val restored = DocumentCodec.decode(
+            DocumentCodec.encode(original)
+        )
+
+        assertEquals(original, restored)
+    }
+
+    @Test
+    fun `legacy documents without rotation remain readable`() {
+        val original = EditorDocument(
+            nodes = listOf(
+                EditorRectangle(
+                    x = 10f,
+                    y = 20f,
+                    width = 100f,
+                    height = 50f,
+                ),
+            ),
+        )
+
+        val encoded = DocumentCodec.encode(original)
+
+        // Simulate a document created before rotation existed.
+        val legacyJson = encoded.replace(
+            Regex(""","rotation"\s*:\s*[-\d.Ee+]+"""),
+            "",
+        )
+
+        val restored = DocumentCodec.decode(legacyJson)
+
+        assertEquals(original, restored)
+    }
+
 }

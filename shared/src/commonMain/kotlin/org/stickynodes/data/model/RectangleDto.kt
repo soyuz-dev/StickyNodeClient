@@ -10,6 +10,7 @@ data class RectangleDto(
     override val x: Float,
     override val y: Float,
     override val style: StyleDto,
-    val width: Float,
-    val height: Float,
-) : NodeDto
+    override val width: Float,
+    override val height: Float,
+    override val rotation: Float = 0f,
+) : ShapeDto
