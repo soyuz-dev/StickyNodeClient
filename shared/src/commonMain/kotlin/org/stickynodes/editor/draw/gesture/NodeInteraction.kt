@@ -11,8 +11,6 @@ import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.isShiftPressed
 import org.stickynodes.editor.draw.geometry.ResizeHandle
 import org.stickynodes.editor.draw.geometry.bounds
-import org.stickynodes.editor.draw.geometry.resizedRotatedBy
-import org.stickynodes.editor.draw.geometry.resizedTogether
 import org.stickynodes.editor.draw.geometry.translatedBy
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorShape
@@ -81,68 +79,26 @@ suspend fun PointerInputScope.detectNodeInteraction(
 
             val resizeHandle = resizeHandleAt(down.position)
 
-            if(resizeHandle != null) {
+            if (resizeHandle != null) {
                 val selection = selectedNodeIds()
 
-                val originalShapes = nodes()
+                val shapes = nodes()
                     .filter { it.id in selection }
                     .filterIsInstance<EditorShape>()
 
-                if(
-                    originalShapes.isNotEmpty() &&
-                    originalShapes.size == selection.size
-                    ) {
-                    var preview = listOf<EditorShape>()
+                if (
+                    shapes.isNotEmpty() &&
+                    shapes.size == selection.size
+                ) {
+                    handleResizeGesture(
+                        down = down,
+                        handle = resizeHandle,
+                        shapes = shapes,
+                        screenDeltaToWorld = screenDeltaToWorld,
+                        onPreview = onPreview,
+                        onCommit = onCommit,
+                    )
 
-
-                    fun updateResize(
-                        position: Offset,
-                        preserveAspectRatio: Boolean,
-                    ) {
-                        val delta = screenDeltaToWorld(
-                            position - down.position
-                        )
-
-                        preview = if (originalShapes.size == 1) {
-                            listOf(
-                                originalShapes.single().resizedRotatedBy(
-                                    handle = resizeHandle,
-                                    delta = delta,
-                                    proportional = preserveAspectRatio,
-                                )
-                            )
-                        } else {
-                            originalShapes.resizedTogether(
-                                handle = resizeHandle,
-                                delta = delta,
-                                proportional = preserveAspectRatio,
-                            )
-                        }
-
-                        onPreview(preview)
-                    }
-
-
-                    val dragStart = awaitTouchSlopOrCancellation(
-                        pointerId = down.id,
-                    ) { change, _ ->
-                        change.consume()
-                    }
-
-                    if (dragStart != null) {
-                        updateResize(dragStart.position, currentEvent.keyboardModifiers.isShiftPressed)
-
-                        val completed = drag(dragStart.id) { change ->
-                            updateResize(change.position, currentEvent.keyboardModifiers.isShiftPressed)
-                            change.consume()
-                        }
-
-                        if (completed) {
-                            onCommit(preview)
-                        }
-                    }
-
-                    onPreview(listOf())
                     return@awaitEachGesture
                 }
             }
