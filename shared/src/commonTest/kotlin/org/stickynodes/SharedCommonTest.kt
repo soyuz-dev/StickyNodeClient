@@ -3,27 +3,10 @@ package org.stickynodes
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import org.stickynodes.data.DocumentCodec
-import org.stickynodes.editor.draw.geometry.PathSampler
-import org.stickynodes.editor.draw.geometry.ResizeHandle
-import org.stickynodes.editor.draw.geometry.bezierSegments
-import org.stickynodes.editor.draw.geometry.bounds
-import org.stickynodes.editor.draw.geometry.combinedBounds
-import org.stickynodes.editor.draw.geometry.combinedVisualBounds
-import org.stickynodes.editor.draw.geometry.contains
-import org.stickynodes.editor.draw.geometry.containsStroke
-import org.stickynodes.editor.draw.geometry.resizeBounds
-import org.stickynodes.editor.draw.geometry.resizeBoundsProportionally
-import org.stickynodes.editor.draw.geometry.resizedRotatedBy
-import org.stickynodes.editor.draw.geometry.resizedTogether
-import org.stickynodes.editor.draw.geometry.rotatedAround
-import org.stickynodes.editor.draw.geometry.visualBounds
-import org.stickynodes.editor.draw.model.EditorEllipse
-import org.stickynodes.editor.draw.model.EditorPath
-import org.stickynodes.editor.draw.model.EditorRectangle
-import org.stickynodes.editor.draw.model.EditorShape
-import org.stickynodes.editor.draw.style.FillStyle
-import org.stickynodes.editor.draw.style.NodeStyle
-import org.stickynodes.editor.draw.style.StrokeStyle
+import org.stickynodes.editor.draw.camera.EditorCamera
+import org.stickynodes.editor.draw.geometry.*
+import org.stickynodes.editor.draw.model.*
+import org.stickynodes.editor.draw.style.*
 import org.stickynodes.editor.history.EditorDocument
 import org.stickynodes.editor.history.EditorHistory
 import kotlin.math.PI
@@ -867,5 +850,129 @@ class SharedCommonTest {
 
         assertEquals(original, restored)
     }
+
+
+    @Test
+    fun `unrotated shape has eight resize handles`() {
+        val shape = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 60f,
+        )
+
+        val positions = listOf<EditorShape>(shape)
+            .resizeHandleScreenPositions(
+                camera = EditorCamera(),
+                padding = 8f,
+            )
+
+        assertEquals(ResizeHandle.entries.toSet(), positions.keys)
+        assertEquals(8, positions.size)
+    }
+
+    @Test
+    fun `rotated resize handle follows shape orientation`() {
+        val shape = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 100f,
+            height = 40f,
+            rotation = (PI / 2).toFloat(),
+        )
+
+        val positions = listOf<EditorShape>(shape)
+            .resizeHandleScreenPositions(
+                camera = EditorCamera(),
+                padding = 0f,
+            )
+
+        val east = positions.getValue(ResizeHandle.E)
+
+        assertEquals(50f, east.x, 0.0001f)
+        assertEquals(70f, east.y, 0.0001f)
+    }
+
+    @Test
+    fun `resize hit testing matches rendered handle position`() {
+        val shapes = listOf<EditorShape>(
+            EditorRectangle(
+                x = 0f,
+                y = 0f,
+                width = 100f,
+                height = 40f,
+                rotation = (PI / 4).toFloat(),
+            ),
+        )
+
+        val camera = EditorCamera()
+        val padding = 8f
+
+        val handlePosition = shapes.resizeHandleScreenPositions(
+            camera = camera,
+            padding = padding,
+        ).getValue(ResizeHandle.SE)
+
+        assertEquals(
+            ResizeHandle.SE,
+            shapes.resizeHandleAt(
+                pointer = handlePosition,
+                camera = camera,
+                padding = padding,
+                radius = 10f,
+            ),
+        )
+    }
+
+    @Test
+    fun `group rotation handle lies above visual bounds`() {
+        val shapes = listOf<EditorShape>(
+            EditorRectangle(
+                x = 0f,
+                y = 0f,
+                width = 100f,
+                height = 20f,
+                rotation = (PI / 2).toFloat(),
+            ),
+            EditorEllipse(
+                x = 150f,
+                y = 30f,
+                width = 40f,
+                height = 40f,
+            ),
+        )
+
+        val visualBounds = shapes.combinedVisualBounds()!!
+
+        val handle = shapes.rotationHandleScreenPosition(
+            camera = EditorCamera(),
+            offset = 28f,
+        )!!
+
+        assertEquals(visualBounds.center.x, handle.x, 0.0001f)
+        assertEquals(visualBounds.top - 28f, handle.y, 0.0001f)
+    }
+
+    @Test
+    fun `rotation handle hit testing rejects distant pointer`() {
+        val shapes = listOf<EditorShape>(
+            EditorRectangle(
+                x = 0f,
+                y = 0f,
+                width = 100f,
+                height = 40f,
+            )
+        )
+
+        assertFalse(
+            shapes.isRotationHandleHit(
+                pointer = Offset(500f, 500f),
+                camera = EditorCamera(),
+                offset = 28f,
+                radius = 12f,
+            )
+        )
+    }
+
 
 }
