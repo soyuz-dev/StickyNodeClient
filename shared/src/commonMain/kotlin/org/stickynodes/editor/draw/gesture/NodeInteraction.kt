@@ -11,8 +11,10 @@ import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.isShiftPressed
 import org.stickynodes.editor.draw.geometry.ResizeHandle
 import org.stickynodes.editor.draw.geometry.bounds
+import org.stickynodes.editor.draw.geometry.combinedVisualBounds
 import org.stickynodes.editor.draw.geometry.resizedRotatedBy
 import org.stickynodes.editor.draw.geometry.resizedTogether
+import org.stickynodes.editor.draw.geometry.rotatedTogether
 import org.stickynodes.editor.draw.geometry.rotationAngle
 import org.stickynodes.editor.draw.geometry.snapRotation
 import org.stickynodes.editor.draw.geometry.translatedBy
@@ -53,26 +55,31 @@ suspend fun PointerInputScope.detectNodeInteraction(
         awaitEachGesture {
             val down = awaitFirstDown()
 
-
             val rotationId = rotationHandleAt(down.position)
 
-            if (rotationId != null) {
-                val originalShape = nodes()
-                    .firstOrNull { it.id == rotationId } as? EditorShape
+            if(rotationId != null) {
+                val selection = selectedNodeIds()
 
-                // Only a single selected shape can be rotated for now.
+                val selected = nodes().filter {
+                    it.id in selection
+                }
+
+                val originalShapes = selected.filterIsInstance<EditorShape>()
+
                 if (
-                    originalShape != null &&
-                    selectedNodeIds() == setOf(rotationId)
+                    rotationId in selection &&
+                    originalShapes.isNotEmpty() &&
+                    originalShapes.size == selection.size
                 ) {
-                    val center = originalShape.bounds.center
+                    val singleShape = originalShapes.singleOrNull()
 
-                    // Keep an accumulated angle so dragging through 180 degrees
-                    // doesn't jump back to the opposite direction.
+                    val center = singleShape?.bounds?.center
+                        ?: originalShapes.combinedVisualBounds()!!.center
+
                     var previousPointer = screenToWorld(down.position)
                     var accumulatedAngle = 0f
 
-                    var preview: EditorShape? = null
+                    var preview = originalShapes
 
                     fun updateRotation(
                         position: Offset,
@@ -89,13 +96,24 @@ suspend fun PointerInputScope.detectNodeInteraction(
                         accumulatedAngle += delta
                         previousPointer = currentPointer
 
-                        val angle = originalShape.rotation + accumulatedAngle
+                        if (singleShape != null) {
+                            val angle = singleShape.rotation + accumulatedAngle
 
-                        preview = originalShape.withRotation(
-                            if (snap) snapRotation(angle) else angle
-                        )
+                            preview = listOf(
+                                singleShape.withRotation(
+                                    if (snap) snapRotation(angle) else angle
+                                )
+                            )
+                        } else {
+                            val angle = if (snap) snapRotation(accumulatedAngle) else accumulatedAngle
 
-                        onPreview(listOf(preview))
+                            preview = originalShapes.rotatedTogether(
+                                angle = angle,
+                                center = center
+                            )
+                        }
+
+                        onPreview(preview)
                     }
 
                     val dragStart = awaitTouchSlopOrCancellation(
@@ -119,9 +137,7 @@ suspend fun PointerInputScope.detectNodeInteraction(
                         }
 
                         if (completed) {
-                            preview?.let {
-                                onCommit(listOf(it))
-                            }
+                            onCommit(preview)
                         }
                     }
 
@@ -129,7 +145,6 @@ suspend fun PointerInputScope.detectNodeInteraction(
                     return@awaitEachGesture
                 }
             }
-
 
             val resizeHandle = resizeHandleAt(down.position)
 

@@ -66,3 +66,25 @@ fun EditorShape.rotatedBy(
         if (snap) snapRotation(angle) else angle
     )
 }
+
+
+
+fun List<EditorShape>.rotatedTogether(
+    angle: Float,
+    center: Offset,
+): List<EditorShape> = map { shape ->
+    val originalCenter = shape.bounds.center
+
+    val rotatedCenter = originalCenter.rotatedAround(
+        center = center,
+        angle = angle,
+    )
+
+    val delta = rotatedCenter - originalCenter
+
+    val newBounds = shape.bounds.translate(delta)
+
+    shape.withBounds(newBounds).withRotation(
+        shape.rotation + angle
+    )
+}

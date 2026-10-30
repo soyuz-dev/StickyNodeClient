@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import org.stickynodes.editor.draw.camera.EditorCamera
 import org.stickynodes.editor.draw.geometry.ResizeHandle
 import org.stickynodes.editor.draw.geometry.combinedBounds
+import org.stickynodes.editor.draw.geometry.combinedVisualBounds
 import org.stickynodes.editor.draw.geometry.contains
 import org.stickynodes.editor.draw.geometry.hitTestResizeHandle
 import org.stickynodes.editor.draw.geometry.layoutStyle
@@ -109,7 +110,11 @@ fun EditorCanvas(
         camera: EditorCamera,
         padding: Float
     ): Map<ResizeHandle, Offset> {
-        val bounds = shapes.combinedBounds() ?: return emptyMap()
+        val bounds = if (shapes.size == 1) {
+            shapes.single().bounds
+        } else {
+            shapes.combinedVisualBounds()
+        } ?: return emptyMap()
 
         val screenBounds = Rect(
             camera.worldToScreen(bounds.topLeft),
@@ -274,25 +279,50 @@ fun EditorCanvas(
                                     }?.key
                                 }
                             },
+
                             rotationHandleAt = { screenPoint ->
                                 val selected = currentNodes.filter {
                                     it.id in currentSelectedNodeIds
                                 }
 
-                                val shape = selected.singleOrNull() as? EditorShape
+                                val shapes = selected.filterIsInstance<EditorShape>()
 
-                                shape?.takeIf {
-                                    val handlePosition = it.rotationHandlePosition(
+                                if (
+                                    selected.isEmpty() ||
+                                    shapes.size != selected.size
+                                ) {
+                                    null
+                                } else {
+                                    val singleShape = shapes.singleOrNull()
+
+                                    val handlePosition = singleShape?.rotationHandlePosition(
                                         camera = currentCamera,
-                                        offset = with(density) { 28.dp.toPx() }
+                                        offset = with(density) { 28.dp.toPx() },
                                     )
+                                        ?: shapes.combinedVisualBounds()?.let { bounds ->
+                                            currentCamera.worldToScreen(
+                                                Offset(bounds.center.x, bounds.top)
+                                            ) - Offset(
+                                                0f,
+                                                with(density) { 28.dp.toPx() },
+                                            )
+                                        }
 
                                     val radius = with(density) { 12.dp.toPx() }
 
-                                    (screenPoint - handlePosition).getDistanceSquared() <= radius * radius
-                                }?.id
-                            }
-                        )
+                                    if (
+                                        handlePosition != null &&
+                                        (screenPoint - handlePosition).getDistanceSquared() <=
+                                        radius * radius
+                                    ) {
+                                        shapes.first().id
+                                    } else {
+                                        null
+                                    }
+                                }
+                            },
+
+                            )
                     }
 
                     EditorTool.PAN -> {
@@ -417,7 +447,8 @@ fun EditorCanvas(
 
                 val singleShape = displayedShapes.singleOrNull()
 
-                displayedShapes.combinedBounds()?.let { bounds ->
+                val selectionBounds = singleShape?.bounds ?: displayedShapes.combinedVisualBounds()
+                selectionBounds?.let { bounds ->
                     val screenBounds = Rect(
                         camera.worldToScreen(bounds.topLeft),
                         camera.worldToScreen(
@@ -458,7 +489,7 @@ fun EditorCanvas(
                         )
                     }
 
-// Draw the eight resize handles in screen space.
+                    // Draw the eight resize handles in screen space.
                     if (canResize) {
                         val positions = resizeHandleScreenPositions(
                             shapes = displayedShapes,
@@ -491,28 +522,36 @@ fun EditorCanvas(
 
                 }
 
-                // One circular rotation handle for one selected shape.
-                singleShape?.let { shape ->
-                    val handlePosition = shape.rotationHandlePosition(
-                        camera = camera,
-                        offset = 28.dp.toPx(),
-                    )
 
+                val rotationHandlePosition = singleShape?.rotationHandlePosition(
+                    camera = camera,
+                    offset = 28.dp.toPx(),
+                )
+                    ?: displayedShapes.combinedVisualBounds()?.let { bounds ->
+                        val topCenter = Offset(
+                            x = bounds.center.x,
+                            y = bounds.top,
+                        )
+
+                        camera.worldToScreen(topCenter) -
+                                Offset(0f, 28.dp.toPx())
+                    }
+
+                rotationHandlePosition?.let { position ->
                     drawCircle(
                         color = Color.White,
                         radius = 7.dp.toPx(),
-                        center = handlePosition,
+                        center = position,
                     )
 
                     drawCircle(
                         color = selectionColor,
                         radius = 7.dp.toPx(),
-                        center = handlePosition,
-                        style = Stroke(
-                            width = 1.5.dp.toPx()
-                        ),
+                        center = position,
+                        style = Stroke(width = 1.5.dp.toPx()),
                     )
                 }
+
             }
         }
     }

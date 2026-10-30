@@ -8,6 +8,7 @@ import org.stickynodes.editor.draw.geometry.ResizeHandle
 import org.stickynodes.editor.draw.geometry.bezierSegments
 import org.stickynodes.editor.draw.geometry.bounds
 import org.stickynodes.editor.draw.geometry.combinedBounds
+import org.stickynodes.editor.draw.geometry.combinedVisualBounds
 import org.stickynodes.editor.draw.geometry.contains
 import org.stickynodes.editor.draw.geometry.containsStroke
 import org.stickynodes.editor.draw.geometry.resizeBounds
@@ -15,6 +16,7 @@ import org.stickynodes.editor.draw.geometry.resizeBoundsProportionally
 import org.stickynodes.editor.draw.geometry.resizedRotatedBy
 import org.stickynodes.editor.draw.geometry.resizedTogether
 import org.stickynodes.editor.draw.geometry.rotatedAround
+import org.stickynodes.editor.draw.geometry.visualBounds
 import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorPath
 import org.stickynodes.editor.draw.model.EditorRectangle
@@ -743,4 +745,71 @@ class SharedCommonTest {
         }
     }
 
+
+    @Test
+    fun `unrotated visual bounds equal logical bounds`() {
+        val rectangle = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 40f,
+        )
+
+        assertEquals(rectangle.bounds, rectangle.visualBounds)
+    }
+
+    @Test
+    fun `ninety degree rotation swaps visual dimensions`() {
+        val rectangle = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 100f,
+            height = 40f,
+            rotation = (PI / 2).toFloat(),
+        )
+
+        val visual = rectangle.visualBounds
+
+        assertEquals(40f, visual.width, 0.0001f)
+        assertEquals(100f, visual.height, 0.0001f)
+        assertEquals(rectangle.bounds.center.x, visual.center.x, 0.0001f)
+        assertEquals(rectangle.bounds.center.y, visual.center.y, 0.0001f)
+    }
+
+    @Test
+    fun `combined visual bounds enclose rotated shapes`() {
+        val shapes = listOf<EditorShape>(
+            EditorRectangle(
+                x = 0f,
+                y = 0f,
+                width = 100f,
+                height = 20f,
+                rotation = (PI / 2).toFloat(),
+            ),
+            EditorEllipse(
+                x = 120f,
+                y = 0f,
+                width = 40f,
+                height = 40f,
+            ),
+        )
+
+        val combined = shapes.combinedVisualBounds()!!
+
+        for (shape in shapes) {
+            val visual = shape.visualBounds
+
+            assertTrue(combined.left <= visual.left)
+            assertTrue(combined.top <= visual.top)
+            assertTrue(combined.right >= visual.right)
+            assertTrue(combined.bottom >= visual.bottom)
+        }
+    }
+
+    @Test
+    fun `empty selection has no combined visual bounds`() {
+        assertNull(
+            emptyList<EditorShape>().combinedVisualBounds()
+        )
+    }
 }
