@@ -5,6 +5,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
+import org.stickynodes.editor.draw.geometry.duplicatedBy
 import org.stickynodes.editor.draw.geometry.withStyle
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.style.NodeStyle
@@ -171,6 +173,27 @@ class EditorDocumentState(
     private fun validateSelection() {
         val existingIds = nodes.mapTo(mutableSetOf()) { it.id }
         selectedNodeIds = selectedNodeIds.intersect(existingIds)
+    }
+
+    fun duplicateSelectedNodes(
+        offset: Offset = Offset(20f, 20f)
+    ) {
+        if (selectedNodeIds.isEmpty()) return
+
+        val originals = nodes.filter { node ->
+            node.id in selectedNodeIds
+        }
+
+        if (originals.isEmpty()) return
+
+        val duplicates = originals.map { node ->
+            node.duplicatedBy(offset)
+        }
+
+        commitNodes(nodes + duplicates)
+
+        selectedNodeIds = duplicates
+            .mapTo(mutableSetOf()) { it.id }
     }
 }
 

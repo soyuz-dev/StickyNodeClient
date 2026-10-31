@@ -2,19 +2,21 @@ package org.stickynodes
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.unit.IntSize
 import org.stickynodes.data.DocumentCodec
 import org.stickynodes.editor.draw.camera.EditorCamera
 import org.stickynodes.editor.draw.geometry.*
 import org.stickynodes.editor.draw.model.*
 import org.stickynodes.editor.draw.style.*
-import org.stickynodes.editor.history.EditorDocument
-import org.stickynodes.editor.history.EditorHistory
+import org.stickynodes.editor.history.*
 import kotlin.math.PI
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.uuid.Uuid
 
 class SharedCommonTest {
 
@@ -1007,4 +1009,188 @@ class SharedCommonTest {
         assertEquals(ellipse.visualBounds, ellipse.selectionBounds)
     }
 
+
+
+    @Test
+    fun `fit to nodes contains rotated rectangle`() {
+        val rectangle = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 200f,
+            height = 40f,
+            rotation = (PI / 4).toFloat(),
+        )
+
+        val camera = EditorCamera().fitToNodes(
+            nodes = listOf(rectangle),
+            viewport = IntSize(400, 400),
+            padding = 32f,
+        )
+
+        val bounds = rectangle.selectionBounds
+
+        val topLeft = camera.worldToScreen(bounds.topLeft)
+        val bottomRight = camera.worldToScreen(bounds.bottomRight)
+
+        assertTrue(topLeft.x >= 32f - 0.001f)
+        assertTrue(topLeft.y >= 32f - 0.001f)
+        assertTrue(bottomRight.x <= 368f + 0.001f)
+        assertTrue(bottomRight.y <= 368f + 0.001f)
+    }
+
+    @Test
+    fun `fit to nodes contains multiple rotated shapes`() {
+        val shapes = listOf(
+            EditorRectangle(
+                x = -100f,
+                y = 0f,
+                width = 100f,
+                height = 40f,
+                rotation = (PI / 3).toFloat(),
+            ),
+            EditorEllipse(
+                x = 200f,
+                y = 150f,
+                width = 120f,
+                height = 80f,
+                rotation = (PI / 6).toFloat(),
+            ),
+        )
+
+        val camera = EditorCamera().fitToNodes(
+            nodes = shapes,
+            viewport = IntSize(600, 400),
+            padding = 24f,
+        )
+
+        for (shape in shapes) {
+            val bounds = shape.selectionBounds
+
+            val topLeft = camera.worldToScreen(bounds.topLeft)
+            val bottomRight = camera.worldToScreen(bounds.bottomRight)
+
+            assertTrue(topLeft.x >= 24f - 0.001f)
+            assertTrue(topLeft.y >= 24f - 0.001f)
+            assertTrue(bottomRight.x <= 576f + 0.001f)
+            assertTrue(bottomRight.y <= 376f + 0.001f)
+        }
+    }
+
+
+
+    @Test
+    fun `duplicating rotated rectangle preserves geometry and style`() {
+        val original = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 60f,
+            rotation = (PI / 4).toFloat(),
+        )
+
+        val newId = Uuid.random()
+
+        val duplicate = original.duplicatedBy(
+            offset = Offset(20f, 20f),
+            newId = newId,
+        ) as EditorRectangle
+
+        assertEquals(newId, duplicate.id)
+        assertEquals(30f, duplicate.x)
+        assertEquals(40f, duplicate.y)
+        assertEquals(original.width, duplicate.width)
+        assertEquals(original.height, duplicate.height)
+        assertEquals(original.rotation, duplicate.rotation)
+        assertEquals(original.style, duplicate.style)
+
+        // The original must remain unchanged.
+        assertEquals(10f, original.x)
+        assertEquals(20f, original.y)
+    }
+
+    @Test
+    fun `duplicating path preserves local points`() {
+        val original = EditorPath(
+            x = 50f,
+            y = 60f,
+            points = listOf(
+                Offset.Zero,
+                Offset(20f, 10f),
+                Offset(40f, 30f),
+            ),
+        )
+
+        val duplicate = original.duplicatedBy(
+            offset = Offset(15f, -10f),
+        ) as EditorPath
+
+        assertNotEquals(original.id, duplicate.id)
+        assertEquals(65f, duplicate.x)
+        assertEquals(50f, duplicate.y)
+        assertEquals(original.points, duplicate.points)
+        assertEquals(original.style, duplicate.style)
+    }
+
+
+    @Test
+    fun `duplicating selection adds copies and selects them`() {
+        val rectangle = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 50f,
+        )
+
+        val state = EditorDocumentState(
+            EditorDocument(nodes = listOf(rectangle))
+        )
+
+        state.selectNode(rectangle.id)
+        state.duplicateSelectedNodes(Offset(20f, 20f))
+
+        assertEquals(2, state.nodes.size)
+
+        val duplicate = state.nodes.last() as EditorRectangle
+
+        assertNotEquals(rectangle.id, duplicate.id)
+        assertEquals(30f, duplicate.x)
+        assertEquals(40f, duplicate.y)
+        assertEquals(setOf(duplicate.id), state.selectedNodeIds)
+    }
+
+    @Test
+    fun `duplicating multiple nodes creates one undo entry`() {
+        val rectangle = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 100f,
+            height = 50f,
+        )
+
+        val ellipse = EditorEllipse(
+            x = 120f,
+            y = 20f,
+            width = 60f,
+            height = 60f,
+        )
+
+        val state = EditorDocumentState(
+            EditorDocument(nodes = listOf(rectangle, ellipse))
+        )
+
+        state.selectNodes(setOf(rectangle.id, ellipse.id))
+        state.duplicateSelectedNodes()
+
+        assertEquals(4, state.nodes.size)
+        assertEquals(2, state.selectedNodeIds.size)
+
+        state.undo()
+
+        assertEquals(listOf(rectangle, ellipse), state.nodes)
+        assertFalse(state.canUndo)
+
+        state.redo()
+
+        assertEquals(4, state.nodes.size)
+    }
 }
