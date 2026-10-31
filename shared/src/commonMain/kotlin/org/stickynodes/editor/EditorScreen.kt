@@ -293,12 +293,7 @@ fun EditorScreen(
                             }
                         }
 
-                        event.isCtrlPressed && (event.key == Key.Y ||
-                                                (
-                                                        event.key == Key.Z &&
-                                                                event.isShiftPressed
-                                                        )
-                                        ) -> {
+                        event.isCtrlPressed && (event.key == Key.Y || (event.key == Key.Z && event.isShiftPressed)) -> {
                             if (documentState.canRedo) {
                                 documentState.redo()
                                 true
@@ -332,6 +327,18 @@ fun EditorScreen(
                                 }
 
                                 else -> false
+                            }
+                        }
+
+                        event.isCtrlPressed &&
+                                !event.isShiftPressed &&
+                                !event.isAltPressed &&
+                                event.key == Key.D -> {
+                            if (selectedNodeIds.isNotEmpty()) {
+                                documentState.duplicateSelectedNodes()
+                                true
+                            } else {
+                                false
                             }
                         }
 
