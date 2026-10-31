@@ -219,6 +219,15 @@ fun EditorScreen(
                 selectTool(shortcut.tool)
                 true
             }
+
+            is EditorShortcut.Nudge -> {
+                if (documentState.selectedNodeIds.isNotEmpty()) {
+                    documentState.nudgeSelectedNodes(shortcut.delta)
+                    true
+                } else {
+                    false
+                }
+            }
         }
 
 

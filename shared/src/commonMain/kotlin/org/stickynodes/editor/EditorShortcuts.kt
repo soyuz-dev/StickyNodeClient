@@ -1,6 +1,7 @@
 
 package org.stickynodes.editor
 
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
@@ -24,6 +25,8 @@ sealed interface EditorShortcut {
     data class SelectTool(
         val tool: EditorTool,
     ) : EditorShortcut
+
+    data class Nudge(val delta: Offset) : EditorShortcut
 }
 
 fun KeyEvent.editorShortcut(): EditorShortcut? {
@@ -70,6 +73,18 @@ fun KeyEvent.editorShortcut(): EditorShortcut? {
                 return EditorShortcut.SelectTool(tool)
             }
         }
+
+        val distance = if (shift) 10f else 1f
+
+        val delta = when (key) {
+            Key.DirectionLeft -> Offset(-distance, 0f)
+            Key.DirectionRight -> Offset(distance, 0f)
+            Key.DirectionUp -> Offset(0f, -distance)
+            Key.DirectionDown -> Offset(0f, distance)
+            else -> null
+        }
+
+        if (delta != null) return EditorShortcut.Nudge(delta)
     }
 
     return null

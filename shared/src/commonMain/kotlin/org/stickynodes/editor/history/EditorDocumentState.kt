@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import org.stickynodes.editor.draw.geometry.duplicatedBy
+import org.stickynodes.editor.draw.geometry.translatedBy
 import org.stickynodes.editor.draw.geometry.withStyle
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.style.NodeStyle
@@ -194,6 +195,16 @@ class EditorDocumentState(
 
         selectedNodeIds = duplicates
             .mapTo(mutableSetOf()) { it.id }
+    }
+
+    fun nudgeSelectedNodes(delta: Offset) {
+        if (selectedNodeIds.isEmpty()) return
+
+        val updated = nodes
+            .filter { it.id in selectedNodeIds }
+            .map { it.translatedBy(delta) }
+
+        updateNodes(updated)
     }
 }
 
