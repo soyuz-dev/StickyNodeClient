@@ -170,6 +170,8 @@ Build the Android debug APK:
 ./gradlew :androidApp:assembleDebug
 ```
 
+Alternatively, run the Android app directly from IntelliJ IDEA or Android Studio using a connected device or emulator, or install the APK using ADB.
+
 Android and iOS are not currently part of the published desktop releases.
 
 ## Architecture
