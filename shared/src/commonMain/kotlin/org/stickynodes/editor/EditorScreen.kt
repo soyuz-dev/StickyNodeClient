@@ -525,11 +525,16 @@ fun EditorScreen(
                 enter = fadeIn(tween(180)),
                 exit = fadeOut(tween(120))
             ) {
+
                 ArrangementBar(
+                    canBringToFront = documentState.canBringSelectionToFront,
+                    canBringForward = documentState.canBringSelectionForward,
+                    canSendBackward = documentState.canSendSelectionBackward,
+                    canSendToBack = documentState.canSendSelectionToBack,
+                    onBringToFront = documentState::bringSelectionToFront,
                     onBringForward = documentState::bringSelectionForward,
                     onSendBackward = documentState::sendSelectionBackward,
-                    onBringToFront = documentState::bringSelectionToFront,
-                    onSendToBack = documentState::sendSelectionToBack
+                    onSendToBack = documentState::sendSelectionToBack,
                 )
             }
 

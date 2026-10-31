@@ -63,6 +63,24 @@ class EditorDocumentState(
     val canRedo: Boolean
         get() = history.canRedo
 
+
+    val canBringSelectionForward: Boolean
+        get() = selectedNodeIds.isNotEmpty() &&
+                nodes.bringForward(selectedNodeIds) != nodes
+
+    val canBringSelectionToFront: Boolean
+        get() = selectedNodeIds.isNotEmpty() &&
+                nodes.bringToFront(selectedNodeIds) != nodes
+
+    val canSendSelectionBackward: Boolean
+        get() = selectedNodeIds.isNotEmpty() &&
+                nodes.sendBackward(selectedNodeIds) != nodes
+
+    val canSendSelectionToBack: Boolean
+        get() = selectedNodeIds.isNotEmpty() &&
+                nodes.sendToBack(selectedNodeIds) != nodes
+
+
     private var nudgeStartNodes: List<EditorNode>? = null
     private var nudgeDelta = Offset.Zero
     private var nudgeSelectedIds: Set<Uuid>? = null

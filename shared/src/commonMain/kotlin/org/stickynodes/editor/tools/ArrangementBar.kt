@@ -20,6 +20,10 @@ fun ArrangementBar(
     onBringForward: () -> Unit,
     onSendBackward: () -> Unit,
     onSendToBack: () -> Unit,
+    canBringToFront: Boolean = true,
+    canBringForward: Boolean = true,
+    canSendBackward: Boolean = true,
+    canSendToBack: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -34,29 +38,35 @@ fun ArrangementBar(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+
             ActionBarButton(
                 icon = "vertical_align_top",
                 tooltip = "Bring to front",
+                enabled = canBringToFront,
                 onClick = onBringToFront,
             )
 
             ActionBarButton(
                 icon = "arrow_upward",
                 tooltip = "Bring forward",
+                enabled = canBringForward,
                 onClick = onBringForward,
             )
 
             ActionBarButton(
                 icon = "arrow_downward",
                 tooltip = "Send backward",
+                enabled = canSendBackward,
                 onClick = onSendBackward,
             )
 
             ActionBarButton(
                 icon = "vertical_align_bottom",
                 tooltip = "Send to back",
+                enabled = canSendToBack,
                 onClick = onSendToBack,
             )
+
         }
     }
 }

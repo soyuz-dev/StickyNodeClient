@@ -1506,4 +1506,60 @@ class SharedCommonTest {
         assertEquals(nodes, nodes.sendBackward(emptySet()))
     }
 
+
+    @Test
+    fun `arrangement availability respects stacking boundaries`() {
+        val bottom = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 10f,
+            height = 10f,
+        )
+
+        val middle = EditorRectangle(
+            x = 20f,
+            y = 0f,
+            width = 10f,
+            height = 10f,
+        )
+
+        val top = EditorRectangle(
+            x = 40f,
+            y = 0f,
+            width = 10f,
+            height = 10f,
+        )
+
+        val state = EditorDocumentState(
+            EditorDocument(nodes = listOf(bottom, middle, top))
+        )
+
+        state.selectNode(top.id)
+
+        assertFalse(state.canBringSelectionForward)
+        assertFalse(state.canBringSelectionToFront)
+        assertTrue(state.canSendSelectionBackward)
+        assertTrue(state.canSendSelectionToBack)
+
+        state.selectNode(bottom.id)
+
+        assertTrue(state.canBringSelectionForward)
+        assertTrue(state.canBringSelectionToFront)
+        assertFalse(state.canSendSelectionBackward)
+        assertFalse(state.canSendSelectionToBack)
+
+        state.selectNode(middle.id)
+
+        assertTrue(state.canBringSelectionForward)
+        assertTrue(state.canBringSelectionToFront)
+        assertTrue(state.canSendSelectionBackward)
+        assertTrue(state.canSendSelectionToBack)
+
+        state.clearSelection()
+
+        assertFalse(state.canBringSelectionForward)
+        assertFalse(state.canBringSelectionToFront)
+        assertFalse(state.canSendSelectionBackward)
+        assertFalse(state.canSendSelectionToBack)
+    }
 }
