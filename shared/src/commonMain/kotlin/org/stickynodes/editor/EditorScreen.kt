@@ -14,6 +14,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +42,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -511,27 +513,47 @@ fun EditorScreen(
             )
         }
 
-        EditorActionBar(
-            canUndo = documentState.canUndo,
-            canRedo = documentState.canRedo,
-            zoom = cameraState.camera.zoom,
-            onUndo = documentState::undo,
-            onRedo = documentState::redo,
-            onZoomReset = cameraState::resetZoom,
-            onZoomIn = cameraState::zoomIn,
-            onZoomOut = cameraState::zoomOut,
-            onFitToContent = {
-                cameraState.fitToNodes(
-                    nodes = documentState.nodes,
-                    padding = with(density) { 64.dp.toPx() },
-                )
-            },
-            onOpen = ::open,
-            onSave = ::save,
+        Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 16.dp),
-        )
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AnimatedVisibility(
+                visible = selectedNodeIds.isNotEmpty(),
+                enter = fadeIn(tween(180)),
+                exit = fadeOut(tween(120))
+            ) {
+                ArrangementBar(
+                    onBringForward = documentState::bringSelectionForward,
+                    onSendBackward = documentState::sendSelectionBackward,
+                    onBringToFront = documentState::bringSelectionToFront,
+                    onSendToBack = documentState::sendSelectionToBack
+                )
+            }
+
+            EditorActionBar(
+                canUndo = documentState.canUndo,
+                canRedo = documentState.canRedo,
+                zoom = cameraState.camera.zoom,
+                onUndo = documentState::undo,
+                onRedo = documentState::redo,
+                onZoomReset = cameraState::resetZoom,
+                onZoomIn = cameraState::zoomIn,
+                onZoomOut = cameraState::zoomOut,
+                onFitToContent = {
+                    cameraState.fitToNodes(
+                        nodes = documentState.nodes,
+                        padding = with(density) { 64.dp.toPx() },
+                    )
+                },
+                onOpen = ::open,
+                onSave = ::save,
+            )
+        }
+
+
 
         Column(
             modifier = Modifier

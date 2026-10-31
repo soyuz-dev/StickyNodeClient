@@ -2,11 +2,16 @@ package org.stickynodes.editor.history
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.internal.composableLambdaInstance
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
+import org.stickynodes.editor.draw.geometry.bringForward
+import org.stickynodes.editor.draw.geometry.bringToFront
 import org.stickynodes.editor.draw.geometry.duplicatedBy
+import org.stickynodes.editor.draw.geometry.sendBackward
+import org.stickynodes.editor.draw.geometry.sendToBack
 import org.stickynodes.editor.draw.geometry.translatedBy
 import org.stickynodes.editor.draw.geometry.withStyle
 import org.stickynodes.editor.draw.model.EditorNode
@@ -252,6 +257,26 @@ class EditorDocumentState(
         nudgeSelectedIds = null
         nudgeDelta = Offset.Zero
         nudgePreviewNodes = null
+    }
+
+    fun bringSelectionForward() {
+        if(selectedNodeIds.isEmpty()) return
+        commitNodes(nodes.bringForward(selectedNodeIds))
+    }
+
+    fun sendSelectionBackward() {
+        if(selectedNodeIds.isEmpty()) return
+        commitNodes(nodes.sendBackward(selectedNodeIds))
+    }
+
+    fun bringSelectionToFront() {
+        if(selectedNodeIds.isEmpty()) return
+        commitNodes(nodes.bringToFront(selectedNodeIds))
+    }
+
+    fun sendSelectionToBack() {
+        if(selectedNodeIds.isEmpty()) return
+        commitNodes(nodes.sendToBack(selectedNodeIds))
     }
 
 }
