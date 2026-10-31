@@ -421,6 +421,11 @@ fun EditorScreen(
         ) {
             EditorToolbar(
                 selectedTool = selectedTool,
+                canDelete = selectedNodeIds.isNotEmpty(),
+                onDelete = {
+                    documentState.deleteSelectedNodes()
+                    focusRequester.requestFocus()
+                },
                 onToolSelected = { tool ->
                     selectTool(tool)
                     focusRequester.requestFocus()

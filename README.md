@@ -47,25 +47,25 @@ The document format is still evolving and may change during development.
 
 ## Keyboard shortcuts
 
-| Shortcut | Action |
-|---|---|
-| `S` | Selection tool |
-| `R` | Rectangle tool |
-| `E` | Ellipse tool |
-| `D` | Freehand drawing tool |
-| `T` | Text tool |
-| `W` | Pan tool |
-| `Ctrl+D` | Duplicate selection |
-| `Ctrl+Z` | Undo |
-| `Ctrl+Y` / `Ctrl+Shift+Z` | Redo |
-| `Ctrl+S` | Save document |
-| `Ctrl+O` | Open document |
-| `Delete` | Delete selection |
-| `Escape` | Clear selection or return to selection tool |
-| `Shift+Click` | Toggle an object in the selection |
-| `Shift+Drag` on empty canvas | Add objects using marquee selection |
-| `Shift+Resize` | Preserve aspect ratio |
-| `Shift+Rotate` | Snap rotation to 15° increments |
+| Shortcut                     | Action                                      |
+|------------------------------|---------------------------------------------|
+| `S`                          | Selection tool                              |
+| `R`                          | Rectangle tool                              |
+| `E`                          | Ellipse tool                                |
+| `D`                          | Freehand drawing tool                       |
+| `T`                          | Text tool                                   |
+| `W`                          | Pan tool                                    |
+| `Ctrl+D`                     | Duplicate selection                         |
+| `Ctrl+Z`                     | Undo                                        |
+| `Ctrl+Y` / `Ctrl+Shift+Z`    | Redo                                        |
+| `Ctrl+S`                     | Save document                               |
+| `Ctrl+O`                     | Open document                               |
+| `Delete`                     | Delete selection                            |
+| `Escape`                     | Clear selection or return to selection tool |
+| `Shift+Click`                | Toggle an object in the selection           |
+| `Shift+Drag` on empty canvas | Add objects using marquee selection         |
+| `Shift+Resize`               | Preserve aspect ratio                       |
+| `Shift+Rotate`               | Snap rotation to 15° increments             |
 
 These shortcuts describe the current Ctrl-based implementation, primarily used on desktop. Browser and operating-system shortcuts may interfere with certain combinations.
 
@@ -85,12 +85,12 @@ Download a build from [GitHub Releases](https://github.com/soyuz-dev/StickyNodeC
 
 Desktop builds are provided for:
 
-| Platform | Architecture |
-|---|---|
-| Windows | x64 |
-| Linux | x64 |
-| macOS | ARM64 (Apple Silicon) |
-| macOS | x64 (Intel) |
+| Platform | Architecture          |
+|----------|-----------------------|
+| Windows  | x64                   |
+| Linux    | x64                   |
+| macOS    | ARM64 (Apple Silicon) |
+| macOS    | x64 (Intel)           |
 
 Desktop releases are currently distributed as executable JAR files and require a compatible Java runtime.
 

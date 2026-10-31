@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import org.stickynodes.editor.tools.components.DeleteButton
 import org.stickynodes.editor.tools.components.ToolButton
 
 @Composable
@@ -23,6 +24,8 @@ fun EditorToolbar(
     selectedTool: EditorTool,
     modifier: Modifier = Modifier,
     orientation: ToolbarOrientation = ToolbarOrientation.VERTICAL,
+    canDelete: Boolean = false,
+    onDelete: () -> Unit = {},
     onToolSelected: (EditorTool) -> Unit,
 ) {
     Surface(
@@ -60,6 +63,26 @@ fun EditorToolbar(
                     }
                 }
             }
+
+            if (orientation == ToolbarOrientation.VERTICAL) {
+                HorizontalDivider(
+                    modifier = Modifier
+                        .padding(vertical = 4.dp)
+                        .width(40.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
+            } else {
+                VerticalDivider(
+                    modifier = Modifier
+                        .padding(horizontal = 4.dp)
+                        .height(40.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
+            }
+            DeleteButton(
+                enabled = canDelete,
+                onClick = onDelete,
+            )
         }
     }
 }
@@ -73,6 +96,7 @@ fun EditorToolbarPreview() {
     EditorToolbar(
         selectedTool,
         Modifier,
+        canDelete = true
     ) {selectedTool = it}
 
 }
