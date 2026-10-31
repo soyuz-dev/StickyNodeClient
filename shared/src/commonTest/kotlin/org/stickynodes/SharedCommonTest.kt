@@ -1764,4 +1764,45 @@ class SharedCommonTest {
     }
 
 
+    @Test
+    fun `repeated pastes advance by incremental offsets`() {
+        val rectangle = EditorRectangle(
+            x = 100f,
+            y = 100f,
+            width = 50f,
+            height = 50f,
+        )
+
+        val clipboard = EditorNodeClipboard()
+        clipboard.copy(
+            nodes = listOf(rectangle),
+            selectedIds = setOf(rectangle.id),
+        )
+
+        val first = clipboard.paste().single()
+        val second = clipboard.paste().single()
+        val third = clipboard.paste().single()
+
+        assertEquals(120f, first.x)
+        assertEquals(140f, second.x)
+        assertEquals(160f, third.x)
+
+        assertEquals(120f, first.y)
+        assertEquals(140f, second.y)
+        assertEquals(160f, third.y)
+
+        assertNotEquals(first.id, second.id)
+        assertNotEquals(second.id, third.id)
+
+        clipboard.copy(
+            nodes = listOf(rectangle),
+            selectedIds = setOf(rectangle.id),
+        )
+
+        val afterCopy = clipboard.paste().single()
+
+        assertEquals(120f, afterCopy.x)
+        assertEquals(120f, afterCopy.y)
+    }
+
 }
