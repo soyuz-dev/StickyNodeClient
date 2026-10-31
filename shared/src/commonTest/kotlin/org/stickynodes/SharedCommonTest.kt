@@ -1193,4 +1193,212 @@ class SharedCommonTest {
 
         assertEquals(4, state.nodes.size)
     }
+
+    @Test
+    fun `nudge preview does not modify committed nodes`() {
+        val rectangle = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 50f
+        )
+
+        val state = EditorDocumentState(
+            EditorDocument(nodes = listOf(rectangle))
+        )
+
+        state.selectNode(rectangle.id)
+        state.beginNudge()
+        state.updateNudge(Offset(5f, -3f))
+
+
+        val preview = state.displayNodes.single() as EditorRectangle
+
+        assertEquals(15f, preview.x)
+        assertEquals(17f, preview.y)
+
+        assertEquals(listOf(rectangle), state.nodes)
+        assertEquals(listOf(rectangle), state.document.nodes)
+        assertFalse(state.canUndo)
+    }
+
+    @Test
+    fun `repeated nudge updates accumulate displacement`() {
+        val rectangle = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 50f,
+        )
+
+        val state = EditorDocumentState(
+            EditorDocument(nodes = listOf(rectangle))
+        )
+
+        state.selectNode(rectangle.id)
+        state.beginNudge()
+
+        state.updateNudge(Offset(1f, 0f))
+        state.updateNudge(Offset(1f, 0f))
+        state.updateNudge(Offset(0f, -10f))
+
+        val preview = state.displayNodes.single() as EditorRectangle
+
+        assertEquals(12f, preview.x)
+        assertEquals(10f, preview.y)
+
+        // Original document remains unchanged.
+        assertEquals(listOf(rectangle), state.nodes)
+    }
+
+    @Test
+    fun `finishing multiple nudges creates one undo entry`() {
+        val rectangle = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 50f,
+        )
+
+        val state = EditorDocumentState(
+            EditorDocument(nodes = listOf(rectangle))
+        )
+
+        state.selectNode(rectangle.id)
+        state.beginNudge()
+
+        repeat(20) {
+            state.updateNudge(Offset(1f, 0f))
+        }
+
+        state.finishNudge()
+
+        val moved = state.nodes.single() as EditorRectangle
+
+        assertEquals(30f, moved.x)
+        assertEquals(20f, moved.y)
+        assertEquals(1, state.history.undoStack.size)
+
+        state.undo()
+
+        assertEquals(listOf(rectangle), state.nodes)
+        assertFalse(state.canUndo)
+        assertTrue(state.canRedo)
+
+        state.redo()
+
+        assertEquals(moved, state.nodes.single())
+    }
+
+    @Test
+    fun `cancelling a nudge discards its preview`() {
+        val rectangle = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 50f,
+        )
+
+        val state = EditorDocumentState(
+            EditorDocument(nodes = listOf(rectangle))
+        )
+
+        state.selectNode(rectangle.id)
+        state.beginNudge()
+        state.updateNudge(Offset(50f, 30f))
+
+        assertNotEquals(state.nodes, state.displayNodes)
+
+        state.cancelNudge()
+
+        assertEquals(listOf(rectangle), state.nodes)
+        assertEquals(listOf(rectangle), state.displayNodes)
+        assertFalse(state.canUndo)
+
+        // Finishing after cancellation must not commit anything.
+        state.finishNudge()
+
+        assertEquals(listOf(rectangle), state.nodes)
+        assertFalse(state.canUndo)
+    }
+
+    @Test
+    fun `nudge moves selected nodes together`() {
+        val rectangle = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 50f,
+        )
+
+        val ellipse = EditorEllipse(
+            x = 200f,
+            y = 100f,
+            width = 60f,
+            height = 40f,
+        )
+
+        val untouched = EditorRectangle(
+            x = 400f,
+            y = 300f,
+            width = 50f,
+            height = 50f,
+        )
+
+        val state = EditorDocumentState(
+            EditorDocument(
+                nodes = listOf(rectangle, ellipse, untouched)
+            )
+        )
+
+        state.selectNodes(setOf(rectangle.id, ellipse.id))
+        state.beginNudge()
+
+        state.updateNudge(Offset(10f, -5f))
+        state.finishNudge()
+
+        val movedRectangle = state.nodes[0] as EditorRectangle
+        val movedEllipse = state.nodes[1] as EditorEllipse
+
+        assertEquals(20f, movedRectangle.x)
+        assertEquals(15f, movedRectangle.y)
+
+        assertEquals(210f, movedEllipse.x)
+        assertEquals(95f, movedEllipse.y)
+
+        assertEquals(untouched, state.nodes[2])
+        assertEquals(
+            setOf(rectangle.id, ellipse.id),
+            state.selectedNodeIds,
+        )
+
+        assertEquals(1, state.history.undoStack.size)
+    }
+
+    @Test
+    fun `zero displacement nudge does not create history`() {
+        val rectangle = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 50f,
+        )
+
+        val state = EditorDocumentState(
+            EditorDocument(nodes = listOf(rectangle))
+        )
+
+        state.selectNode(rectangle.id)
+        state.beginNudge()
+
+        state.updateNudge(Offset(10f, 0f))
+        state.updateNudge(Offset(-10f, 0f))
+
+        state.finishNudge()
+
+        assertEquals(listOf(rectangle), state.nodes)
+        assertEquals(listOf(rectangle), state.displayNodes)
+        assertFalse(state.canUndo)
+        assertEquals(0, state.history.undoStack.size)
+    }
 }
