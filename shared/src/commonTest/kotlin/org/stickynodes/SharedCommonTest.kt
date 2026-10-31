@@ -1401,4 +1401,109 @@ class SharedCommonTest {
         assertFalse(state.canUndo)
         assertEquals(0, state.history.undoStack.size)
     }
+
+
+    @Test
+    fun `bringing selected nodes to front preserves their order`() {
+        val nodes = (0 until 5).map {
+            EditorRectangle(
+                x = it.toFloat(),
+                y = 0f,
+                width = 10f,
+                height = 10f,
+            )
+        }
+
+        val selected = setOf(nodes[1].id, nodes[3].id)
+        val reordered = nodes.bringToFront(selected)
+
+        assertEquals(
+            listOf(nodes[0], nodes[2], nodes[4], nodes[1], nodes[3]),
+            reordered,
+        )
+    }
+
+    @Test
+    fun `sending selected nodes to back preserves their order`() {
+        val nodes = (0 until 5).map {
+            EditorRectangle(
+                x = it.toFloat(),
+                y = 0f,
+                width = 10f,
+                height = 10f,
+            )
+        }
+
+        val selected = setOf(nodes[1].id, nodes[3].id)
+        val reordered = nodes.sendToBack(selected)
+
+        assertEquals(
+            listOf(nodes[1], nodes[3], nodes[0], nodes[2], nodes[4]),
+            reordered,
+        )
+    }
+
+    @Test
+    fun `bringing selected nodes forward skips selected neighbours`() {
+        val nodes = (0 until 5).map {
+            EditorRectangle(
+                x = it.toFloat(),
+                y = 0f,
+                width = 10f,
+                height = 10f,
+            )
+        }
+
+        val selected = setOf(nodes[1].id, nodes[3].id)
+        val reordered = nodes.bringForward(selected)
+
+        assertEquals(
+            listOf(nodes[0], nodes[2], nodes[1], nodes[4], nodes[3]),
+            reordered,
+        )
+    }
+
+    @Test
+    fun `sending selected nodes backward skips selected neighbours`() {
+        val nodes = (0 until 5).map {
+            EditorRectangle(
+                x = it.toFloat(),
+                y = 0f,
+                width = 10f,
+                height = 10f,
+            )
+        }
+
+        val selected = setOf(nodes[1].id, nodes[3].id)
+        val reordered = nodes.sendBackward(selected)
+
+        assertEquals(
+            listOf(nodes[1], nodes[0], nodes[3], nodes[2], nodes[4]),
+            reordered,
+        )
+    }
+
+    @Test
+    fun `ordering with empty selection changes nothing`() {
+        val nodes = listOf(
+            EditorRectangle(
+                x = 0f,
+                y = 0f,
+                width = 10f,
+                height = 10f,
+            ),
+            EditorEllipse(
+                x = 20f,
+                y = 0f,
+                width = 10f,
+                height = 10f,
+            ),
+        )
+
+        assertEquals(nodes, nodes.bringToFront(emptySet()))
+        assertEquals(nodes, nodes.sendToBack(emptySet()))
+        assertEquals(nodes, nodes.bringForward(emptySet()))
+        assertEquals(nodes, nodes.sendBackward(emptySet()))
+    }
+
 }
