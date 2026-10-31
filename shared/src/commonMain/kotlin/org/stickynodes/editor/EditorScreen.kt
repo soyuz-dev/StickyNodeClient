@@ -29,20 +29,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isCtrlPressed
-import androidx.compose.ui.input.key.isMetaPressed
-import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -50,22 +47,10 @@ import org.stickynodes.data.rememberDocumentStorage
 import org.stickynodes.editor.draw.EditorCanvas
 import org.stickynodes.editor.draw.EditorTextOverlay
 import org.stickynodes.editor.draw.camera.rememberEditorCameraState
-import org.stickynodes.editor.draw.model.EditorNode
-import org.stickynodes.editor.draw.model.EditorPath
-import org.stickynodes.editor.draw.model.EditorShape
-import org.stickynodes.editor.draw.model.EditorText
-import org.stickynodes.editor.draw.style.FillStyle
-import org.stickynodes.editor.draw.style.NodeStyle
-import org.stickynodes.editor.draw.style.StrokeStyle
+import org.stickynodes.editor.draw.model.*
+import org.stickynodes.editor.draw.style.*
 import org.stickynodes.editor.history.rememberEditorDocumentState
-import org.stickynodes.editor.tools.EditorActionBar
-import org.stickynodes.editor.tools.EditorTool
-import org.stickynodes.editor.tools.EditorToolbar
-import org.stickynodes.editor.tools.ShapeStyleToolbar
-import org.stickynodes.editor.tools.FreehandStyleToolbar
-import org.stickynodes.editor.tools.TextStyleToolbar
-import org.stickynodes.editor.tools.StyleToolbarType
-import org.stickynodes.editor.tools.ToolbarOrientation
+import org.stickynodes.editor.tools.*
 import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -164,6 +149,79 @@ fun EditorScreen(
         selectedTool = tool
     }
 
+
+    fun executeShortcut(shortcut: EditorShortcut): Boolean =
+        when (shortcut) {
+            EditorShortcut.Save -> {
+                save()
+                true
+            }
+
+            EditorShortcut.Open -> {
+                open()
+                true
+            }
+
+            EditorShortcut.Undo -> {
+                if (documentState.canUndo) {
+                    documentState.undo()
+                    true
+                } else {
+                    false
+                }
+            }
+
+            EditorShortcut.Redo -> {
+                if (documentState.canRedo) {
+                    documentState.redo()
+                    true
+                } else {
+                    false
+                }
+            }
+
+            EditorShortcut.DeleteSelection -> {
+                if (selectedNodeIds.isNotEmpty()) {
+                    documentState.deleteSelectedNodes()
+                    true
+                } else {
+                    false
+                }
+            }
+
+            EditorShortcut.DuplicateSelection -> {
+                if (selectedNodeIds.isNotEmpty()) {
+                    documentState.duplicateSelectedNodes()
+                    true
+                } else {
+                    false
+                }
+            }
+
+            EditorShortcut.Escape -> {
+                when {
+                    selectedNodeIds.isNotEmpty() -> {
+                        documentState.clearSelection()
+                        true
+                    }
+
+                    selectedTool != EditorTool.SELECT -> {
+                        documentState.cancelStylePreview()
+                        selectedTool = EditorTool.SELECT
+                        true
+                    }
+
+                    else -> false
+                }
+            }
+
+            is EditorShortcut.SelectTool -> {
+                selectTool(shortcut.tool)
+                true
+            }
+        }
+
+
     // The existing editing tool determines which style controls appear.
     // SELECT uses the single selected node's type instead.
     val selectedNode = documentState.selectedNode
@@ -257,112 +315,26 @@ fun EditorScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
             .focusRequester(focusRequester)
-            .onPreviewKeyEvent { event ->
+            .onPreviewKeyEvent {event ->
+
+                if (event.type == KeyEventType.KeyDown) {
+                    println(
+                        "Key: ${event.key}, Ctrl: ${event.isCtrlPressed}, " +
+                                "Shortcut: ${event.editorShortcut()}"
+                    )
+                }
                 if (textEditPosition != null) {
-                    if (event.type == KeyEventType.KeyDown && event.key == Key.Escape) {
+                    if (
+                        event.type == KeyEventType.KeyDown &&
+                        event.key == Key.Escape
+                    ) {
                         commitTextEdit()
                         true
                     } else {
                         false
                     }
                 } else {
-                    event.type == KeyEventType.KeyDown && when {
-                        event.isCtrlPressed &&
-                                !event.isShiftPressed &&
-                                !event.isAltPressed &&
-                                event.key == Key.S -> {
-                            save()
-                            true
-                        }
-
-                        event.isCtrlPressed &&
-                                !event.isShiftPressed &&
-                                !event.isAltPressed &&
-                                event.key == Key.O -> {
-                            open()
-                            true
-                        }
-                        event.isCtrlPressed &&
-                                event.key == Key.Z &&
-                                !event.isShiftPressed -> {
-                            if (documentState.canUndo) {
-                                documentState.undo()
-                                true
-                            } else {
-                                false
-                            }
-                        }
-
-                        event.isCtrlPressed && (event.key == Key.Y || (event.key == Key.Z && event.isShiftPressed)) -> {
-                            if (documentState.canRedo) {
-                                documentState.redo()
-                                true
-                            } else {
-                                false
-                            }
-                        }
-
-                        event.key == Key.Delete &&
-                                !event.isCtrlPressed &&
-                                !event.isAltPressed -> {
-                            if (selectedNodeIds.isNotEmpty()) {
-                                documentState.deleteSelectedNodes()
-                                true
-                            } else {
-                                false
-                            }
-                        }
-
-                        event.key == Key.Escape -> {
-                            when {
-                                selectedNodeIds.isNotEmpty() -> {
-                                    documentState.clearSelection()
-                                    true
-                                }
-
-                                selectedTool != EditorTool.SELECT -> {
-                                    documentState.cancelStylePreview()
-                                    selectedTool = EditorTool.SELECT
-                                    true
-                                }
-
-                                else -> false
-                            }
-                        }
-
-                        event.isCtrlPressed &&
-                                !event.isShiftPressed &&
-                                !event.isAltPressed &&
-                                event.key == Key.D -> {
-                            if (selectedNodeIds.isNotEmpty()) {
-                                documentState.duplicateSelectedNodes()
-                                true
-                            } else {
-                                false
-                            }
-                        }
-
-                        !event.isCtrlPressed &&
-                                !event.isAltPressed &&
-                                !event.isMetaPressed -> {
-                            val tool = when (event.key) {
-                                Key.S -> EditorTool.SELECT
-                                Key.D -> EditorTool.PEN
-                                Key.E -> EditorTool.ELLIPSE
-                                Key.R -> EditorTool.RECTANGLE
-                                Key.T -> EditorTool.TEXT
-                                Key.W -> EditorTool.PAN
-                                else -> null
-                            }
-
-                            if (tool != null && !event.isShiftPressed) {
-                                selectTool(tool)
-                                true
-                            } else false
-                        }
-
-                        else -> false
-                    }
+                    event.editorShortcut()?.let(::executeShortcut) ?: false
                 }
             }
             .focusable(),
