@@ -204,6 +204,11 @@ fun EditorScreen(
                 }
             }
 
+            EditorShortcut.SelectAll -> {
+                documentState.selectAllNodes()
+                true
+            }
+
             EditorShortcut.Escape -> {
                 when {
                     documentState.selectedNodeIds.isNotEmpty() -> {

@@ -20,6 +20,7 @@ sealed interface EditorShortcut {
     data object Redo : EditorShortcut
     data object DeleteSelection : EditorShortcut
     data object DuplicateSelection : EditorShortcut
+    data object SelectAll : EditorShortcut
     data object Escape : EditorShortcut
 
     data class SelectTool(
@@ -44,6 +45,7 @@ fun KeyEvent.editorShortcut(): EditorShortcut? {
             !shift && key == Key.O -> EditorShortcut.Open
             !shift && key == Key.D -> EditorShortcut.DuplicateSelection
             !shift && key == Key.Z -> EditorShortcut.Undo
+            !shift && key == Key.A -> EditorShortcut.SelectAll
             key == Key.Y || (shift && key == Key.Z) ->
                 EditorShortcut.Redo
 
@@ -54,7 +56,7 @@ fun KeyEvent.editorShortcut(): EditorShortcut? {
     if (!ctrl && !alt && !meta) {
         if (key == Key.Escape) return EditorShortcut.Escape
 
-        if (key == Key.Delete) {
+        if (key == Key.Delete || key == Key.Backspace) {
             return EditorShortcut.DeleteSelection
         }
 

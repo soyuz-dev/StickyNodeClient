@@ -297,6 +297,10 @@ class EditorDocumentState(
         commitNodes(nodes.sendToBack(selectedNodeIds))
     }
 
+    fun selectAllNodes() {
+        selectNodes(nodes.mapTo(mutableSetOf()) { it.id })
+    }
+
 }
 
 @Composable

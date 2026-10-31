@@ -1562,4 +1562,41 @@ class SharedCommonTest {
         assertFalse(state.canSendSelectionBackward)
         assertFalse(state.canSendSelectionToBack)
     }
+
+
+    @Test
+    fun `select all selects every node without changing history`() {
+        val rectangle = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 50f,
+        )
+
+        val ellipse = EditorEllipse(
+            x = 200f,
+            y = 100f,
+            width = 60f,
+            height = 40f,
+        )
+
+        val state = EditorDocumentState(
+            EditorDocument(nodes = listOf(rectangle, ellipse))
+        )
+
+        state.selectNode(rectangle.id)
+        state.selectAllNodes()
+
+        assertEquals(
+            setOf(rectangle.id, ellipse.id),
+            state.selectedNodeIds,
+        )
+
+        assertEquals(listOf(rectangle, ellipse), state.nodes)
+        assertFalse(state.canUndo)
+
+        state.clearSelection()
+        assertTrue(state.selectedNodeIds.isEmpty())
+    }
+
 }
