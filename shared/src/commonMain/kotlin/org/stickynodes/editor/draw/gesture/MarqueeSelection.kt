@@ -8,6 +8,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerInputChange
 import org.stickynodes.editor.draw.geometry.bounds
+import org.stickynodes.editor.draw.geometry.selectionBounds
 import org.stickynodes.editor.draw.model.EditorNode
 import kotlin.uuid.Uuid
 
@@ -65,7 +66,7 @@ internal suspend fun AwaitPointerEventScope.handleMarqueeSelection(
 
         val containedIds = initialNodes
             .asSequence()
-            .filter { marquee.fullyContains(it.bounds) }
+            .filter { marquee.fullyContains(it.selectionBounds) }
             .map { it.id }
             .toSet()
 

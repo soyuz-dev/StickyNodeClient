@@ -150,3 +150,10 @@ fun EditorNode.withStyle(style: NodeStyle): EditorNode =
         is EditorPath -> copy(style = style)
         is EditorText -> copy(style = style)
     }
+
+
+val EditorNode.selectionBounds: Rect
+    get() = when(this) {
+        is EditorShape -> visualBounds
+        else -> bounds
+    }

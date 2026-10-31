@@ -975,4 +975,36 @@ class SharedCommonTest {
     }
 
 
+
+    @Test
+    fun `selection bounds include rotated rectangle corners`() {
+        val rectangle = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 100f,
+            height = 20f,
+            rotation = (PI / 2).toFloat(),
+        )
+
+        val bounds = rectangle.selectionBounds
+
+        assertEquals(40f, bounds.left, 0.001f)
+        assertEquals(-40f, bounds.top, 0.001f)
+        assertEquals(60f, bounds.right, 0.001f)
+        assertEquals(60f, bounds.bottom, 0.001f)
+    }
+
+    @Test
+    fun `selection bounds match visual bounds for rotated shapes`() {
+        val ellipse = EditorEllipse(
+            x = 20f,
+            y = 30f,
+            width = 80f,
+            height = 40f,
+            rotation = (PI / 4).toFloat(),
+        )
+
+        assertEquals(ellipse.visualBounds, ellipse.selectionBounds)
+    }
+
 }
