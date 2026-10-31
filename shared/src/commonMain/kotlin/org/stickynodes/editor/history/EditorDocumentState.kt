@@ -34,11 +34,15 @@ class EditorDocumentState(
         get() = document.nodes
 
     val displayNodes: List<EditorNode>
-        get() = stylePreview?.let { (id, style) ->
-            nodes.map { node ->
-                if (node.id == id) node.withStyle(style) else node
-            }
-        } ?: nodes
+        get() {
+            val baseNodes = nudgePreviewNodes ?: nodes
+
+            return stylePreview?.let { (id, style) ->
+                baseNodes.map { node ->
+                    if (node.id == id) node.withStyle(style) else node
+                }
+            } ?: baseNodes
+        }
 
     val selectedNode: EditorNode?
         get() = nodes.firstOrNull { it.id == selectedNodeId }
@@ -54,7 +58,14 @@ class EditorDocumentState(
     val canRedo: Boolean
         get() = history.canRedo
 
+    private var nudgeStartNodes: List<EditorNode>? = null
+    private var nudgeDelta = Offset.Zero
+    private var nudgeSelectedIds: Set<Uuid>? = null
+    private var nudgePreviewNodes by
+    mutableStateOf<List<EditorNode>?>(null)
+
     fun open(document: EditorDocument) {
+        cancelNudge()
         history = EditorHistory(document = document)
         selectedNodeIds = emptySet()
         stylePreview = null
@@ -98,6 +109,7 @@ class EditorDocumentState(
     }
 
     fun commitNodes(updatedNodes: List<EditorNode>) {
+        cancelNudge()
         stylePreview = null
         history = history.commit(document.copy(nodes = updatedNodes))
         validateSelection()
@@ -197,15 +209,51 @@ class EditorDocumentState(
             .mapTo(mutableSetOf()) { it.id }
     }
 
-    fun nudgeSelectedNodes(delta: Offset) {
+    fun beginNudge() {
+        if (nudgeStartNodes != null) return
         if (selectedNodeIds.isEmpty()) return
 
-        val updated = nodes
-            .filter { it.id in selectedNodeIds }
-            .map { it.translatedBy(delta) }
-
-        updateNodes(updated)
+        nudgeStartNodes = nodes
+        nudgeSelectedIds = selectedNodeIds.toSet()
+        nudgeDelta = Offset.Zero
     }
+
+    fun updateNudge(delta: Offset) {
+        val originalNodes = nudgeStartNodes ?: return
+        val ids = nudgeSelectedIds ?: return
+
+        nudgeDelta += delta
+
+        nudgePreviewNodes = originalNodes.map { node ->
+            if (node.id in ids) {
+                node.translatedBy(nudgeDelta)
+            } else {
+                node
+            }
+        }
+    }
+
+    fun finishNudge() {
+        val preview = nudgePreviewNodes
+        val moved = nudgeDelta != Offset.Zero
+
+        nudgeStartNodes = null
+        nudgeSelectedIds = null
+        nudgeDelta = Offset.Zero
+        nudgePreviewNodes = null
+
+        if (moved && preview != null) {
+            commitNodes(preview)
+        }
+    }
+
+    fun cancelNudge() {
+        nudgeStartNodes = null
+        nudgeSelectedIds = null
+        nudgeDelta = Offset.Zero
+        nudgePreviewNodes = null
+    }
+
 }
 
 @Composable

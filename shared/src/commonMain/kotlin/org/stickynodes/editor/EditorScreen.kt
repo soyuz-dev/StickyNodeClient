@@ -1,3 +1,4 @@
+
 package org.stickynodes.editor
 
 import androidx.compose.animation.AnimatedVisibility
@@ -27,11 +28,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
@@ -69,6 +70,10 @@ fun EditorScreen(
     val nodes = documentState.nodes
     val selectedNodeIds = documentState.selectedNodeIds
     val displayNodes = documentState.displayNodes
+
+    var activeNudgeKeys by remember {
+        mutableStateOf<Set<Key>>(emptySet())
+    }
 
     var rectangleStyle by remember {
         mutableStateOf(NodeStyle())
@@ -149,7 +154,6 @@ fun EditorScreen(
         selectedTool = tool
     }
 
-
     fun executeShortcut(shortcut: EditorShortcut): Boolean =
         when (shortcut) {
             EditorShortcut.Save -> {
@@ -181,7 +185,7 @@ fun EditorScreen(
             }
 
             EditorShortcut.DeleteSelection -> {
-                if (selectedNodeIds.isNotEmpty()) {
+                if (documentState.selectedNodeIds.isNotEmpty()) {
                     documentState.deleteSelectedNodes()
                     true
                 } else {
@@ -190,7 +194,7 @@ fun EditorScreen(
             }
 
             EditorShortcut.DuplicateSelection -> {
-                if (selectedNodeIds.isNotEmpty()) {
+                if (documentState.selectedNodeIds.isNotEmpty()) {
                     documentState.duplicateSelectedNodes()
                     true
                 } else {
@@ -200,7 +204,7 @@ fun EditorScreen(
 
             EditorShortcut.Escape -> {
                 when {
-                    selectedNodeIds.isNotEmpty() -> {
+                    documentState.selectedNodeIds.isNotEmpty() -> {
                         documentState.clearSelection()
                         true
                     }
@@ -220,48 +224,68 @@ fun EditorScreen(
                 true
             }
 
-            is EditorShortcut.Nudge -> {
-                if (documentState.selectedNodeIds.isNotEmpty()) {
-                    documentState.nudgeSelectedNodes(shortcut.delta)
-                    true
-                } else {
-                    false
-                }
-            }
+            // Nudge needs the physical key for KeyUp tracking.
+            // It is handled in onPreviewKeyEvent.
+            is EditorShortcut.Nudge -> false
         }
 
-
-    // The existing editing tool determines which style controls appear.
-    // SELECT uses the single selected node's type instead.
+    // The existing editing tool determines which
+    // style controls appear.
     val selectedNode = documentState.selectedNode
-    val styleToolbarType: StyleToolbarType? = when (selectedTool) {
-        EditorTool.RECTANGLE, EditorTool.ELLIPSE -> StyleToolbarType.SHAPE
-        EditorTool.PEN -> StyleToolbarType.FREEHAND
-        EditorTool.TEXT -> StyleToolbarType.TEXT
-        EditorTool.SELECT -> selectedNode?.styleToolbarType()
-        EditorTool.PAN -> null
-    }
 
-    val editableNode = if (selectedTool == EditorTool.SELECT) selectedNode else null
-    val activeStyle: NodeStyle? = when (styleToolbarType) {
-        StyleToolbarType.SHAPE ->
-            (editableNode as? EditorShape)?.let { documentState.selectedStyle }
-                ?: if (selectedTool == EditorTool.ELLIPSE) ellipseStyle else rectangleStyle
-        StyleToolbarType.FREEHAND ->
-            (editableNode as? EditorPath)?.let { documentState.selectedStyle } ?: penStyle
-        StyleToolbarType.TEXT ->
-            (editableNode as? EditorText)?.let { documentState.selectedStyle } ?: textStyle
-        null -> null
-    }
+    val styleToolbarType: StyleToolbarType? =
+        when (selectedTool) {
+            EditorTool.RECTANGLE,
+            EditorTool.ELLIPSE -> StyleToolbarType.SHAPE
 
-    val activeFontSize = (editableNode as? EditorText)?.fontSize ?: defaultFontSize
+            EditorTool.PEN -> StyleToolbarType.FREEHAND
+            EditorTool.TEXT -> StyleToolbarType.TEXT
+            EditorTool.SELECT -> selectedNode?.styleToolbarType()
+            EditorTool.PAN -> null
+        }
+
+    val editableNode =
+        if (selectedTool == EditorTool.SELECT) selectedNode
+        else null
+
+    val activeStyle: NodeStyle? =
+        when (styleToolbarType) {
+            StyleToolbarType.SHAPE ->
+                (editableNode as? EditorShape)
+                    ?.let { documentState.selectedStyle }
+                    ?: if (selectedTool == EditorTool.ELLIPSE) {
+                        ellipseStyle
+                    } else {
+                        rectangleStyle
+                    }
+
+            StyleToolbarType.FREEHAND ->
+                (editableNode as? EditorPath)
+                    ?.let { documentState.selectedStyle }
+                    ?: penStyle
+
+            StyleToolbarType.TEXT ->
+                (editableNode as? EditorText)
+                    ?.let { documentState.selectedStyle }
+                    ?: textStyle
+
+            null -> null
+        }
+
+    val activeFontSize =
+        (editableNode as? EditorText)?.fontSize
+            ?: defaultFontSize
 
     fun updateDefaultStyle(style: NodeStyle) {
         when (styleToolbarType) {
             StyleToolbarType.SHAPE -> {
-                if (selectedTool == EditorTool.ELLIPSE) ellipseStyle = style
-                else rectangleStyle = style
+                if (selectedTool == EditorTool.ELLIPSE) {
+                    ellipseStyle = style
+                } else {
+                    rectangleStyle = style
+                }
             }
+
             StyleToolbarType.FREEHAND -> penStyle = style
             StyleToolbarType.TEXT -> textStyle = style
             null -> Unit
@@ -278,6 +302,7 @@ fun EditorScreen(
 
     val onStyleChanged: (NodeStyle) -> Unit = { updated ->
         documentState.cancelStylePreview()
+
         if (editableNode != null) {
             documentState.commitSelectedStyle(updated)
         } else {
@@ -287,8 +312,11 @@ fun EditorScreen(
 
     val onFontSizeChanged: (Float) -> Unit = { size ->
         val textNode = editableNode as? EditorText
+
         if (textNode != null) {
-            documentState.updateNode(textNode.copy(fontSize = size))
+            documentState.updateNode(
+                textNode.copy(fontSize = size)
+            )
         } else {
             defaultFontSize = size
         }
@@ -323,27 +351,102 @@ fun EditorScreen(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
-            .focusRequester(focusRequester)
-            .onPreviewKeyEvent {event ->
-
-                if (event.type == KeyEventType.KeyDown) {
-                    println(
-                        "Key: ${event.key}, Ctrl: ${event.isCtrlPressed}, " +
-                                "Shortcut: ${event.editorShortcut()}"
-                    )
+            .onFocusChanged { focusState ->
+                if (
+                    !focusState.hasFocus &&
+                    activeNudgeKeys.isNotEmpty()
+                ) {
+                    documentState.finishNudge()
+                    activeNudgeKeys = emptySet()
                 }
-                if (textEditPosition != null) {
-                    if (
-                        event.type == KeyEventType.KeyDown &&
-                        event.key == Key.Escape
-                    ) {
-                        commitTextEdit()
-                        true
-                    } else {
-                        false
+            }
+            .focusRequester(focusRequester)
+            .onPreviewKeyEvent { event ->
+                val isArrowKey = when (event.key) {
+                    Key.DirectionLeft,
+                    Key.DirectionRight,
+                    Key.DirectionUp,
+                    Key.DirectionDown -> true
+
+                    else -> false
+                }
+
+                when {
+                    // Text editing takes priority.
+                    textEditPosition != null -> {
+                        if (activeNudgeKeys.isNotEmpty()) {
+                            documentState.finishNudge()
+                            activeNudgeKeys = emptySet()
+                        }
+
+                        if (
+                            event.type == KeyEventType.KeyDown &&
+                            event.key == Key.Escape
+                        ) {
+                            commitTextEdit()
+                            true
+                        } else {
+                            false
+                        }
                     }
-                } else {
-                    event.editorShortcut()?.let(::executeShortcut) ?: false
+
+                    // Release an active arrow key.
+                    event.type == KeyEventType.KeyUp &&
+                            isArrowKey &&
+                            event.key in activeNudgeKeys -> {
+
+                        activeNudgeKeys =
+                            activeNudgeKeys - event.key
+
+                        if (activeNudgeKeys.isEmpty()) {
+                            documentState.finishNudge()
+                        }
+
+                        true
+                    }
+
+                    event.type == KeyEventType.KeyDown -> {
+                        when (
+                            val shortcut = event.editorShortcut()
+                        ) {
+                            is EditorShortcut.Nudge -> {
+                                if (
+                                    documentState.selectedNodeIds
+                                        .isEmpty()
+                                ) {
+                                    false
+                                } else {
+                                    if (activeNudgeKeys.isEmpty()) {
+                                        documentState.beginNudge()
+                                    }
+
+                                    activeNudgeKeys =
+                                        activeNudgeKeys + event.key
+
+                                    documentState.updateNudge(
+                                        shortcut.delta
+                                    )
+
+                                    true
+                                }
+                            }
+
+                            null -> false
+
+                            else -> {
+                                // Complete movement before
+                                // executing another command.
+                                if (activeNudgeKeys.isNotEmpty()) {
+                                    documentState.finishNudge()
+                                    activeNudgeKeys = emptySet()
+                                }
+
+                                executeShortcut(shortcut)
+                            }
+                        }
+                    }
+
+                    else -> false
                 }
             }
             .focusable(),
@@ -351,7 +454,9 @@ fun EditorScreen(
         EditorCanvas(
             modifier = Modifier
                 .fillMaxSize()
-                .onSizeChanged(cameraState::updateViewportSize)
+                .onSizeChanged(
+                    cameraState::updateViewportSize
+                )
                 .pointerInput(focusRequester) {
                     awaitPointerEventScope {
                         while (true) {
@@ -359,7 +464,14 @@ fun EditorScreen(
                                 PointerEventPass.Initial
                             )
 
-                            if (event.type == PointerEventType.Press) {
+                            if (
+                                event.type == PointerEventType.Press
+                            ) {
+                                if (activeNudgeKeys.isNotEmpty()) {
+                                    documentState.finishNudge()
+                                    activeNudgeKeys = emptySet()
+                                }
+
                                 focusRequester.requestFocus()
                             }
                         }
@@ -378,7 +490,8 @@ fun EditorScreen(
             selectedNodeIds = selectedNodeIds,
             onNodeSelected = documentState::selectNode,
             onNodesSelected = documentState::selectNodes,
-            onNodeSelectionToggled = documentState::toggleNodeSelection,
+            onNodeSelectionToggled =
+                documentState::toggleNodeSelection,
             onTextPlacement = { position ->
                 textEditPosition = position
                 textDraft = ""
@@ -420,13 +533,13 @@ fun EditorScreen(
                 .padding(bottom = 16.dp),
         )
 
-
         Column(
             modifier = Modifier
                 .align(Alignment.CenterStart)
                 .padding(start = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement =
+                Arrangement.spacedBy(8.dp),
         ) {
             EditorToolbar(
                 selectedTool = selectedTool,
@@ -444,42 +557,66 @@ fun EditorScreen(
 
             AnimatedVisibility(
                 visible = styleToolbarType != null,
-                enter = fadeIn(animationSpec = tween(180)) +
-                        expandVertically(animationSpec = tween(220), expandFrom = Alignment.Top) +
-                        slideInVertically(animationSpec = tween(220), initialOffsetY = { -it / 3 }),
-                exit = fadeOut(animationSpec = tween(120)) +
-                        shrinkVertically(animationSpec = tween(180), shrinkTowards = Alignment.Top) +
-                        slideOutVertically(animationSpec = tween(180), targetOffsetY = { -it / 3 }),
+                enter = fadeIn(
+                    animationSpec = tween(180)
+                ) + expandVertically(
+                    animationSpec = tween(220),
+                    expandFrom = Alignment.Top
+                ) + slideInVertically(
+                    animationSpec = tween(220),
+                    initialOffsetY = { -it / 3 }
+                ),
+                exit = fadeOut(
+                    animationSpec = tween(120)
+                ) + shrinkVertically(
+                    animationSpec = tween(180),
+                    shrinkTowards = Alignment.Top
+                ) + slideOutVertically(
+                    animationSpec = tween(180),
+                    targetOffsetY = { -it / 3 }
+                ),
             ) {
                 val style = activeStyle
+
                 when (styleToolbarType) {
-                    StyleToolbarType.SHAPE -> if (style != null) {
-                        ShapeStyleToolbar(
-                            style = style,
-                            onStyleChanged = onStyleChanged,
-                            onStylePreview = ::previewStyle,
-                            onStyleChangeFinished = documentState::finishStyleChange,
-                            orientation = ToolbarOrientation.VERTICAL,
-                        )
+                    StyleToolbarType.SHAPE -> {
+                        if (style != null) {
+                            ShapeStyleToolbar(
+                                style = style,
+                                onStyleChanged = onStyleChanged,
+                                onStylePreview = ::previewStyle,
+                                onStyleChangeFinished =
+                                    documentState::finishStyleChange,
+                                orientation = ToolbarOrientation.VERTICAL,
+                            )
+                        }
                     }
-                    StyleToolbarType.FREEHAND -> if (style != null) {
-                        FreehandStyleToolbar(
-                            style = style,
-                            onStyleChanged = onStyleChanged,
-                            onStylePreview = ::previewStyle,
-                            onStyleChangeFinished = documentState::finishStyleChange,
-                            orientation = ToolbarOrientation.VERTICAL,
-                        )
+
+                    StyleToolbarType.FREEHAND -> {
+                        if (style != null) {
+                            FreehandStyleToolbar(
+                                style = style,
+                                onStyleChanged = onStyleChanged,
+                                onStylePreview = ::previewStyle,
+                                onStyleChangeFinished =
+                                    documentState::finishStyleChange,
+                                orientation = ToolbarOrientation.VERTICAL,
+                            )
+                        }
                     }
-                    StyleToolbarType.TEXT -> if (style != null) {
-                        TextStyleToolbar(
-                            style = style,
-                            fontSize = activeFontSize,
-                            onStyleChanged = onStyleChanged,
-                            onFontSizeChanged = onFontSizeChanged,
-                            orientation = ToolbarOrientation.VERTICAL,
-                        )
+
+                    StyleToolbarType.TEXT -> {
+                        if (style != null) {
+                            TextStyleToolbar(
+                                style = style,
+                                fontSize = activeFontSize,
+                                onStyleChanged = onStyleChanged,
+                                onFontSizeChanged = onFontSizeChanged,
+                                orientation = ToolbarOrientation.VERTICAL,
+                            )
+                        }
                     }
+
                     null -> Unit
                 }
             }

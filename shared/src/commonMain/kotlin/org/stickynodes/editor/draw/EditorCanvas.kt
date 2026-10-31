@@ -126,8 +126,6 @@ fun EditorCanvas(
                                         height = rect.height,
                                         style = currentEllipseStyle,
                                     )
-
-                                    else -> error("Unsupported creation tool")
                                 }
                             },
                             onPreview = {
@@ -273,8 +271,6 @@ fun EditorCanvas(
                             },
                         )
                     }
-
-                    else -> Unit
                 }
             }
             .pointerInput(Unit) {
