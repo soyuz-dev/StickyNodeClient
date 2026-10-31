@@ -22,6 +22,9 @@ sealed interface EditorShortcut {
     data object DuplicateSelection : EditorShortcut
     data object SelectAll : EditorShortcut
     data object Escape : EditorShortcut
+    data object Cut: EditorShortcut
+    data object Copy: EditorShortcut
+    data object Paste: EditorShortcut
 
     data class SelectTool(
         val tool: EditorTool,
@@ -46,6 +49,9 @@ fun KeyEvent.editorShortcut(): EditorShortcut? {
             !shift && key == Key.D -> EditorShortcut.DuplicateSelection
             !shift && key == Key.Z -> EditorShortcut.Undo
             !shift && key == Key.A -> EditorShortcut.SelectAll
+            !shift && key == Key.C -> EditorShortcut.Copy
+            !shift && key == Key.X -> EditorShortcut.Cut
+            !shift && key == Key.V -> EditorShortcut.Paste
             key == Key.Y || (shift && key == Key.Z) ->
                 EditorShortcut.Redo
 

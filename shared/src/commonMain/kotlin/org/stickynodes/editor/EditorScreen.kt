@@ -234,6 +234,33 @@ fun EditorScreen(
             // Nudge needs the physical key for KeyUp tracking.
             // It is handled in onPreviewKeyEvent.
             is EditorShortcut.Nudge -> false
+
+            EditorShortcut.Cut -> {
+                if (documentState.selectedNodeIds.isNotEmpty()) {
+                    documentState.cutSelectedNodes()
+                    true
+                } else {
+                    false
+                }
+            }
+
+            EditorShortcut.Copy -> {
+                if(documentState.selectedNodeIds.isNotEmpty()) {
+                    documentState.copySelectedNodes()
+                    true
+                } else {
+                    false
+                }
+            }
+
+            EditorShortcut.Paste -> {
+                if (documentState.clipboard.hasContent) {
+                    documentState.pasteNodes()
+                    true
+                } else {
+                    false
+                }
+            }
         }
 
     // The existing editing tool determines which

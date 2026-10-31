@@ -20,6 +20,7 @@ import kotlin.uuid.Uuid
 
 class EditorDocumentState(
     initialDocument: EditorDocument = EditorDocument(),
+    val clipboard: EditorNodeClipboard = EditorNodeClipboard()
 ) {
     var history by mutableStateOf(EditorHistory(document = initialDocument))
         private set
@@ -301,6 +302,32 @@ class EditorDocumentState(
         selectNodes(nodes.mapTo(mutableSetOf()) { it.id })
     }
 
+    fun copySelectedNodes() {
+        clipboard.copy(
+            nodes = nodes,
+            selectedIds = selectedNodeIds,
+        )
+    }
+
+    fun cutSelectedNodes() {
+        if (selectedNodeIds.isEmpty()) return
+
+        copySelectedNodes()
+        deleteSelectedNodes()
+    }
+
+    fun pasteNodes(
+        offset: Offset = Offset(20f, 20f),
+    ) {
+        val pasted = clipboard.paste(offset)
+
+        if (pasted.isEmpty()) return
+
+        commitNodes(nodes + pasted)
+
+        selectedNodeIds = pasted
+            .mapTo(mutableSetOf()) { it.id }
+    }
 }
 
 @Composable

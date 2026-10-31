@@ -1599,4 +1599,169 @@ class SharedCommonTest {
         assertTrue(state.selectedNodeIds.isEmpty())
     }
 
+    @Test
+    fun `clipboard copies selected nodes in document order`() {
+        val a = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 50f, height = 50f,
+        )
+        val b = EditorEllipse(
+            x = 100f, y = 0f,
+            width = 50f, height = 50f,
+        )
+        val c = EditorRectangle(
+            x = 200f, y = 0f,
+            width = 50f, height = 50f,
+        )
+
+        val clipboard = EditorNodeClipboard()
+        clipboard.copy(
+            nodes = listOf(a, b, c),
+            selectedIds = setOf(c.id, a.id),
+        )
+
+        val pasted = clipboard.paste(Offset.Zero)
+
+        assertEquals(2, pasted.size)
+        assertEquals(listOf(a.x, c.x), pasted.map { it.x })
+        assertNotEquals(a.id, pasted[0].id)
+        assertNotEquals(c.id, pasted[1].id)
+    }
+
+    @Test
+    fun `clipboard paste generates new IDs each time`() {
+        val node = EditorRectangle(
+            x = 10f, y = 20f,
+            width = 100f, height = 50f,
+        )
+
+        val clipboard = EditorNodeClipboard()
+        clipboard.copy(listOf(node), setOf(node.id))
+
+        val first = clipboard.paste()
+        val second = clipboard.paste()
+
+        assertNotEquals(node.id, first.single().id)
+        assertNotEquals(first.single().id, second.single().id)
+
+        assertEquals(30f, first.single().x)
+        assertEquals(40f, first.single().y)
+    }
+
+    @Test
+    fun `clipboard handles empty selections`() {
+        val clipboard = EditorNodeClipboard()
+
+        assertFalse(clipboard.hasContent)
+        assertTrue(clipboard.paste().isEmpty())
+
+        clipboard.copy(listOf(), emptySet())
+
+        assertFalse(clipboard.hasContent)
+    }
+
+
+    @Test
+    fun `copying nodes does not modify document history`() {
+        val rectangle = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 50f,
+        )
+
+        val state = EditorDocumentState(
+            EditorDocument(nodes = listOf(rectangle))
+        )
+
+        state.selectNode(rectangle.id)
+        state.copySelectedNodes()
+
+        assertTrue(state.clipboard.hasContent)
+        assertEquals(listOf(rectangle), state.nodes)
+        assertFalse(state.canUndo)
+    }
+
+    @Test
+    fun `pasting nodes creates one undoable operation`() {
+        val rectangle = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 50f,
+        )
+
+        val state = EditorDocumentState(
+            EditorDocument(nodes = listOf(rectangle))
+        )
+
+        state.selectNode(rectangle.id)
+        state.copySelectedNodes()
+        state.pasteNodes()
+
+        assertEquals(2, state.nodes.size)
+        assertEquals(1, state.history.undoStack.size)
+
+        val pasted = state.nodes.last() as EditorRectangle
+
+        assertNotEquals(rectangle.id, pasted.id)
+        assertEquals(30f, pasted.x)
+        assertEquals(40f, pasted.y)
+        assertEquals(setOf(pasted.id), state.selectedNodeIds)
+
+        state.undo()
+
+        assertEquals(listOf(rectangle), state.nodes)
+        assertFalse(state.canUndo)
+
+        state.redo()
+
+        assertEquals(2, state.nodes.size)
+        assertEquals(pasted, state.nodes.last())
+    }
+
+    @Test
+    fun `cutting selection is undoable and preserves clipboard`() {
+        val rectangle = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 50f,
+        )
+
+        val state = EditorDocumentState(
+            EditorDocument(nodes = listOf(rectangle))
+        )
+
+        state.selectNode(rectangle.id)
+        state.cutSelectedNodes()
+
+        assertTrue(state.nodes.isEmpty())
+        assertTrue(state.selectedNodeIds.isEmpty())
+        assertTrue(state.clipboard.hasContent)
+        assertEquals(1, state.history.undoStack.size)
+
+        state.undo()
+
+        assertEquals(listOf(rectangle), state.nodes)
+
+        // Clipboard contents survive undo.
+        assertTrue(state.clipboard.hasContent)
+
+        state.pasteNodes()
+
+        assertEquals(2, state.nodes.size)
+    }
+
+    @Test
+    fun `pasting empty clipboard changes nothing`() {
+        val state = EditorDocumentState()
+
+        state.pasteNodes()
+
+        assertTrue(state.nodes.isEmpty())
+        assertFalse(state.canUndo)
+    }
+
+
 }
