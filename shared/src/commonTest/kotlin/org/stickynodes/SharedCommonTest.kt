@@ -2075,4 +2075,135 @@ class SharedCommonTest {
         // Y coordinates remain unchanged.
         assertEquals(10f, rectangles[1].y)
     }
+
+
+    @Test
+    fun `distributing selected nodes creates one undoable change`() {
+        val first = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 20f,
+            height = 20f,
+        )
+
+        val middle = EditorRectangle(
+            x = 40f,
+            y = 10f,
+            width = 30f,
+            height = 20f,
+        )
+
+        val last = EditorRectangle(
+            x = 180f,
+            y = 20f,
+            width = 20f,
+            height = 20f,
+        )
+
+        val originals = listOf(first, middle, last)
+
+        val state = EditorDocumentState(
+            EditorDocument(nodes = originals)
+        )
+
+        state.selectNodes(originals.mapTo(mutableSetOf()) { it.id })
+
+        assertTrue(state.canDistributeSelection)
+
+        state.distributeSelectedNodes(
+            distribution = NodeDistribution.HORIZONTAL,
+            selectionBounds = { it.selectionBounds },
+        )
+
+        val distributed = state.nodes.filterIsInstance<EditorRectangle>()
+
+        assertEquals(0f, distributed[0].x)
+        assertEquals(85f, distributed[1].x)
+        assertEquals(180f, distributed[2].x)
+
+        state.undo()
+
+        assertEquals(originals, state.nodes)
+
+        state.redo()
+
+        assertEquals(distributed, state.nodes)
+    }
+
+
+
+    @Test
+    fun `distribution requires at least three selected nodes`() {
+        val first = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 20f,
+            height = 20f,
+        )
+
+        val second = EditorRectangle(
+            x = 100f,
+            y = 0f,
+            width = 20f,
+            height = 20f,
+        )
+
+        val state = EditorDocumentState(
+            EditorDocument(nodes = listOf(first, second))
+        )
+
+        state.selectNodes(setOf(first.id, second.id))
+
+        assertFalse(state.canDistributeSelection)
+
+        state.distributeSelectedNodes(
+            distribution = NodeDistribution.HORIZONTAL,
+            selectionBounds = { it.selectionBounds },
+        )
+
+        assertEquals(listOf(first, second), state.nodes)
+        assertFalse(state.canUndo)
+    }
+
+    @Test
+    fun `vertical distribution creates equal gaps`() {
+        val first = EditorRectangle(
+            x = 10f,
+            y = 0f,
+            width = 20f,
+            height = 20f,
+        )
+
+        val middle = EditorRectangle(
+            x = 30f,
+            y = 40f,
+            width = 20f,
+            height = 30f,
+        )
+
+        val last = EditorRectangle(
+            x = 50f,
+            y = 180f,
+            width = 20f,
+            height = 20f,
+        )
+
+        val result = listOf(first, middle, last).distributeNodes(
+            selectedIds = setOf(first.id, middle.id, last.id),
+            distribution = NodeDistribution.VERTICAL,
+            selectionBounds = { it.selectionBounds },
+        )
+
+        val rectangles = result.filterIsInstance<EditorRectangle>()
+
+        assertEquals(0f, rectangles[0].y)
+        assertEquals(85f, rectangles[1].y)
+        assertEquals(180f, rectangles[2].y)
+
+        // Horizontal positions must be preserved.
+        assertEquals(10f, rectangles[0].x)
+        assertEquals(30f, rectangles[1].x)
+        assertEquals(50f, rectangles[2].x)
+    }
+
 }

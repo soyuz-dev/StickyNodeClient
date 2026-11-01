@@ -14,12 +14,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import org.stickynodes.editor.draw.geometry.NodeAlignment
+import org.stickynodes.editor.draw.geometry.NodeDistribution
 import org.stickynodes.editor.tools.components.ActionBarButton
-import org.stickynodes.editor.tools.components.ActionBarDivider
 
 @Composable
-fun AlignmentBar(
+fun LayoutBar(
     onAlign: (NodeAlignment) -> Unit,
+    onDistribute: (NodeDistribution) -> Unit,
+    canDistribute: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -74,14 +76,37 @@ fun AlignmentBar(
                 tooltip = "Align bottom",
                 onClick = { onAlign(NodeAlignment.BOTTOM) },
             )
+
+            HorizontalDivider(
+                modifier = Modifier.width(24.dp),
+                color = MaterialTheme.colorScheme.outlineVariant,
+            )
+
+            ActionBarButton(
+                icon = "horizontal_distribute",
+                tooltip = "Distribute horizontally",
+                onClick = { onDistribute(NodeDistribution.HORIZONTAL) },
+                enabled = canDistribute
+            )
+
+            ActionBarButton(
+                icon = "vertical_distribute",
+                tooltip = "Distribute vertically",
+                onClick = { onDistribute(NodeDistribution.VERTICAL) },
+                enabled = canDistribute
+            )
         }
     }
 }
 
 @Preview
 @Composable
-private fun AlignmentBarPreview() {
+private fun LayoutBarPreview() {
     MaterialTheme {
-        AlignmentBar(onAlign = {})
+        LayoutBar(
+            onAlign = {},
+            onDistribute = {},
+            canDistribute = false,
+        )
     }
 }

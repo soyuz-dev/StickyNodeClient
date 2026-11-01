@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -746,6 +747,40 @@ fun EditorScreen(
                     null -> Unit
                 }
             }
+        }
+
+        AnimatedVisibility(
+            visible = documentState.canAlignSelection,
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 16.dp),
+            enter = fadeIn(tween(180)),
+            exit = fadeOut(tween(180)),
+        ) {
+            val selectionBounds: (EditorNode) -> Rect = { node ->
+                node.measuredSelectionBounds(
+                    textMeasurer = textMeasurer,
+                    textStyle = { text ->
+                        text.layoutStyle(density)
+                    },
+                )
+            }
+
+            LayoutBar(
+                canDistribute = documentState.canDistributeSelection,
+                onAlign = { alignment ->
+                    documentState.alignSelectedNodes(
+                        alignment = alignment,
+                        selectionBounds = selectionBounds
+                    )
+                },
+                onDistribute = { distribution ->
+                    documentState.distributeSelectedNodes(
+                        distribution = distribution,
+                        selectionBounds = selectionBounds
+                    )
+                },
+            )
         }
     }
 }

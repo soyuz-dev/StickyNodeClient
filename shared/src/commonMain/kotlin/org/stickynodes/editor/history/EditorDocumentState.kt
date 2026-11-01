@@ -9,9 +9,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import org.stickynodes.editor.draw.geometry.NodeAlignment
+import org.stickynodes.editor.draw.geometry.NodeDistribution
 import org.stickynodes.editor.draw.geometry.alignNodes
 import org.stickynodes.editor.draw.geometry.bringForward
 import org.stickynodes.editor.draw.geometry.bringToFront
+import org.stickynodes.editor.draw.geometry.distributeNodes
 import org.stickynodes.editor.draw.geometry.duplicatedBy
 import org.stickynodes.editor.draw.geometry.sendBackward
 import org.stickynodes.editor.draw.geometry.sendToBack
@@ -93,6 +95,9 @@ class EditorDocumentState(
     val canAlignSelection: Boolean
         get() = selectedNodeIds.size >= 2
 
+    val canDistributeSelection: Boolean
+        get() = selectedNodeIds.size >= 3
+
     fun alignSelectedNodes(
         alignment: NodeAlignment,
         selectionBounds: (EditorNode) -> Rect,
@@ -106,6 +111,21 @@ class EditorDocumentState(
         )
 
         if (alignedNodes != nodes) commitNodes(alignedNodes)
+    }
+
+    fun distributeSelectedNodes(
+        distribution: NodeDistribution,
+        selectionBounds: (EditorNode) -> Rect,
+    ) {
+        if (!canDistributeSelection) return
+
+        val distributedNodes = nodes.distributeNodes(
+            selectedIds = selectedNodeIds,
+            distribution = distribution,
+            selectionBounds = selectionBounds
+        )
+
+        if (distributedNodes != nodes) commitNodes(distributedNodes)
     }
 
     fun open(document: EditorDocument) {
