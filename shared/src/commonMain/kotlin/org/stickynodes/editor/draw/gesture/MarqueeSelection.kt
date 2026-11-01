@@ -36,6 +36,7 @@ internal suspend fun AwaitPointerEventScope.handleMarqueeSelection(
     additive: Boolean,
     onSelect: (Uuid?) -> Unit,
     onSelectNodes: (Set<Uuid>) -> Unit,
+    selectionBounds: (EditorNode) -> Rect,
     onMarquee: (Rect?) -> Unit,
 ) {
     val startPoint = screenToWorld(down.position)
@@ -66,7 +67,7 @@ internal suspend fun AwaitPointerEventScope.handleMarqueeSelection(
 
         val containedIds = initialNodes
             .asSequence()
-            .filter { marquee.fullyContains(it.selectionBounds) }
+            .filter { marquee.fullyContains(selectionBounds(it)) }
             .map { it.id }
             .toSet()
 

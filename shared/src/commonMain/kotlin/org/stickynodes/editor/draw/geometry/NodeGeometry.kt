@@ -65,6 +65,18 @@ fun EditorNode.measuredBounds(
     else -> bounds
 }
 
+fun EditorNode.measuredSelectionBounds(
+    textMeasurer: TextMeasurer,
+    textStyle: (EditorText) -> TextStyle,
+): Rect = when (this) {
+    is EditorShape -> visualBounds
+    is EditorText -> measuredBounds(
+        textMeasurer = textMeasurer,
+        textStyle = textStyle,
+    )
+    else -> bounds
+}
+
 
 fun EditorNode.contains(
     point: Offset,

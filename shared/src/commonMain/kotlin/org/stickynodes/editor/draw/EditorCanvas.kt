@@ -25,6 +25,7 @@ import org.stickynodes.editor.draw.camera.EditorCamera
 import org.stickynodes.editor.draw.geometry.contains
 import org.stickynodes.editor.draw.geometry.isRotationHandleHit
 import org.stickynodes.editor.draw.geometry.layoutStyle
+import org.stickynodes.editor.draw.geometry.measuredSelectionBounds
 import org.stickynodes.editor.draw.geometry.resizeHandleAt
 import org.stickynodes.editor.draw.gesture.detectCanvasPan
 import org.stickynodes.editor.draw.gesture.detectCanvasZoom
@@ -264,6 +265,14 @@ fun EditorCanvas(
                             onEditText = { node ->
                                 currentOnTextEdit(node)
                             },
+                            selectionBounds = { node ->
+                                node.measuredSelectionBounds(
+                                    textMeasurer = textMeasurer,
+                                    textStyle = { text ->
+                                        text.layoutStyle(density)
+                                    }
+                                )
+                            }
                         )
                     }
 

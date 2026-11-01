@@ -31,6 +31,7 @@ suspend fun PointerInputScope.detectNodeInteraction(
     resizeHandleAt: (Offset) -> ResizeHandle?,
     rotationHandleAt: (Offset) -> Uuid?,
     onEditText: (EditorText) -> Unit,
+    selectionBounds: (EditorNode) -> Rect,
 ) {
 
 
@@ -138,6 +139,7 @@ suspend fun PointerInputScope.detectNodeInteraction(
                     additive = shiftPressed,
                     onSelect = onSelect,
                     onSelectNodes = onSelectNodes,
+                    selectionBounds = selectionBounds,
                     onMarquee = onMarquee
                 )
 
