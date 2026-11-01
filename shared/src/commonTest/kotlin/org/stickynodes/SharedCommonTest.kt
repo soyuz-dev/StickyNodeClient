@@ -2387,4 +2387,94 @@ class SharedCommonTest {
         }
     }
 
+
+    @Test
+    fun `absolute positioning creates one undoable document change`() {
+        val rectangle = EditorRectangle(
+            x = 20f,
+            y = 30f,
+            width = 80f,
+            height = 40f,
+        )
+
+        val state = EditorDocumentState(
+            EditorDocument(nodes = listOf(rectangle))
+        )
+
+        state.selectNode(rectangle.id)
+
+        state.positionSelectedNodeAt(
+            Offset(200f, 150f)
+        )
+
+        val moved = state.nodes.single() as EditorRectangle
+
+        assertEquals(200f, moved.x)
+        assertEquals(150f, moved.y)
+        assertEquals(rectangle.id, moved.id)
+
+        state.undo()
+
+        assertEquals(rectangle, state.nodes.single())
+
+        state.redo()
+
+        assertEquals(moved, state.nodes.single())
+    }
+
+    @Test
+    fun `absolute positioning ignores multiple selected nodes`() {
+        val first = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 40f,
+            height = 30f,
+        )
+
+        val second = EditorRectangle(
+            x = 100f,
+            y = 100f,
+            width = 40f,
+            height = 30f,
+        )
+
+        val originals = listOf(first, second)
+
+        val state = EditorDocumentState(
+            EditorDocument(nodes = originals)
+        )
+
+        state.selectNodes(setOf(first.id, second.id))
+
+        state.positionSelectedNodeAt(
+            Offset(200f, 200f)
+        )
+
+        assertEquals(originals, state.nodes)
+        assertFalse(state.canUndo)
+    }
+
+    @Test
+    fun `positioning node at existing coordinates does not create history`() {
+        val rectangle = EditorRectangle(
+            x = 20f,
+            y = 30f,
+            width = 80f,
+            height = 40f,
+        )
+
+        val state = EditorDocumentState(
+            EditorDocument(nodes = listOf(rectangle))
+        )
+
+        state.selectNode(rectangle.id)
+
+        state.positionSelectedNodeAt(
+            Offset(20f, 30f)
+        )
+
+        assertEquals(rectangle, state.nodes.single())
+        assertFalse(state.canUndo)
+    }
+
 }

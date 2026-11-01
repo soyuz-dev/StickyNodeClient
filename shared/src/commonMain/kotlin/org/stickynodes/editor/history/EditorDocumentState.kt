@@ -17,6 +17,7 @@ import org.stickynodes.editor.draw.geometry.bringToFront
 import org.stickynodes.editor.draw.geometry.distributeNodes
 import org.stickynodes.editor.draw.geometry.duplicatedBy
 import org.stickynodes.editor.draw.geometry.matchShapeSizes
+import org.stickynodes.editor.draw.geometry.positionedAt
 import org.stickynodes.editor.draw.geometry.sendBackward
 import org.stickynodes.editor.draw.geometry.sendToBack
 import org.stickynodes.editor.draw.geometry.translatedBy
@@ -146,6 +147,17 @@ class EditorDocumentState(
         )
 
         if (resizedNodes != nodes) commitNodes(resizedNodes)
+    }
+
+    fun positionSelectedNodeAt(position: Offset) {
+        val id = selectedNodeId ?: return
+
+        val updatedNodes = nodes.map { node ->
+            if (node.id == id) node.positionedAt(position)
+            else node
+        }
+
+        if (updatedNodes != nodes) commitNodes(updatedNodes)
     }
 
     fun open(document: EditorDocument) {
