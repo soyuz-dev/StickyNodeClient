@@ -10,16 +10,19 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import org.stickynodes.editor.draw.geometry.NodeAlignment
 import org.stickynodes.editor.draw.geometry.NodeDistribution
+import org.stickynodes.editor.draw.geometry.NodeSizing
 import org.stickynodes.editor.draw.geometry.alignNodes
 import org.stickynodes.editor.draw.geometry.bringForward
 import org.stickynodes.editor.draw.geometry.bringToFront
 import org.stickynodes.editor.draw.geometry.distributeNodes
 import org.stickynodes.editor.draw.geometry.duplicatedBy
+import org.stickynodes.editor.draw.geometry.matchShapeSizes
 import org.stickynodes.editor.draw.geometry.sendBackward
 import org.stickynodes.editor.draw.geometry.sendToBack
 import org.stickynodes.editor.draw.geometry.translatedBy
 import org.stickynodes.editor.draw.geometry.withStyle
 import org.stickynodes.editor.draw.model.EditorNode
+import org.stickynodes.editor.draw.model.EditorShape
 import org.stickynodes.editor.draw.style.NodeStyle
 import kotlin.uuid.Uuid
 
@@ -98,6 +101,10 @@ class EditorDocumentState(
     val canDistributeSelection: Boolean
         get() = selectedNodeIds.size >= 3
 
+    val canMatchShapeSizes: Boolean
+        get() = nodes.count {
+            it.id in selectedNodeIds && it is EditorShape
+        } >= 2
     fun alignSelectedNodes(
         alignment: NodeAlignment,
         selectionBounds: (EditorNode) -> Rect,
@@ -126,6 +133,19 @@ class EditorDocumentState(
         )
 
         if (distributedNodes != nodes) commitNodes(distributedNodes)
+    }
+
+    fun matchSelectedShapeSizes(
+        sizing: NodeSizing,
+    ) {
+        if (!canMatchShapeSizes) return
+
+        val resizedNodes = nodes.matchShapeSizes(
+            selectedIds = selectedNodeIds,
+            sizing = sizing,
+        )
+
+        if (resizedNodes != nodes) commitNodes(resizedNodes)
     }
 
     fun open(document: EditorDocument) {

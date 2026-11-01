@@ -2206,4 +2206,128 @@ class SharedCommonTest {
         assertEquals(50f, rectangles[2].x)
     }
 
+
+    @Test
+    fun `matching widths preserves shape centres`() {
+        val small = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 40f,
+            height = 30f,
+        )
+
+        val large = EditorRectangle(
+            x = 100f,
+            y = 50f,
+            width = 100f,
+            height = 60f,
+        )
+
+        val result = listOf(small, large).matchShapeSizes(
+            selectedIds = setOf(small.id, large.id),
+            sizing = NodeSizing.MATCH_WIDTH,
+        )
+
+        val first = result[0] as EditorRectangle
+        val second = result[1] as EditorRectangle
+
+        assertEquals(100f, first.width)
+        assertEquals(100f, second.width)
+
+        assertEquals(30f, first.height)
+        assertEquals(60f, second.height)
+
+        assertEquals(small.bounds.center, first.bounds.center)
+        assertEquals(large.bounds.center, second.bounds.center)
+
+        assertEquals(small.id, first.id)
+        assertEquals(large.id, second.id)
+    }
+
+
+    @Test
+    fun `matching selected widths creates one undoable change`() {
+        val small = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 40f,
+            height = 30f,
+        )
+
+        val large = EditorRectangle(
+            x = 100f,
+            y = 50f,
+            width = 100f,
+            height = 60f,
+        )
+
+        val originals = listOf(small, large)
+
+        val state = EditorDocumentState(
+            EditorDocument(nodes = originals)
+        )
+
+        state.selectNodes(setOf(small.id, large.id))
+
+        assertTrue(state.canMatchShapeSizes)
+
+        state.matchSelectedShapeSizes(
+            NodeSizing.MATCH_WIDTH
+        )
+
+        val resized = state.nodes
+            .filterIsInstance<EditorRectangle>()
+
+        assertEquals(100f, resized[0].width)
+        assertEquals(100f, resized[1].width)
+
+        // Height and centre are preserved.
+        assertEquals(30f, resized[0].height)
+        assertEquals(60f, resized[1].height)
+
+        assertEquals(small.bounds.center, resized[0].bounds.center)
+        assertEquals(large.bounds.center, resized[1].bounds.center)
+
+        // One undo restores the entire original document.
+        state.undo()
+
+        assertEquals(originals, state.nodes)
+
+        // One redo reapplies the size matching.
+        state.redo()
+
+        assertEquals(resized, state.nodes)
+    }
+
+
+    @Test
+    fun `matching sizes requires two selected shapes`() {
+        val rectangle = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 40f,
+            height = 30f,
+        )
+
+        val text = EditorText(
+            x = 100f,
+            y = 100f,
+            text = "Hello",
+        )
+
+        val originals = listOf(rectangle, text)
+
+        val state = EditorDocumentState(
+            EditorDocument(nodes = originals)
+        )
+
+        state.selectNodes(setOf(rectangle.id, text.id))
+
+        assertFalse(state.canMatchShapeSizes)
+
+        state.matchSelectedShapeSizes(NodeSizing.MATCH_BOTH)
+
+        assertEquals(originals, state.nodes)
+        assertFalse(state.canUndo)
+    }
 }
