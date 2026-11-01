@@ -6,11 +6,13 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.isShiftPressed
 import org.stickynodes.editor.draw.geometry.ResizeHandle
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorShape
+import org.stickynodes.editor.draw.model.EditorText
 import kotlin.uuid.Uuid
 
 suspend fun PointerInputScope.detectNodeInteraction(
@@ -28,7 +30,21 @@ suspend fun PointerInputScope.detectNodeInteraction(
     onCommit: (List<EditorNode>) -> Unit,
     resizeHandleAt: (Offset) -> ResizeHandle?,
     rotationHandleAt: (Offset) -> Uuid?,
+    onEditText: (EditorText) -> Unit,
 ) {
+
+
+    var lastClickNodeId: Uuid? = null
+    var lastClickPosition = Offset.Unspecified
+    var lastClickUpTime = 0L
+
+    fun resetClickTracking() {
+        lastClickNodeId = null
+        lastClickPosition = Offset.Unspecified
+        lastClickUpTime = 0L
+    }
+
+
     try {
         awaitEachGesture {
             val down = awaitFirstDown()
@@ -155,9 +171,41 @@ suspend fun PointerInputScope.detectNodeInteraction(
 
             // Clicking an already-selected node without dragging
             // collapses a multi-selection to that node.
-            if (!dragStarted && wasSelected) {
-                onSelect(hitNode.id)
+
+            if (dragStarted) {
+                resetClickTracking()
+            } else {
+                val interval = down.uptimeMillis - lastClickUpTime
+
+                val isDoubleClick =
+                    hitNode is EditorText &&
+                            lastClickNodeId == hitNode.id &&
+                            lastClickPosition.isSpecified &&
+                            interval >= viewConfiguration.doubleTapMinTimeMillis &&
+                            interval <= viewConfiguration.doubleTapTimeoutMillis &&
+                            (down.position - lastClickPosition).getDistance() <=
+                            viewConfiguration.touchSlop
+
+                if (isDoubleClick) {
+                    onSelect(hitNode.id)
+                    onEditText(hitNode)
+                    resetClickTracking()
+                } else {
+                    if (wasSelected) {
+                        onSelect(hitNode.id)
+                    }
+
+                    lastClickNodeId = hitNode.id
+                    lastClickPosition = down.position
+
+                    // handleNodeDrag has already awaited the end
+                    // of this interaction.
+                    lastClickUpTime =
+                        currentEvent.changes.firstOrNull()?.uptimeMillis
+                            ?: down.uptimeMillis
+                }
             }
+
         }
     } finally {
         // Always clean up temporary interaction state,

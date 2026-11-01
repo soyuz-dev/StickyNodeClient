@@ -71,6 +71,8 @@ fun EditorScreen(
     val selectedNodeIds = documentState.selectedNodeIds
     val displayNodes = documentState.displayNodes
 
+
+
     var activeNudgeKeys by remember {
         mutableStateOf<Set<Key>>(emptySet())
     }
@@ -126,6 +128,17 @@ fun EditorScreen(
 
     val scope = rememberCoroutineScope()
     val storage = rememberDocumentStorage()
+
+
+    val editingTextId =
+        (textEditSession as? TextEditSession.Edit)?.nodeId
+
+    val renderedNodes = if (editingTextId != null) {
+        displayNodes.filterNot { it.id == editingTextId }
+    } else {
+        displayNodes
+    }
+
 
     fun save() {
         scope.launch {
@@ -523,7 +536,7 @@ fun EditorScreen(
                         }
                     }
                 },
-            nodes = displayNodes,
+            nodes = renderedNodes,
             selectedTool = selectedTool,
             camera = cameraState.camera,
             rectangleStyle = rectangleStyle,
@@ -544,6 +557,10 @@ fun EditorScreen(
                     fontSize = defaultFontSize
                 )
                 textDraft = ""
+            },
+            onTextEdit = { node ->
+                textEditSession = node.toEditSession()
+                textDraft = node.text
             }
         )
 

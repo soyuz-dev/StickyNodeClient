@@ -36,6 +36,7 @@ import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorRectangle
 import org.stickynodes.editor.draw.model.EditorShape
+import org.stickynodes.editor.draw.model.EditorText
 import org.stickynodes.editor.draw.render.drawNode
 import org.stickynodes.editor.draw.render.drawSelection
 import org.stickynodes.editor.draw.render.drawShapeSelection
@@ -63,6 +64,7 @@ fun EditorCanvas(
     onNodeSelected: (Uuid?) -> Unit,
     onNodesSelected: (Set<Uuid>) -> Unit,
     onNodeSelectionToggled: (Uuid) -> Unit,
+    onTextEdit: (EditorText) -> Unit,
 ) {
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
@@ -96,6 +98,7 @@ fun EditorCanvas(
     val currentOnNodeSelected by rememberUpdatedState(onNodeSelected)
     val currentOnNodesSelected by rememberUpdatedState(onNodesSelected)
     val currentOnTextPlacement by rememberUpdatedState(onTextPlacement)
+    val currentOnTextEdit by rememberUpdatedState(onTextEdit)
 
     Canvas(
         modifier = modifier
@@ -257,7 +260,10 @@ fun EditorCanvas(
                                 } else {
                                     null
                                 }
-                            }
+                            },
+                            onEditText = { node ->
+                                currentOnTextEdit(node)
+                            },
                         )
                     }
 
@@ -433,5 +439,6 @@ fun EditorCanvasPreview() {
             selectedNodeId = ids.singleOrNull()
         },
         onTextPlacement = {},
+        onTextEdit = {}
     )
 }
