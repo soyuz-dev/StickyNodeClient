@@ -15,6 +15,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import org.stickynodes.editor.draw.geometry.NodeAlignment
 import org.stickynodes.editor.draw.geometry.NodeDistribution
+import org.stickynodes.editor.draw.geometry.NodeSizing
 import org.stickynodes.editor.tools.components.ActionBarButton
 
 @Composable
@@ -22,6 +23,8 @@ fun LayoutBar(
     onAlign: (NodeAlignment) -> Unit,
     onDistribute: (NodeDistribution) -> Unit,
     canDistribute: Boolean,
+    onMatchSize: (NodeSizing) -> Unit,
+    canMatchSize: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -95,6 +98,38 @@ fun LayoutBar(
                 onClick = { onDistribute(NodeDistribution.VERTICAL) },
                 enabled = canDistribute
             )
+
+            HorizontalDivider(
+                modifier = Modifier.width(24.dp),
+                color = MaterialTheme.colorScheme.outlineVariant,
+            )
+
+            ActionBarButton(
+                icon = "width",
+                tooltip = "Match widths",
+                enabled = canMatchSize,
+                onClick = {
+                    onMatchSize(NodeSizing.MATCH_WIDTH)
+                },
+            )
+
+            ActionBarButton(
+                icon = "height",
+                tooltip = "Match heights",
+                enabled = canMatchSize,
+                onClick = {
+                    onMatchSize(NodeSizing.MATCH_HEIGHT)
+                },
+            )
+
+            ActionBarButton(
+                icon = "aspect_ratio",
+                tooltip = "Match size",
+                enabled = canMatchSize,
+                onClick = {
+                    onMatchSize(NodeSizing.MATCH_BOTH)
+                },
+            )
         }
     }
 }
@@ -107,6 +142,8 @@ private fun LayoutBarPreview() {
             onAlign = {},
             onDistribute = {},
             canDistribute = false,
+            onMatchSize = {},
+            canMatchSize = true
         )
     }
 }

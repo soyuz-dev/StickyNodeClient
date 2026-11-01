@@ -768,6 +768,7 @@ fun EditorScreen(
 
             LayoutBar(
                 canDistribute = documentState.canDistributeSelection,
+                canMatchSize = documentState.canMatchShapeSizes,
                 onAlign = { alignment ->
                     documentState.alignSelectedNodes(
                         alignment = alignment,
@@ -780,6 +781,9 @@ fun EditorScreen(
                         selectionBounds = selectionBounds
                     )
                 },
+                onMatchSize = { sizing ->
+                    documentState.matchSelectedShapeSizes(sizing)
+                }
             )
         }
     }
