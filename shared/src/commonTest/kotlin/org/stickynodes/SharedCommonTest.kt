@@ -13,6 +13,7 @@ import org.stickynodes.editor.*
 import kotlin.math.PI
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
@@ -2330,4 +2331,60 @@ class SharedCommonTest {
         assertEquals(originals, state.nodes)
         assertFalse(state.canUndo)
     }
+
+    @Test
+    fun `absolute positioning moves node to requested coordinates`() {
+        val original = EditorRectangle(
+            x = 20f,
+            y = 30f,
+            width = 80f,
+            height = 40f,
+            rotation = 0.5f,
+        )
+
+        val positioned = original.positionedAt(
+            Offset(200f, 150f)
+        ) as EditorRectangle
+
+        assertEquals(200f, positioned.x)
+        assertEquals(150f, positioned.y)
+
+        assertEquals(original.width, positioned.width)
+        assertEquals(original.height, positioned.height)
+        assertEquals(original.rotation, positioned.rotation)
+        assertEquals(original.id, positioned.id)
+    }
+
+    @Test
+    fun `positioning node at its current position changes nothing`() {
+        val node = EditorRectangle(
+            x = 20f,
+            y = 30f,
+            width = 80f,
+            height = 40f,
+        )
+
+        val result = node.positionedAt(
+            Offset(20f, 30f)
+        )
+
+        assertEquals(node, result)
+    }
+
+    @Test
+    fun `absolute positioning rejects non finite coordinates`() {
+        val node = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 40f,
+            height = 30f,
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            node.positionedAt(
+                Offset(Float.NaN, 100f)
+            )
+        }
+    }
+
 }
