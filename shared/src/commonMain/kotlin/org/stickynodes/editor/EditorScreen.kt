@@ -51,6 +51,8 @@ import org.stickynodes.editor.draw.EditorTextOverlay
 import org.stickynodes.editor.draw.camera.rememberEditorCameraState
 import org.stickynodes.editor.draw.geometry.layoutStyle
 import org.stickynodes.editor.draw.geometry.measuredSelectionBounds
+import org.stickynodes.editor.draw.geometry.visibleNodeIds
+import org.stickynodes.editor.draw.geometry.visibleWorldBounds
 import org.stickynodes.editor.draw.model.*
 import org.stickynodes.editor.draw.style.*
 import org.stickynodes.editor.history.rememberEditorDocumentState
@@ -630,6 +632,28 @@ fun EditorScreen(
                 },
                 onOpen = ::open,
                 onSave = ::save,
+                onSelectVisible = {
+                    val viewport = cameraState.viewportSize
+
+                    if (viewport.width > 0 && viewport.height > 0) {
+                        val visibleBounds =
+                            cameraState.camera.visibleWorldBounds(viewport)
+
+                        val visibleIds = documentState.nodes.visibleNodeIds(
+                            viewportBounds = visibleBounds,
+                            selectionBounds = { node ->
+                                node.measuredSelectionBounds(
+                                    textMeasurer = textMeasurer,
+                                    textStyle = { text ->
+                                        text.layoutStyle(density)
+                                    },
+                                )
+                            }
+                        )
+
+                        documentState.selectNodes(visibleIds)
+                    }
+                }
             )
         }
 

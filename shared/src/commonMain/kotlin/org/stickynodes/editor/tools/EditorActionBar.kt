@@ -45,6 +45,7 @@ fun EditorActionBar(
     onFitToContent: () -> Unit,
     onOpen: () -> Unit,
     onSave: () -> Unit,
+    onSelectVisible: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -135,6 +136,12 @@ fun EditorActionBar(
                 tooltip = "Fit to content",
                 onClick = onFitToContent,
             )
+
+            ActionBarButton(
+                icon = "select_all",
+                tooltip = "Select visible nodes",
+                onClick = onSelectVisible
+            )
         }
 
     }
@@ -173,6 +180,7 @@ private fun EditorActionBarPreview() {
             onFitToContent = {},
             onOpen = {},
             onSave = {},
+            onSelectVisible = {}
         )
     }
 }
