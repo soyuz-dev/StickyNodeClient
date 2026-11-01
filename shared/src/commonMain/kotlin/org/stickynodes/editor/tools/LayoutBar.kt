@@ -2,6 +2,8 @@ package org.stickynodes.editor.tools
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,100 +41,119 @@ fun LayoutBar(
             verticalArrangement = Arrangement.spacedBy(4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            ActionBarButton(
-                icon = "align_horizontal_left",
-                tooltip = "Align left",
-                onClick = { onAlign(NodeAlignment.LEFT) }
-            )
+            
+            LayoutButtonRow {
+                ActionBarButton(
+                    icon = "align_horizontal_left",
+                    tooltip = "Align left",
+                    onClick = { onAlign(NodeAlignment.LEFT) }
+                )
 
-            ActionBarButton(
-                icon = "align_horizontal_center",
-                tooltip = "Align horizontal centres",
-                onClick = { onAlign(NodeAlignment.HORIZONTAL_CENTER) },
-            )
+                ActionBarButton(
+                    icon = "align_horizontal_center",
+                    tooltip = "Align horizontal centres",
+                    onClick = { onAlign(NodeAlignment.HORIZONTAL_CENTER) },
+                )
 
-            ActionBarButton(
-                icon = "align_horizontal_right",
-                tooltip = "Align right",
-                onClick = { onAlign(NodeAlignment.RIGHT) },
-            )
+                ActionBarButton(
+                    icon = "align_horizontal_right",
+                    tooltip = "Align right",
+                    onClick = { onAlign(NodeAlignment.RIGHT) },
+                )
+            }
+
+            LayoutButtonRow {
+                ActionBarButton(
+                    icon = "align_vertical_top",
+                    tooltip = "Align top",
+                    onClick = { onAlign(NodeAlignment.TOP) },
+                )
+
+                ActionBarButton(
+                    icon = "align_vertical_center",
+                    tooltip = "Align vertical centres",
+                    onClick = { onAlign(NodeAlignment.VERTICAL_CENTER) },
+                )
+
+                ActionBarButton(
+                    icon = "align_vertical_bottom",
+                    tooltip = "Align bottom",
+                    onClick = { onAlign(NodeAlignment.BOTTOM) },
+                )
+            }
+
 
             HorizontalDivider(
-                modifier = Modifier.width(24.dp),
+                modifier = Modifier.width(72.dp),
                 color = MaterialTheme.colorScheme.outlineVariant,
             )
 
-            ActionBarButton(
-                icon = "align_vertical_top",
-                tooltip = "Align top",
-                onClick = { onAlign(NodeAlignment.TOP) },
-            )
+            LayoutButtonRow {
+                ActionBarButton(
+                    icon = "horizontal_distribute",
+                    tooltip = "Distribute horizontally",
+                    onClick = { onDistribute(NodeDistribution.HORIZONTAL) },
+                    enabled = canDistribute
+                )
 
-            ActionBarButton(
-                icon = "align_vertical_center",
-                tooltip = "Align vertical centres",
-                onClick = { onAlign(NodeAlignment.VERTICAL_CENTER) },
-            )
-
-            ActionBarButton(
-                icon = "align_vertical_bottom",
-                tooltip = "Align bottom",
-                onClick = { onAlign(NodeAlignment.BOTTOM) },
-            )
+                ActionBarButton(
+                    icon = "vertical_distribute",
+                    tooltip = "Distribute vertically",
+                    onClick = { onDistribute(NodeDistribution.VERTICAL) },
+                    enabled = canDistribute
+                )
+            }
 
             HorizontalDivider(
-                modifier = Modifier.width(24.dp),
+                modifier = Modifier.width(72.dp),
                 color = MaterialTheme.colorScheme.outlineVariant,
             )
 
-            ActionBarButton(
-                icon = "horizontal_distribute",
-                tooltip = "Distribute horizontally",
-                onClick = { onDistribute(NodeDistribution.HORIZONTAL) },
-                enabled = canDistribute
-            )
+            LayoutButtonRow {
+                ActionBarButton(
+                    icon = "width",
+                    tooltip = "Match widths",
+                    enabled = canMatchSize,
+                    onClick = {
+                        onMatchSize(NodeSizing.MATCH_WIDTH)
+                    },
+                )
 
-            ActionBarButton(
-                icon = "vertical_distribute",
-                tooltip = "Distribute vertically",
-                onClick = { onDistribute(NodeDistribution.VERTICAL) },
-                enabled = canDistribute
-            )
+                ActionBarButton(
+                    icon = "height",
+                    tooltip = "Match heights",
+                    enabled = canMatchSize,
+                    onClick = {
+                        onMatchSize(NodeSizing.MATCH_HEIGHT)
+                    },
+                )
 
-            HorizontalDivider(
-                modifier = Modifier.width(24.dp),
-                color = MaterialTheme.colorScheme.outlineVariant,
-            )
+                ActionBarButton(
+                    icon = "aspect_ratio",
+                    tooltip = "Match size",
+                    enabled = canMatchSize,
+                    onClick = {
+                        onMatchSize(NodeSizing.MATCH_BOTH)
+                    },
+                )
 
-            ActionBarButton(
-                icon = "width",
-                tooltip = "Match widths",
-                enabled = canMatchSize,
-                onClick = {
-                    onMatchSize(NodeSizing.MATCH_WIDTH)
-                },
-            )
-
-            ActionBarButton(
-                icon = "height",
-                tooltip = "Match heights",
-                enabled = canMatchSize,
-                onClick = {
-                    onMatchSize(NodeSizing.MATCH_HEIGHT)
-                },
-            )
-
-            ActionBarButton(
-                icon = "aspect_ratio",
-                tooltip = "Match size",
-                enabled = canMatchSize,
-                onClick = {
-                    onMatchSize(NodeSizing.MATCH_BOTH)
-                },
-            )
+            }
         }
     }
 }
+
+
+@Composable
+private fun LayoutButtonRow(
+    content: @Composable RowScope.() -> Unit,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        content = content,
+    )
+}
+
 
 @Preview
 @Composable
