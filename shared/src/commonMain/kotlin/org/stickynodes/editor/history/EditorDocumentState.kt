@@ -7,6 +7,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import org.stickynodes.editor.draw.geometry.NodeAlignment
+import org.stickynodes.editor.draw.geometry.alignNodes
 import org.stickynodes.editor.draw.geometry.bringForward
 import org.stickynodes.editor.draw.geometry.bringToFront
 import org.stickynodes.editor.draw.geometry.duplicatedBy
@@ -81,12 +84,29 @@ class EditorDocumentState(
         get() = selectedNodeIds.isNotEmpty() &&
                 nodes.sendToBack(selectedNodeIds) != nodes
 
-
     private var nudgeStartNodes: List<EditorNode>? = null
     private var nudgeDelta = Offset.Zero
     private var nudgeSelectedIds: Set<Uuid>? = null
     private var nudgePreviewNodes by
     mutableStateOf<List<EditorNode>?>(null)
+
+    val canAlignSelection: Boolean
+        get() = selectedNodeIds.size >= 2
+
+    fun alignSelectedNodes(
+        alignment: NodeAlignment,
+        selectionBounds: (EditorNode) -> Rect,
+    ) {
+        if (!canAlignSelection) return
+
+        val alignedNodes = nodes.alignNodes(
+            selectedIds = selectedNodeIds,
+            alignment = alignment,
+            selectionBounds = selectionBounds
+        )
+
+        if (alignedNodes != nodes) commitNodes(alignedNodes)
+    }
 
     fun open(document: EditorDocument) {
         cancelNudge()

@@ -1,0 +1,87 @@
+package org.stickynodes.editor.tools
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import org.stickynodes.editor.draw.geometry.NodeAlignment
+import org.stickynodes.editor.tools.components.ActionBarButton
+import org.stickynodes.editor.tools.components.ActionBarDivider
+
+@Composable
+fun AlignmentBar(
+    onAlign: (NodeAlignment) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 3.dp,
+        shadowElevation = 4.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            ActionBarButton(
+                icon = "align_horizontal_left",
+                tooltip = "Align left",
+                onClick = { onAlign(NodeAlignment.LEFT) }
+            )
+
+            ActionBarButton(
+                icon = "align_horizontal_center",
+                tooltip = "Align horizontal centres",
+                onClick = { onAlign(NodeAlignment.HORIZONTAL_CENTER) },
+            )
+
+            ActionBarButton(
+                icon = "align_horizontal_right",
+                tooltip = "Align right",
+                onClick = { onAlign(NodeAlignment.RIGHT) },
+            )
+
+            HorizontalDivider(
+                modifier = Modifier.width(24.dp),
+                color = MaterialTheme.colorScheme.outlineVariant,
+            )
+
+            ActionBarButton(
+                icon = "align_vertical_top",
+                tooltip = "Align top",
+                onClick = { onAlign(NodeAlignment.TOP) },
+            )
+
+            ActionBarButton(
+                icon = "align_vertical_center",
+                tooltip = "Align vertical centres",
+                onClick = { onAlign(NodeAlignment.VERTICAL_CENTER) },
+            )
+
+            ActionBarButton(
+                icon = "align_vertical_bottom",
+                tooltip = "Align bottom",
+                onClick = { onAlign(NodeAlignment.BOTTOM) },
+            )
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun AlignmentBarPreview() {
+    MaterialTheme {
+        AlignmentBar(onAlign = {})
+    }
+}

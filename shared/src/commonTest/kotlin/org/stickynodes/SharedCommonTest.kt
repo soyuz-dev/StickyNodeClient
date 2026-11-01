@@ -1835,4 +1835,206 @@ class SharedCommonTest {
         assertEquals("Hello, world!", session.initialText)
         assertEquals(32f, session.fontSize)
     }
+
+
+    @Test
+    fun `visible world bounds respect camera pan and zoom`() {
+        val camera = EditorCamera(
+            position = Offset(100f, 200f),
+            zoom = 2f,
+        )
+
+        val bounds = camera.visibleWorldBounds(
+            viewport = IntSize(800, 600),
+        )
+
+        assertEquals(Rect(100f, 200f, 500f, 500f), bounds)
+    }
+
+    @Test
+    fun `select visible includes partially intersecting nodes`() {
+        val inside = EditorRectangle(
+            x = 20f,
+            y = 20f,
+            width = 30f,
+            height = 30f,
+        )
+
+        val partial = EditorRectangle(
+            x = 90f,
+            y = 40f,
+            width = 40f,
+            height = 20f,
+        )
+
+        val outside = EditorRectangle(
+            x = 150f,
+            y = 150f,
+            width = 20f,
+            height = 20f,
+        )
+
+        val selected = listOf(
+            inside,
+            partial,
+            outside,
+        ).visibleNodeIds(
+            viewportBounds = Rect(0f, 0f, 100f, 100f),
+            selectionBounds = { it.selectionBounds },
+        )
+
+        assertEquals(
+            setOf(inside.id, partial.id),
+            selected,
+        )
+    }
+
+    @Test
+    fun `select visible uses supplied node bounds`() {
+        val node = EditorRectangle(
+            x = 500f,
+            y = 500f,
+            width = 50f,
+            height = 50f,
+        )
+
+        val selected = listOf(node).visibleNodeIds(
+            viewportBounds = Rect(0f, 0f, 180f, 180f),
+            selectionBounds = {
+                Rect(80f, 80f, 120f, 120f)
+            }
+        )
+
+        assertEquals(setOf(node.id), selected)
+    }
+
+
+    @Test
+    fun `select visible returns empty set when no nodes intersect`() {
+        val node = EditorRectangle(
+            x = 200f,
+            y = 200f,
+            width = 40f,
+            height = 40f,
+        )
+
+        val selected = listOf(node).visibleNodeIds(
+            viewportBounds = Rect(0f, 0f, 100f, 100f),
+            selectionBounds = { it.selectionBounds },
+        )
+
+        assertTrue(selected.isEmpty())
+    }
+
+
+    @Test
+    fun `align left moves selected nodes to the same left edge`() {
+        val first = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 40f,
+            height = 30f,
+        )
+
+        val second = EditorRectangle(
+            x = 100f,
+            y = 80f,
+            width = 60f,
+            height = 20f,
+        )
+
+        val result = listOf(first, second).alignNodes(
+            selectedIds = setOf(first.id, second.id),
+            alignment = NodeAlignment.LEFT,
+            selectionBounds = { it.selectionBounds },
+        )
+
+        val alignedFirst = result[0] as EditorRectangle
+        val alignedSecond = result[1] as EditorRectangle
+
+        assertEquals(10f, alignedFirst.x)
+        assertEquals(10f, alignedSecond.x)
+
+        assertEquals(20f, alignedFirst.y)
+        assertEquals(80f, alignedSecond.y)
+
+        assertEquals(first.id, alignedFirst.id)
+        assertEquals(second.id, alignedSecond.id)
+    }
+
+    @Test
+    fun `aligning selected nodes creates one undoable change`() {
+        val first = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 40f,
+            height = 30f,
+        )
+
+        val second = EditorRectangle(
+            x = 100f,
+            y = 80f,
+            width = 60f,
+            height = 20f,
+        )
+
+        val state = EditorDocumentState(
+            EditorDocument(nodes = listOf(first, second))
+        )
+
+        state.selectNodes(setOf(first.id, second.id))
+
+        state.alignSelectedNodes(
+            alignment = NodeAlignment.LEFT,
+            selectionBounds = { it.selectionBounds },
+        )
+
+        val aligned = state.nodes
+            .filterIsInstance<EditorRectangle>()
+
+        assertEquals(10f, aligned[0].x)
+        assertEquals(10f, aligned[1].x)
+
+        state.undo()
+
+        assertEquals(listOf(first, second), state.nodes)
+
+        state.redo()
+
+        assertEquals(aligned, state.nodes)
+    }
+
+
+    @Test
+    fun `alignment requires at least two selected nodes`() {
+        val first = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 40f,
+            height = 30f,
+        )
+
+        val second = EditorRectangle(
+            x = 100f,
+            y = 80f,
+            width = 60f,
+            height = 20f,
+        )
+
+        val state = EditorDocumentState(
+            EditorDocument(nodes = listOf(first, second))
+        )
+
+        state.selectNode(first.id)
+
+        assertFalse(state.canAlignSelection)
+
+        state.alignSelectedNodes(
+            alignment = NodeAlignment.LEFT,
+            selectionBounds = { it.selectionBounds },
+        )
+
+        assertEquals(listOf(first, second), state.nodes)
+        assertFalse(state.canUndo)
+    }
 }
