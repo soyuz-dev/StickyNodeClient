@@ -5,7 +5,7 @@ import org.stickynodes.editor.draw.style.NodeStyle
 import kotlin.uuid.Uuid
 
 data class EditorText(
-    override val id: Uuid,
+    override val id: Uuid = Uuid.random(),
     override val x: Float,
     override val y: Float,
     val text: String,

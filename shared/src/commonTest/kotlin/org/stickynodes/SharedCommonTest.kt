@@ -9,6 +9,7 @@ import org.stickynodes.editor.draw.geometry.*
 import org.stickynodes.editor.draw.model.*
 import org.stickynodes.editor.draw.style.*
 import org.stickynodes.editor.history.*
+import org.stickynodes.editor.*
 import kotlin.math.PI
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -1805,4 +1806,33 @@ class SharedCommonTest {
         assertEquals(120f, afterCopy.y)
     }
 
+
+    @Test
+    fun `creating a text session starts with empty text`() {
+        val session = TextEditSession.Create(
+            position = Offset(100f, 200f),
+            fontSize = 24f,
+        )
+
+        assertEquals(Offset(100f, 200f), session.position)
+        assertEquals("", session.initialText)
+        assertEquals(24f, session.fontSize)
+    }
+
+    @Test
+    fun `existing text node produces edit session`() {
+        val node = EditorText(
+            x = 50f,
+            y = 80f,
+            text = "Hello, world!",
+            fontSize = 32f,
+        )
+
+        val session = node.toEditSession()
+
+        assertEquals(node.id, session.nodeId)
+        assertEquals(Offset(50f, 80f), session.position)
+        assertEquals("Hello, world!", session.initialText)
+        assertEquals(32f, session.fontSize)
+    }
 }

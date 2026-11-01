@@ -31,7 +31,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -42,7 +41,6 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -110,8 +108,8 @@ fun EditorScreen(
         mutableStateOf(24f)
     }
 
-    var textEditPosition by remember {
-        mutableStateOf<Offset?>(null)
+    var textEditSession by remember {
+        mutableStateOf<TextEditSession?>(null)
     }
 
     var textDraft by remember {
@@ -357,27 +355,41 @@ fun EditorScreen(
     }
 
     fun cancelTextEdit() {
-        textEditPosition = null
+        textEditSession = null
         textDraft = ""
         focusRequester.requestFocus()
     }
 
     fun commitTextEdit() {
-        val position = textEditPosition ?: return
+        val session = textEditSession ?: return
 
-        if (textDraft.isNotBlank()) {
-            documentState.addNode(
-                EditorText(
-                    id = Uuid.random(),
-                    x = position.x,
-                    y = position.y,
-                    text = textDraft,
-                    fontSize = defaultFontSize,
-                    style = textStyle,
-                )
-            )
+        when(session) {
+            is TextEditSession.Create -> {
+                if(textDraft.isNotBlank()) {
+                    documentState.addNode(
+                        EditorText(
+                            id = Uuid.random(),
+                            x = session.position.x,
+                            y = session.position.y,
+                            text = textDraft,
+                            fontSize = session.fontSize
+                        )
+                    )
+                }
+            }
+
+            is TextEditSession.Edit -> {
+                val original = documentState.nodes
+                    .filterIsInstance<EditorText>()
+                    .firstOrNull { it.id == session.nodeId }
+
+                if(original != null && original.text != textDraft) {
+                    documentState.updateNode(
+                        original.copy(text = textDraft)
+                    )
+                }
+            }
         }
-
         cancelTextEdit()
     }
 
@@ -407,7 +419,7 @@ fun EditorScreen(
 
                 when {
                     // Text editing takes priority.
-                    textEditPosition != null -> {
+                    textEditSession != null -> {
                         if (activeNudgeKeys.isNotEmpty()) {
                             documentState.finishNudge()
                             activeNudgeKeys = emptySet()
@@ -527,17 +539,20 @@ fun EditorScreen(
             onNodeSelectionToggled =
                 documentState::toggleNodeSelection,
             onTextPlacement = { position ->
-                textEditPosition = position
+                textEditSession = TextEditSession.Create(
+                    position = position,
+                    fontSize = defaultFontSize
+                )
                 textDraft = ""
             }
         )
 
-        textEditPosition?.let { position ->
+        textEditSession?.let { session ->
             EditorTextOverlay(
-                position = position,
+                position = session.position,
                 text = textDraft,
                 camera = cameraState.camera,
-                fontSize = defaultFontSize,
+                fontSize = session.fontSize,
                 onTextChanged = {
                     textDraft = it
                 },
