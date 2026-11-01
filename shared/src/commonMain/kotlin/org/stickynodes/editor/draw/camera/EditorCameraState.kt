@@ -11,10 +11,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.IntSize
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import org.stickynodes.editor.draw.geometry.selectionBounds
 import org.stickynodes.editor.draw.model.EditorNode
 
 class EditorCameraState(
@@ -64,6 +66,7 @@ class EditorCameraState(
         nodes: List<EditorNode>,
         padding: Float = 64f,
         animated: Boolean = true,
+        selectionBounds: (EditorNode) -> Rect = { it.selectionBounds },
     ) {
         if (nodes.isEmpty() ||
             viewportSize.width <= 0 ||
@@ -76,6 +79,7 @@ class EditorCameraState(
             nodes = nodes,
             viewport = viewportSize,
             padding = padding,
+            selectionBounds = selectionBounds,
         )
 
         if (animated) {

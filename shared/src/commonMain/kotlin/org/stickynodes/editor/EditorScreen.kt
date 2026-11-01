@@ -41,6 +41,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -48,6 +49,8 @@ import org.stickynodes.data.rememberDocumentStorage
 import org.stickynodes.editor.draw.EditorCanvas
 import org.stickynodes.editor.draw.EditorTextOverlay
 import org.stickynodes.editor.draw.camera.rememberEditorCameraState
+import org.stickynodes.editor.draw.geometry.layoutStyle
+import org.stickynodes.editor.draw.geometry.measuredSelectionBounds
 import org.stickynodes.editor.draw.model.*
 import org.stickynodes.editor.draw.style.*
 import org.stickynodes.editor.history.rememberEditorDocumentState
@@ -70,7 +73,7 @@ fun EditorScreen(
     val nodes = documentState.nodes
     val selectedNodeIds = documentState.selectedNodeIds
     val displayNodes = documentState.displayNodes
-
+    val textMeasurer = rememberTextMeasurer()
 
 
     var activeNudgeKeys by remember {
@@ -615,6 +618,14 @@ fun EditorScreen(
                     cameraState.fitToNodes(
                         nodes = documentState.nodes,
                         padding = with(density) { 64.dp.toPx() },
+                        selectionBounds = { node ->
+                            node.measuredSelectionBounds(
+                                textMeasurer = textMeasurer,
+                                textStyle = { text ->
+                                    text.layoutStyle(density)
+                                }
+                            )
+                        }
                     )
                 },
                 onOpen = ::open,

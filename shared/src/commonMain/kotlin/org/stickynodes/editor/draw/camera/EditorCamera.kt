@@ -3,6 +3,7 @@ package org.stickynodes.editor.draw.camera
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.IntSize
+import org.stickynodes.editor.EditorShortcut
 import org.stickynodes.editor.draw.geometry.selectionBounds
 import org.stickynodes.editor.draw.model.EditorNode
 
@@ -33,12 +34,13 @@ data class EditorCamera(
         nodes: List<EditorNode>,
         viewport: IntSize,
         padding: Float = 64f,
+        selectionBounds: (EditorNode) -> Rect = { it.selectionBounds },
     ): EditorCamera {
         if (nodes.isEmpty() || viewport.width <= 0 || viewport.height <= 0) {
             return this
         }
 
-        val bounds = nodes.map { it.selectionBounds }
+        val bounds = nodes.map(selectionBounds)
 
         val left = bounds.minOf { it.left }
         val top = bounds.minOf { it.top }
