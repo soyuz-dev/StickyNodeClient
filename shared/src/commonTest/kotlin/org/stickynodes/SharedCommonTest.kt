@@ -2037,4 +2037,42 @@ class SharedCommonTest {
         assertEquals(listOf(first, second), state.nodes)
         assertFalse(state.canUndo)
     }
+
+
+    @Test
+    fun `horizontal distribution creates equal gaps`() {
+        val first = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val middle = EditorRectangle(
+            x = 40f, y = 10f,
+            width = 30f, height = 20f,
+        )
+
+        val last = EditorRectangle(
+            x = 180f, y = 20f,
+            width = 20f, height = 20f,
+        )
+
+        val result = listOf(first, middle, last).distributeNodes(
+            selectedIds = setOf(first.id, middle.id, last.id),
+            distribution = NodeDistribution.HORIZONTAL,
+            selectionBounds = { it.selectionBounds },
+        )
+
+        val rectangles = result.filterIsInstance<EditorRectangle>()
+
+        // Span: 0..200
+        // Total widths: 20 + 30 + 20 = 70
+        // Each gap: (200 - 70) / 2 = 65
+
+        assertEquals(0f, rectangles[0].x)
+        assertEquals(85f, rectangles[1].x)
+        assertEquals(180f, rectangles[2].x)
+
+        // Y coordinates remain unchanged.
+        assertEquals(10f, rectangles[1].y)
+    }
 }
