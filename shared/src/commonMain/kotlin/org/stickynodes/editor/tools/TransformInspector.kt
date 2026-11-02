@@ -1,27 +1,33 @@
 
 package org.stickynodes.editor.tools
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -32,6 +38,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import dev.vicart.compose.material.symbols.MaterialSymbol
 import kotlin.math.PI
 
 @Composable
@@ -43,26 +50,25 @@ fun TransformInspector(
     rotation: Float?,
     onRotationChanged: (Float) -> Unit,
     modifier: Modifier = Modifier,
+    onEditingChanged: (Boolean) -> Unit = {},
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surfaceContainer,
         tonalElevation = 3.dp,
         shadowElevation = 4.dp,
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Text(
-                text = "Position",
-                style = MaterialTheme.typography.labelLarge,
-            )
-
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
+                TransformIcon("open_with")
+
                 CoordinateField(
                     label = "X",
                     value = position.x,
@@ -71,6 +77,7 @@ fun TransformInspector(
                             Offset(x, position.y)
                         )
                     },
+                    onEditingChanged = onEditingChanged,
                 )
 
                 CoordinateField(
@@ -81,18 +88,17 @@ fun TransformInspector(
                             Offset(position.x, y)
                         )
                     },
+                    onEditingChanged = onEditingChanged,
                 )
             }
 
             if (dimensions != null) {
-                Text(
-                    text = "Dimensions",
-                    style = MaterialTheme.typography.labelLarge,
-                )
-
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    TransformIcon("aspect_ratio")
+
                     CoordinateField(
                         label = "W",
                         value = dimensions.width,
@@ -102,6 +108,7 @@ fun TransformInspector(
                             )
                         },
                         isValid = { it > 0f },
+                        onEditingChanged = onEditingChanged,
                     )
 
                     CoordinateField(
@@ -113,28 +120,41 @@ fun TransformInspector(
                             )
                         },
                         isValid = { it > 0f },
+                        onEditingChanged = onEditingChanged,
                     )
                 }
             }
 
             if (rotation != null) {
-                Text(
-                    text = "Rotation",
-                    style = MaterialTheme.typography.labelLarge,
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TransformIcon("rotate_right")
 
-                CoordinateField(
-                    label = "°",
-                    value = rotation * (180f / PI.toFloat()),
-                    onCommit = { degrees ->
-                        onRotationChanged(
-                            degrees * (PI.toFloat() / 180f)
-                        )
-                    },
-                )
+                    CoordinateField(
+                        label = "°",
+                        value = rotation * (180f / PI.toFloat()),
+                        onCommit = { degrees ->
+                            onRotationChanged(
+                                degrees * (PI.toFloat() / 180f)
+                            )
+                        },
+                        onEditingChanged = onEditingChanged,
+                    )
+                }
             }
         }
     }
+}
+
+@Composable
+private fun TransformIcon(icon: String) {
+    MaterialSymbol.Outlined(
+        icon = icon,
+        size = 18.dp,
+        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable
@@ -143,6 +163,7 @@ private fun CoordinateField(
     value: Float,
     onCommit: (Float) -> Unit,
     isValid: (Float) -> Boolean = { true },
+    onEditingChanged: (Boolean) -> Unit = {},
 ) {
     var draft by remember {
         mutableStateOf(value.toTransformString())
@@ -158,8 +179,7 @@ private fun CoordinateField(
 
     val focusManager = LocalFocusManager.current
 
-    // Keep the displayed value synchronized with the model
-    // whenever the field is not being edited.
+    // Synchronize with the model when not editing.
     if (!wasFocused) {
         val formatted = value.toTransformString()
 
@@ -191,13 +211,18 @@ private fun CoordinateField(
         }
     }
 
-    OutlinedTextField(
+
+    BasicTextField(
         value = draft,
         onValueChange = { draft = it },
-        label = { Text(label) },
         singleLine = true,
+        textStyle = MaterialTheme.typography.bodySmall.copy(
+            color = MaterialTheme.colorScheme.onSurface,
+        ),
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
         modifier = Modifier
-            .width(110.dp)
+            .width(90.dp)
+            .height(32.dp)
             .onPreviewKeyEvent { event ->
                 if (
                     event.key == Key.Escape &&
@@ -213,10 +238,12 @@ private fun CoordinateField(
             .onFocusChanged { state ->
                 if (state.isFocused && !wasFocused) {
                     finalized = false
+                    onEditingChanged(true)
                 }
 
                 if (wasFocused && !state.isFocused) {
                     finish(commitChanges = true)
+                    onEditingChanged(false)
                 }
 
                 wasFocused = state.isFocused
@@ -231,6 +258,30 @@ private fun CoordinateField(
                 focusManager.clearFocus()
             },
         ),
+        decorationBox = { innerTextField ->
+            Row(
+                modifier = Modifier
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant,
+                        RoundedCornerShape(6.dp),
+                    )
+                    .padding(horizontal = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                Box(
+                    modifier = Modifier.weight(1f),
+                ) {
+                    innerTextField()
+                }
+            }
+        },
     )
 }
 
@@ -246,7 +297,7 @@ private fun TransformInspectorInteractivePreview() {
     }
 
     var rotation by remember {
-        mutableStateOf(20f)
+        mutableStateOf(1f)
     }
 
     MaterialTheme {

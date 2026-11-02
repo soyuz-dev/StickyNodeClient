@@ -132,6 +132,10 @@ fun EditorScreen(
         FocusRequester()
     }
 
+    var isInspectorEditing by remember {
+        mutableStateOf(false)
+    }
+
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
     }
@@ -431,91 +435,95 @@ fun EditorScreen(
             }
             .focusRequester(focusRequester)
             .onPreviewKeyEvent { event ->
-                val isArrowKey = when (event.key) {
-                    Key.DirectionLeft,
-                    Key.DirectionRight,
-                    Key.DirectionUp,
-                    Key.DirectionDown -> true
+                if (isInspectorEditing) {
+                    false
+                } else {
+                    val isArrowKey = when (event.key) {
+                        Key.DirectionLeft,
+                        Key.DirectionRight,
+                        Key.DirectionUp,
+                        Key.DirectionDown -> true
 
-                    else -> false
-                }
+                        else -> false
+                    }
 
-                when {
-                    // Text editing takes priority.
-                    textEditSession != null -> {
-                        if (activeNudgeKeys.isNotEmpty()) {
-                            documentState.finishNudge()
-                            activeNudgeKeys = emptySet()
+                    when {
+                        // Text editing takes priority.
+                        textEditSession != null -> {
+                            if (activeNudgeKeys.isNotEmpty()) {
+                                documentState.finishNudge()
+                                activeNudgeKeys = emptySet()
+                            }
+
+                            if (
+                                event.type == KeyEventType.KeyDown &&
+                                event.key == Key.Escape
+                            ) {
+                                commitTextEdit()
+                                true
+                            } else {
+                                false
+                            }
                         }
 
-                        if (
-                            event.type == KeyEventType.KeyDown &&
-                            event.key == Key.Escape
-                        ) {
-                            commitTextEdit()
+                        // Release an active arrow key.
+                        event.type == KeyEventType.KeyUp &&
+                                isArrowKey &&
+                                event.key in activeNudgeKeys -> {
+
+                            activeNudgeKeys =
+                                activeNudgeKeys - event.key
+
+                            if (activeNudgeKeys.isEmpty()) {
+                                documentState.finishNudge()
+                            }
+
                             true
-                        } else {
-                            false
-                        }
-                    }
-
-                    // Release an active arrow key.
-                    event.type == KeyEventType.KeyUp &&
-                            isArrowKey &&
-                            event.key in activeNudgeKeys -> {
-
-                        activeNudgeKeys =
-                            activeNudgeKeys - event.key
-
-                        if (activeNudgeKeys.isEmpty()) {
-                            documentState.finishNudge()
                         }
 
-                        true
-                    }
+                        event.type == KeyEventType.KeyDown -> {
+                            when (
+                                val shortcut = event.editorShortcut()
+                            ) {
+                                is EditorShortcut.Nudge -> {
+                                    if (
+                                        documentState.selectedNodeIds
+                                            .isEmpty()
+                                    ) {
+                                        false
+                                    } else {
+                                        if (activeNudgeKeys.isEmpty()) {
+                                            documentState.beginNudge()
+                                        }
 
-                    event.type == KeyEventType.KeyDown -> {
-                        when (
-                            val shortcut = event.editorShortcut()
-                        ) {
-                            is EditorShortcut.Nudge -> {
-                                if (
-                                    documentState.selectedNodeIds
-                                        .isEmpty()
-                                ) {
-                                    false
-                                } else {
-                                    if (activeNudgeKeys.isEmpty()) {
-                                        documentState.beginNudge()
+                                        activeNudgeKeys =
+                                            activeNudgeKeys + event.key
+
+                                        documentState.updateNudge(
+                                            shortcut.delta
+                                        )
+
+                                        true
+                                    }
+                                }
+
+                                null -> false
+
+                                else -> {
+                                    // Complete movement before
+                                    // executing another command.
+                                    if (activeNudgeKeys.isNotEmpty()) {
+                                        documentState.finishNudge()
+                                        activeNudgeKeys = emptySet()
                                     }
 
-                                    activeNudgeKeys =
-                                        activeNudgeKeys + event.key
-
-                                    documentState.updateNudge(
-                                        shortcut.delta
-                                    )
-
-                                    true
+                                    executeShortcut(shortcut)
                                 }
-                            }
-
-                            null -> false
-
-                            else -> {
-                                // Complete movement before
-                                // executing another command.
-                                if (activeNudgeKeys.isNotEmpty()) {
-                                    documentState.finishNudge()
-                                    activeNudgeKeys = emptySet()
-                                }
-
-                                executeShortcut(shortcut)
                             }
                         }
-                    }
 
-                    else -> false
+                        else -> false
+                    }
                 }
             }
             .focusable(),
@@ -822,6 +830,7 @@ fun EditorScreen(
                         )
                     }
                 },
+                onEditingChanged = { isInspectorEditing = it },
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(16.dp),
@@ -831,7 +840,7 @@ fun EditorScreen(
 }
 
 @Composable
-@Preview(widthDp = 800, heightDp = 800)
+@Preview(widthDp = 1000, heightDp = 1000)
 fun EditorScreenPreview() = EditorScreen()
 
 private fun EditorNode.styleToolbarType(): StyleToolbarType =
