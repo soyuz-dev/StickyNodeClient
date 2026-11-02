@@ -55,6 +55,7 @@ import org.stickynodes.editor.draw.camera.rememberEditorCameraState
 import org.stickynodes.editor.draw.geometry.layoutStyle
 import org.stickynodes.editor.draw.geometry.measuredSelectionBounds
 import org.stickynodes.editor.draw.geometry.resizedTo
+import org.stickynodes.editor.draw.geometry.rotatedTo
 import org.stickynodes.editor.draw.geometry.visibleNodeIds
 import org.stickynodes.editor.draw.geometry.visibleWorldBounds
 import org.stickynodes.editor.draw.model.*
@@ -807,6 +808,16 @@ fun EditorScreen(
                             it.resizedTo(
                                 width = size.width,
                                 height = size.height,
+                            )
+                        )
+                    }
+                },
+                rotation = shape?.rotation,
+                onRotationChanged = { rotation ->
+                    shape?.let {
+                        documentState.updateNode(
+                            it.rotatedTo(
+                                rotation = rotation
                             )
                         )
                     }

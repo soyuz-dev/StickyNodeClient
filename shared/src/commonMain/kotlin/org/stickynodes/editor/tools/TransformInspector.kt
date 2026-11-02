@@ -4,8 +4,8 @@ package org.stickynodes.editor.tools
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -20,13 +20,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import kotlin.math.PI
 
 @Composable
 fun TransformInspector(
@@ -34,6 +40,8 @@ fun TransformInspector(
     onPositionChanged: (Offset) -> Unit,
     dimensions: Size?,
     onDimensionsChanged: (Size) -> Unit,
+    rotation: Float?,
+    onRotationChanged: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -76,7 +84,7 @@ fun TransformInspector(
                 )
             }
 
-            if (dimensions!=null) {
+            if (dimensions != null) {
                 Text(
                     text = "Dimensions",
                     style = MaterialTheme.typography.labelLarge,
@@ -89,28 +97,41 @@ fun TransformInspector(
                         label = "W",
                         value = dimensions.width,
                         onCommit = { width ->
-                            if( width > 0f ) {
-                                onDimensionsChanged(
-                                    dimensions.copy(width = width)
-                                )
-                            }
+                            onDimensionsChanged(
+                                dimensions.copy(width = width)
+                            )
                         },
-                        isValid = { it > 0f }
+                        isValid = { it > 0f },
                     )
 
                     CoordinateField(
                         label = "H",
                         value = dimensions.height,
                         onCommit = { height ->
-                            if( height > 0f ) {
-                                onDimensionsChanged(
-                                    dimensions.copy(height = height)
-                                )
-                            }
+                            onDimensionsChanged(
+                                dimensions.copy(height = height)
+                            )
                         },
-                        isValid = { it > 0f }
+                        isValid = { it > 0f },
                     )
                 }
+            }
+
+            if (rotation != null) {
+                Text(
+                    text = "Rotation",
+                    style = MaterialTheme.typography.labelLarge,
+                )
+
+                CoordinateField(
+                    label = "°",
+                    value = rotation * (180f / PI.toFloat()),
+                    onCommit = { degrees ->
+                        onRotationChanged(
+                            degrees * (PI.toFloat() / 180f)
+                        )
+                    },
+                )
             }
         }
     }
@@ -123,15 +144,29 @@ private fun CoordinateField(
     onCommit: (Float) -> Unit,
     isValid: (Float) -> Boolean = { true },
 ) {
-    var draft by remember(value) {
-        mutableStateOf(value.toString())
+    var draft by remember {
+        mutableStateOf(value.toTransformString())
     }
 
     var wasFocused by remember {
         mutableStateOf(false)
     }
 
+    var finalized by remember {
+        mutableStateOf(false)
+    }
+
     val focusManager = LocalFocusManager.current
+
+    // Keep the displayed value synchronized with the model
+    // whenever the field is not being edited.
+    if (!wasFocused) {
+        val formatted = value.toTransformString()
+
+        if (draft != formatted) {
+            draft = formatted
+        }
+    }
 
     fun commit() {
         val parsed = draft.toFloatOrNull()
@@ -140,7 +175,19 @@ private fun CoordinateField(
         if (parsed != null && parsed != value) {
             onCommit(parsed)
         } else {
-            draft = value.toString()
+            draft = value.toTransformString()
+        }
+    }
+
+    fun finish(commitChanges: Boolean) {
+        if (finalized) return
+
+        finalized = true
+
+        if (commitChanges) {
+            commit()
+        } else {
+            draft = value.toTransformString()
         }
     }
 
@@ -151,10 +198,27 @@ private fun CoordinateField(
         singleLine = true,
         modifier = Modifier
             .width(110.dp)
-            .onFocusChanged { state ->
-                if (wasFocused && !state.isFocused) {
-                    commit()
+            .onPreviewKeyEvent { event ->
+                if (
+                    event.key == Key.Escape &&
+                    event.type == KeyEventType.KeyDown
+                ) {
+                    finish(commitChanges = false)
+                    focusManager.clearFocus()
+                    true
+                } else {
+                    false
                 }
+            }
+            .onFocusChanged { state ->
+                if (state.isFocused && !wasFocused) {
+                    finalized = false
+                }
+
+                if (wasFocused && !state.isFocused) {
+                    finish(commitChanges = true)
+                }
+
                 wasFocused = state.isFocused
             },
         keyboardOptions = KeyboardOptions(
@@ -163,9 +227,9 @@ private fun CoordinateField(
         ),
         keyboardActions = KeyboardActions(
             onDone = {
-                commit()
+                finish(commitChanges = true)
                 focusManager.clearFocus()
-            }
+            },
         ),
     )
 }
@@ -181,12 +245,18 @@ private fun TransformInspectorInteractivePreview() {
         mutableStateOf(Size(20f, 10f))
     }
 
+    var rotation by remember {
+        mutableStateOf(20f)
+    }
+
     MaterialTheme {
         TransformInspector(
             position = position,
             onPositionChanged = { position = it },
             dimensions = dimensions,
-            onDimensionsChanged = { dimensions = it }
+            onDimensionsChanged = { dimensions = it },
+            rotation = rotation,
+            onRotationChanged = { rotation = it },
         )
     }
 }

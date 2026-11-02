@@ -17,6 +17,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.uuid.Uuid
 
@@ -2533,4 +2534,65 @@ class SharedCommonTest {
             rectangle.resizedTo(width = 80f, height = 40f)
         )
     }
+
+
+    @Test
+    fun `absolute rotation preserves shape position and dimensions`() {
+        val original = EditorRectangle(
+            x = 20f,
+            y = 30f,
+            width = 80f,
+            height = 40f,
+            rotation = 0.5f,
+        )
+
+        val rotated = original.rotatedTo(1.2f) as EditorRectangle
+
+        assertEquals(20f, rotated.x)
+        assertEquals(30f, rotated.y)
+        assertEquals(80f, rotated.width)
+        assertEquals(40f, rotated.height)
+        assertEquals(1.2f, rotated.rotation)
+        assertEquals(original.id, rotated.id)
+        assertEquals(original.style, rotated.style)
+    }
+
+    @Test
+    fun `absolute rotation rejects non finite values`() {
+        val rectangle = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 40f,
+            height = 30f,
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            rectangle.rotatedTo(Float.NaN)
+        }
+
+        assertFailsWith<IllegalArgumentException> {
+            rectangle.rotatedTo(Float.POSITIVE_INFINITY)
+        }
+
+        assertFailsWith<IllegalArgumentException> {
+            rectangle.rotatedTo(Float.NEGATIVE_INFINITY)
+        }
+    }
+
+    @Test
+    fun `rotating to existing angle returns the same instance`() {
+        val rectangle = EditorRectangle(
+            x = 20f,
+            y = 30f,
+            width = 80f,
+            height = 40f,
+            rotation = 0.5f,
+        )
+
+        assertSame(
+            rectangle,
+            rectangle.rotatedTo(0.5f)
+        )
+    }
+
 }
