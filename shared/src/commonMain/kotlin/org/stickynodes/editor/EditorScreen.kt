@@ -33,6 +33,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -53,6 +54,7 @@ import org.stickynodes.editor.draw.EditorTextOverlay
 import org.stickynodes.editor.draw.camera.rememberEditorCameraState
 import org.stickynodes.editor.draw.geometry.layoutStyle
 import org.stickynodes.editor.draw.geometry.measuredSelectionBounds
+import org.stickynodes.editor.draw.geometry.resizedTo
 import org.stickynodes.editor.draw.geometry.visibleNodeIds
 import org.stickynodes.editor.draw.geometry.visibleWorldBounds
 import org.stickynodes.editor.draw.model.*
@@ -789,10 +791,25 @@ fun EditorScreen(
         }
 
         documentState.selectedNode?.let { node ->
+            val shape = node as? EditorShape
+
             TransformInspector(
                 position = Offset(node.x, node.y),
                 onPositionChanged = { position ->
                     documentState.positionSelectedNodeAt(position)
+                },
+                dimensions = shape?.let {
+                    Size(it.bounds.width, it.bounds.height)
+                },
+                onDimensionsChanged = { size ->
+                    shape?.let {
+                        documentState.updateNode(
+                            it.resizedTo(
+                                width = size.width,
+                                height = size.height,
+                            )
+                        )
+                    }
                 },
                 modifier = Modifier
                     .align(Alignment.TopEnd)

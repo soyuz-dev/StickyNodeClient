@@ -2477,4 +2477,60 @@ class SharedCommonTest {
         assertFalse(state.canUndo)
     }
 
+
+    @Test
+    fun `absolute resizing preserves shape position and rotation`() {
+        val original = EditorRectangle(
+            x = 20f,
+            y = 30f,
+            width = 80f,
+            height = 40f,
+            rotation = 0.5f,
+        )
+
+        val resized = original.resizedTo(
+            width = 120f,
+            height = 60f,
+        ) as EditorRectangle
+
+        assertEquals(20f, resized.x)
+        assertEquals(30f, resized.y)
+        assertEquals(120f, resized.width)
+        assertEquals(60f, resized.height)
+        assertEquals(original.rotation, resized.rotation)
+        assertEquals(original.id, resized.id)
+    }
+
+    @Test
+    fun `absolute resizing rejects invalid dimensions`() {
+        val rectangle = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 40f,
+            height = 30f,
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            rectangle.resizedTo(width = -10f)
+        }
+
+        assertFailsWith<IllegalArgumentException> {
+            rectangle.resizedTo(height = Float.NaN)
+        }
+    }
+
+    @Test
+    fun `resizing to existing dimensions is a no op`() {
+        val rectangle = EditorRectangle(
+            x = 20f,
+            y = 30f,
+            width = 80f,
+            height = 40f,
+        )
+
+        assertEquals(
+            rectangle,
+            rectangle.resizedTo(width = 80f, height = 40f)
+        )
+    }
 }

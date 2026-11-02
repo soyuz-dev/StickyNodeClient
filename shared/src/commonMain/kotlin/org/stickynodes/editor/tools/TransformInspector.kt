@@ -25,12 +25,15 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.tooling.preview.Preview
 
 @Composable
 fun TransformInspector(
     position: Offset,
     onPositionChanged: (Offset) -> Unit,
+    dimensions: Size?,
+    onDimensionsChanged: (Size) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -72,6 +75,43 @@ fun TransformInspector(
                     },
                 )
             }
+
+            if (dimensions!=null) {
+                Text(
+                    text = "Dimensions",
+                    style = MaterialTheme.typography.labelLarge,
+                )
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    CoordinateField(
+                        label = "W",
+                        value = dimensions.width,
+                        onCommit = { width ->
+                            if( width > 0f ) {
+                                onDimensionsChanged(
+                                    dimensions.copy(width = width)
+                                )
+                            }
+                        },
+                        isValid = { it > 0f }
+                    )
+
+                    CoordinateField(
+                        label = "H",
+                        value = dimensions.height,
+                        onCommit = { height ->
+                            if( height > 0f ) {
+                                onDimensionsChanged(
+                                    dimensions.copy(height = height)
+                                )
+                            }
+                        },
+                        isValid = { it > 0f }
+                    )
+                }
+            }
         }
     }
 }
@@ -81,6 +121,7 @@ private fun CoordinateField(
     label: String,
     value: Float,
     onCommit: (Float) -> Unit,
+    isValid: (Float) -> Boolean = { true },
 ) {
     var draft by remember(value) {
         mutableStateOf(value.toString())
@@ -94,7 +135,7 @@ private fun CoordinateField(
 
     fun commit() {
         val parsed = draft.toFloatOrNull()
-            ?.takeIf { it.isFinite() }
+            ?.takeIf { it.isFinite() && isValid(it) }
 
         if (parsed != null && parsed != value) {
             onCommit(parsed)
@@ -136,10 +177,16 @@ private fun TransformInspectorInteractivePreview() {
         mutableStateOf(Offset(200f, 150f))
     }
 
+    var dimensions by remember {
+        mutableStateOf(Size(20f, 10f))
+    }
+
     MaterialTheme {
         TransformInspector(
             position = position,
             onPositionChanged = { position = it },
+            dimensions = dimensions,
+            onDimensionsChanged = { dimensions = it }
         )
     }
 }
