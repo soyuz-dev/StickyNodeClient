@@ -16,6 +16,7 @@ import org.stickynodes.editor.draw.geometry.bringForward
 import org.stickynodes.editor.draw.geometry.bringToFront
 import org.stickynodes.editor.draw.geometry.distributeNodes
 import org.stickynodes.editor.draw.geometry.duplicatedBy
+import org.stickynodes.editor.draw.geometry.enclosingBounds
 import org.stickynodes.editor.draw.geometry.matchShapeSizes
 import org.stickynodes.editor.draw.geometry.positionedAt
 import org.stickynodes.editor.draw.geometry.sendBackward
@@ -150,6 +151,7 @@ class EditorDocumentState(
     }
 
     fun positionSelectedNodeAt(position: Offset) {
+        require(position.x.isFinite() && position.y.isFinite())
         val id = selectedNodeId ?: return
 
         val updatedNodes = nodes.map { node ->
@@ -158,6 +160,28 @@ class EditorDocumentState(
         }
 
         if (updatedNodes != nodes) commitNodes(updatedNodes)
+    }
+
+    fun positionSelectedNodesAt(
+        position: Offset,
+        selectionBounds: (EditorNode) -> Rect
+    ) {
+        require(position.x.isFinite() && position.y.isFinite())
+        if (selectedNodeIds.size < 2) return
+
+        val selected = nodes.filter { it.id in selectedNodeIds }
+        val rectangles = selected.map(selectionBounds)
+        val bounds = rectangles.enclosingBounds() ?: return
+
+        val delta = position - bounds.topLeft
+        if (delta == Offset.Zero) return
+
+        val updatedNodes = nodes.map { node ->
+            if (node.id in selectedNodeIds) node.translatedBy(delta)
+            else node
+        }
+
+        commitNodes(updatedNodes)
     }
 
     fun open(document: EditorDocument) {

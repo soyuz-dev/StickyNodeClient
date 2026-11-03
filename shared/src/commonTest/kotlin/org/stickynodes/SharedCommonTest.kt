@@ -2621,4 +2621,77 @@ class SharedCommonTest {
         assertEquals("-Infinity", Float.NEGATIVE_INFINITY.toTransformString())
     }
 
+    @Test
+    fun `absolute group positioning moves selected nodes together`() {
+        val first = EditorRectangle(
+            x = 10f, y = 20f,
+            width = 30f, height = 40f,
+        )
+
+        val second = EditorRectangle(
+            x = 100f, y = 80f,
+            width = 20f, height = 20f,
+        )
+
+        val unselected = EditorRectangle(
+            x = 200f, y = 200f,
+            width = 10f, height = 10f,
+        )
+
+        val originals = listOf(first, second, unselected)
+
+        val state = EditorDocumentState(
+            EditorDocument(nodes = originals)
+        )
+
+        state.selectNodes(setOf(first.id, second.id))
+
+        state.positionSelectedNodesAt(
+            position = Offset(50f, 60f),
+            selectionBounds = { it.selectionBounds },
+        )
+
+        // Group's original top-left was (10, 20).
+        // Therefore every selected node moves by (40, 40).
+        assertEquals(50f, state.nodes[0].x)
+        assertEquals(60f, state.nodes[0].y)
+
+        assertEquals(140f, state.nodes[1].x)
+        assertEquals(120f, state.nodes[1].y)
+
+        assertEquals(unselected, state.nodes[2])
+
+        state.undo()
+        assertEquals(originals, state.nodes)
+
+        state.redo()
+        assertEquals(50f, state.nodes[0].x)
+        assertEquals(140f, state.nodes[1].x)
+    }
+
+    @Test
+    fun `positioning group at existing bounds does not create history`() {
+        val first = EditorRectangle(
+            x = 10f, y = 20f,
+            width = 30f, height = 40f,
+        )
+
+        val second = EditorRectangle(
+            x = 100f, y = 80f,
+            width = 20f, height = 20f,
+        )
+
+        val state = EditorDocumentState(
+            EditorDocument(nodes = listOf(first, second))
+        )
+
+        state.selectNodes(setOf(first.id, second.id))
+
+        state.positionSelectedNodesAt(
+            position = Offset(10f, 20f),
+            selectionBounds = { it.selectionBounds },
+        )
+
+        assertFalse(state.canUndo)
+    }
 }

@@ -4,17 +4,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import org.stickynodes.editor.draw.model.EditorShape
 
-fun List<EditorShape>.combinedBounds(): Rect? {
-    if (isEmpty()) return null
-
-    return Rect(
-        left = minOf { it.bounds.left },
-        top = minOf { it.bounds.top },
-        right = maxOf { it.bounds.right },
-        bottom = maxOf { it.bounds.bottom }
-    )
-}
-
+fun List<EditorShape>.combinedBounds(): Rect? =
+    map { it.bounds }.enclosingBounds()
 fun EditorShape.scaledBetween(
     source: Rect,
     target: Rect,

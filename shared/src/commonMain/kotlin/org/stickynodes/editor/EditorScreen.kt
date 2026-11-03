@@ -53,6 +53,7 @@ import org.stickynodes.data.rememberDocumentStorage
 import org.stickynodes.editor.draw.EditorCanvas
 import org.stickynodes.editor.draw.EditorTextOverlay
 import org.stickynodes.editor.draw.camera.rememberEditorCameraState
+import org.stickynodes.editor.draw.geometry.enclosingBounds
 import org.stickynodes.editor.draw.geometry.layoutStyle
 import org.stickynodes.editor.draw.geometry.measuredSelectionBounds
 import org.stickynodes.editor.draw.geometry.resizedTo
@@ -837,6 +838,50 @@ fun EditorScreen(
                         .align(Alignment.TopEnd)
                         .padding(16.dp),
                 )
+            }
+        }
+
+        if(selectedNodeIds.size > 1) {
+            val selectedNodes = nodes.filter { it.id in selectedNodeIds }
+            val bounds = selectedNodes.map { node ->
+                node.measuredSelectionBounds(
+                    textMeasurer = textMeasurer,
+                    textStyle = { text -> text.layoutStyle(density) },
+                )
+            }
+            val groupBounds = bounds.enclosingBounds()
+
+            val selectionBounds: (EditorNode) -> Rect = { node ->
+                node.measuredSelectionBounds(
+                    textMeasurer = textMeasurer,
+                    textStyle = { text -> text.layoutStyle(density) },
+                )
+            }
+
+            groupBounds?.let { groupBounds ->
+                key(selectedNodeIds) {
+                    TransformInspector(
+                        position = groupBounds.topLeft,
+                        onPositionChanged = { position ->
+                            documentState.positionSelectedNodesAt(
+                                position = position,
+                                selectionBounds = selectionBounds,
+                            )
+                        },
+                        dimensions = groupBounds.size,
+                        onDimensionsChanged = {},
+                        rotation = null,
+                        onRotationChanged = {},
+                        readOnly = true,
+                        positionReadOnly = false,
+                        onEditingChanged = {
+                            isInspectorEditing = it
+                        },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(16.dp)
+                    )
+                }
             }
         }
     }

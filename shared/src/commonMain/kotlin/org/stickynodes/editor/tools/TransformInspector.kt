@@ -54,6 +54,8 @@ fun TransformInspector(
     onRotationChanged: (Float) -> Unit,
     modifier: Modifier = Modifier,
     onEditingChanged: (Boolean) -> Unit = {},
+    readOnly: Boolean = false,
+    positionReadOnly: Boolean = readOnly,
 ) {
 
     val currentOnEditingChanged by rememberUpdatedState(onEditingChanged)
@@ -94,6 +96,7 @@ fun TransformInspector(
                             Offset(x, position.y)
                         )
                     },
+                    readOnly = positionReadOnly,
                 )
 
                 CoordinateField(
@@ -104,6 +107,7 @@ fun TransformInspector(
                             Offset(position.x, y)
                         )
                     },
+                    readOnly = positionReadOnly,
                 )
             }
 
@@ -123,6 +127,7 @@ fun TransformInspector(
                             )
                         },
                         isValid = { it > 0f },
+                        readOnly = readOnly,
                     )
 
                     CoordinateField(
@@ -134,6 +139,7 @@ fun TransformInspector(
                             )
                         },
                         isValid = { it > 0f },
+                        readOnly = readOnly,
                     )
                 }
             }
@@ -153,6 +159,7 @@ fun TransformInspector(
                                 degrees * (PI.toFloat() / 180f)
                             )
                         },
+                        readOnly = readOnly,
                     )
                 }
             }
@@ -175,6 +182,7 @@ private fun CoordinateField(
     value: Float,
     onCommit: (Float) -> Unit,
     isValid: (Float) -> Boolean = { true },
+    readOnly: Boolean = false,
 ) {
     var draft by remember {
         mutableStateOf(value.toTransformString())
@@ -200,6 +208,8 @@ private fun CoordinateField(
     }
 
     fun commit() {
+        if (readOnly) return
+
         val formatted = value.toTransformString()
 
         if (draft == formatted) return
@@ -295,6 +305,7 @@ private fun CoordinateField(
                 }
             }
         },
+        readOnly = readOnly,
     )
 }
 
