@@ -200,6 +200,10 @@ private fun CoordinateField(
     }
 
     fun commit() {
+        val formatted = value.toTransformString()
+
+        if (draft == formatted) return
+
         val parsed = draft.toFloatOrNull()
             ?.takeIf { it.isFinite() && isValid(it) }
 

@@ -1,13 +1,13 @@
 package org.stickynodes.editor.tools
 
+import kotlin.math.round
+
 internal fun Float.toTransformString() : String {
-    if(!isFinite()) return toString()
+    if (!isFinite()) return toString()
 
-    val rounded = toInt()
+    val rounded = round(toDouble() * 100.0) / 100.0
 
-    if(this == rounded.toFloat()) {
-        return rounded.toString()
-    }
+    if (rounded == 0.0) return "0"
 
-    return toString()
+    return rounded.toString().removeSuffix(".0")
 }

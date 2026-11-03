@@ -10,6 +10,7 @@ import org.stickynodes.editor.draw.model.*
 import org.stickynodes.editor.draw.style.*
 import org.stickynodes.editor.history.*
 import org.stickynodes.editor.*
+import org.stickynodes.editor.tools.toTransformString
 import kotlin.math.PI
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -2593,6 +2594,31 @@ class SharedCommonTest {
             rectangle,
             rectangle.rotatedTo(0.5f)
         )
+    }
+
+
+    @Test
+    fun `transform numbers display at most two decimal places`() {
+        assertEquals("45", 45f.toTransformString())
+        assertEquals("57.3", 57.295776f.toTransformString())
+        assertEquals("12.35", 12.3456f.toTransformString())
+        assertEquals("100.5", 100.5f.toTransformString())
+        assertEquals("-20.68", (-20.678f).toTransformString())
+    }
+
+    @Test
+    fun `transform formatting handles near integers and zero`() {
+        assertEquals("45", 45.000004f.toTransformString())
+        assertEquals("90", 89.99999f.toTransformString())
+        assertEquals("0", 0f.toTransformString())
+        assertEquals("0", (-0.0f).toTransformString())
+    }
+
+    @Test
+    fun `transform formatting handles non finite values`() {
+        assertEquals("NaN", Float.NaN.toTransformString())
+        assertEquals("Infinity", Float.POSITIVE_INFINITY.toTransformString())
+        assertEquals("-Infinity", Float.NEGATIVE_INFINITY.toTransformString())
     }
 
 }
