@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -800,41 +801,43 @@ fun EditorScreen(
         }
 
         documentState.selectedNode?.let { node ->
-            val shape = node as? EditorShape
+            key(node.id) {
+                val shape = node as? EditorShape
 
-            TransformInspector(
-                position = Offset(node.x, node.y),
-                onPositionChanged = { position ->
-                    documentState.positionSelectedNodeAt(position)
-                },
-                dimensions = shape?.let {
-                    Size(it.bounds.width, it.bounds.height)
-                },
-                onDimensionsChanged = { size ->
-                    shape?.let {
-                        documentState.updateNode(
-                            it.resizedTo(
-                                width = size.width,
-                                height = size.height,
+                TransformInspector(
+                    position = Offset(node.x, node.y),
+                    onPositionChanged = { position ->
+                        documentState.positionSelectedNodeAt(position)
+                    },
+                    dimensions = shape?.let {
+                        Size(it.bounds.width, it.bounds.height)
+                    },
+                    onDimensionsChanged = { size ->
+                        shape?.let {
+                            documentState.updateNode(
+                                it.resizedTo(
+                                    width = size.width,
+                                    height = size.height,
+                                )
                             )
-                        )
-                    }
-                },
-                rotation = shape?.rotation,
-                onRotationChanged = { rotation ->
-                    shape?.let {
-                        documentState.updateNode(
-                            it.rotatedTo(
-                                rotation = rotation
+                        }
+                    },
+                    rotation = shape?.rotation,
+                    onRotationChanged = { rotation ->
+                        shape?.let {
+                            documentState.updateNode(
+                                it.rotatedTo(
+                                    rotation = rotation
+                                )
                             )
-                        )
-                    }
-                },
-                onEditingChanged = { isInspectorEditing = it },
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(16.dp),
-            )
+                        }
+                    },
+                    onEditingChanged = { isInspectorEditing = it },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(16.dp),
+                )
+            }
         }
     }
 }

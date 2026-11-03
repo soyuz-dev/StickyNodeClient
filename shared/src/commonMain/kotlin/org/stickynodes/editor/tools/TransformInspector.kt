@@ -2,6 +2,7 @@
 package org.stickynodes.editor.tools
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,9 +19,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,6 +55,15 @@ fun TransformInspector(
     modifier: Modifier = Modifier,
     onEditingChanged: (Boolean) -> Unit = {},
 ) {
+
+    val currentOnEditingChanged by rememberUpdatedState(onEditingChanged)
+
+    DisposableEffect(Unit) {
+        onDispose {
+            currentOnEditingChanged(false)
+        }
+    }
+
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(14.dp),
@@ -60,7 +72,12 @@ fun TransformInspector(
         shadowElevation = 4.dp,
     ) {
         Column(
-            modifier = Modifier.padding(8.dp),
+            modifier = Modifier
+                .onFocusChanged { state ->
+                    onEditingChanged(state.hasFocus)
+                }
+                .focusGroup()
+                .padding(8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Row(
@@ -77,7 +94,6 @@ fun TransformInspector(
                             Offset(x, position.y)
                         )
                     },
-                    onEditingChanged = onEditingChanged,
                 )
 
                 CoordinateField(
@@ -88,7 +104,6 @@ fun TransformInspector(
                             Offset(position.x, y)
                         )
                     },
-                    onEditingChanged = onEditingChanged,
                 )
             }
 
@@ -108,7 +123,6 @@ fun TransformInspector(
                             )
                         },
                         isValid = { it > 0f },
-                        onEditingChanged = onEditingChanged,
                     )
 
                     CoordinateField(
@@ -120,7 +134,6 @@ fun TransformInspector(
                             )
                         },
                         isValid = { it > 0f },
-                        onEditingChanged = onEditingChanged,
                     )
                 }
             }
@@ -140,7 +153,6 @@ fun TransformInspector(
                                 degrees * (PI.toFloat() / 180f)
                             )
                         },
-                        onEditingChanged = onEditingChanged,
                     )
                 }
             }
@@ -163,7 +175,6 @@ private fun CoordinateField(
     value: Float,
     onCommit: (Float) -> Unit,
     isValid: (Float) -> Boolean = { true },
-    onEditingChanged: (Boolean) -> Unit = {},
 ) {
     var draft by remember {
         mutableStateOf(value.toTransformString())
@@ -238,12 +249,10 @@ private fun CoordinateField(
             .onFocusChanged { state ->
                 if (state.isFocused && !wasFocused) {
                     finalized = false
-                    onEditingChanged(true)
                 }
 
                 if (wasFocused && !state.isFocused) {
                     finish(commitChanges = true)
-                    onEditingChanged(false)
                 }
 
                 wasFocused = state.isFocused
@@ -287,7 +296,7 @@ private fun CoordinateField(
 
 @Preview
 @Composable
-private fun TransformInspectorInteractivePreview() {
+private fun TransformInspectorPreview() {
     var position by remember {
         mutableStateOf(Offset(200f, 150f))
     }
