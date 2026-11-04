@@ -8,17 +8,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import org.stickynodes.editor.draw.geometry.NodeAlignment
 import org.stickynodes.editor.draw.geometry.NodeDistribution
 import org.stickynodes.editor.draw.geometry.NodeSizing
+import org.stickynodes.editor.draw.geometry.ResizeHandle
 import org.stickynodes.editor.draw.geometry.alignNodes
 import org.stickynodes.editor.draw.geometry.bringForward
 import org.stickynodes.editor.draw.geometry.bringToFront
+import org.stickynodes.editor.draw.geometry.combinedBounds
+import org.stickynodes.editor.draw.geometry.combinedVisualBounds
 import org.stickynodes.editor.draw.geometry.distributeNodes
 import org.stickynodes.editor.draw.geometry.duplicatedBy
 import org.stickynodes.editor.draw.geometry.enclosingBounds
 import org.stickynodes.editor.draw.geometry.matchShapeSizes
 import org.stickynodes.editor.draw.geometry.positionedAt
+import org.stickynodes.editor.draw.geometry.resizedTogether
+import org.stickynodes.editor.draw.geometry.rotatedTogether
 import org.stickynodes.editor.draw.geometry.sendBackward
 import org.stickynodes.editor.draw.geometry.sendToBack
 import org.stickynodes.editor.draw.geometry.translatedBy
@@ -107,6 +113,17 @@ class EditorDocumentState(
         get() = nodes.count {
             it.id in selectedNodeIds && it is EditorShape
         } >= 2
+
+    val selectedNodes = nodes.filter { it.id in selectedNodeIds }
+
+    val canResizeGroup = selectedNodes.size >= 2 &&
+            selectedNodes.all { node ->
+                node is EditorShape && node.rotation == 0f
+            }
+
+    val canRotateGroup = selectedNodes.size >= 2 &&
+            selectedNodes.all { it is EditorShape }
+
     fun alignSelectedNodes(
         alignment: NodeAlignment,
         selectionBounds: (EditorNode) -> Rect,
@@ -182,6 +199,60 @@ class EditorDocumentState(
         }
 
         commitNodes(updatedNodes)
+    }
+
+    fun resizeSelectedShapesTo(size: Size) {
+        require(size.width.isFinite() && size.height.isFinite())
+        require(size.width > 0f && size.height > 0f)
+
+        if (selectedNodeIds.size < 2) return
+
+        val selected = nodes.filter { it.id in selectedNodeIds }
+
+        if (
+            selected.any {
+                it !is EditorShape &&
+                (it as? EditorShape)?.rotation != 0f
+            }) return
+
+        val shapes = selected.filterIsInstance<EditorShape>()
+        val bounds = shapes.combinedBounds() ?: return
+
+        val delta = Offset(
+            size.width - bounds.width,
+            size.height - bounds.height,
+        )
+
+        if (delta == Offset.Zero) return
+
+        val resized = shapes.resizedTogether(
+            handle = ResizeHandle.SE,
+            delta = delta,
+        )
+
+        updateNodes(resized)
+    }
+
+    fun rotateSelectedShapesBy(angle: Float) {
+        require(angle.isFinite()) {
+            "Rotation must be finite"
+        }
+
+        if (selectedNodeIds.size < 2 || angle == 0f) return
+
+        val selected = nodes.filter { it.id in selectedNodeIds }
+
+        if (selected.any { it !is EditorShape }) return
+
+        val shapes = selected.filterIsInstance<EditorShape>()
+        val center = shapes.combinedVisualBounds()?.center ?: return
+
+        val rotated = shapes.rotatedTogether(
+            angle = angle,
+            center = center,
+        )
+
+        updateNodes(rotated)
     }
 
     fun open(document: EditorDocument) {

@@ -841,21 +841,25 @@ fun EditorScreen(
             }
         }
 
-        if(selectedNodeIds.size > 1) {
-            val selectedNodes = nodes.filter { it.id in selectedNodeIds }
-            val bounds = selectedNodes.map { node ->
-                node.measuredSelectionBounds(
-                    textMeasurer = textMeasurer,
-                    textStyle = { text -> text.layoutStyle(density) },
-                )
-            }
-            val groupBounds = bounds.enclosingBounds()
+        if (selectedNodeIds.size > 1) {
+            val selectedNodes = nodes.filter { it.id in selectedNodeIds}
 
             val selectionBounds: (EditorNode) -> Rect = { node ->
                 node.measuredSelectionBounds(
                     textMeasurer = textMeasurer,
-                    textStyle = { text -> text.layoutStyle(density) },
+                    textStyle = { text -> text.layoutStyle(density)}
                 )
+            }
+
+            val bounds = selectedNodes.map(selectionBounds)
+            val groupBounds = bounds.enclosingBounds()
+
+            val canResizeGroup = selectedNodes.all { node ->
+                node is EditorShape && node.rotation == 0f
+            }
+
+            val canRotateGroup = selectedNodes.all { node ->
+                node is EditorShape
             }
 
             groupBounds?.let { groupBounds ->
@@ -869,17 +873,18 @@ fun EditorScreen(
                             )
                         },
                         dimensions = groupBounds.size,
-                        onDimensionsChanged = {},
-                        rotation = null,
-                        onRotationChanged = {},
+                        onDimensionsChanged = documentState::resizeSelectedShapesTo,
+                        rotation = if (canRotateGroup) 0f else null,
+                        onRotationChanged = documentState::rotateSelectedShapesBy,
                         readOnly = true,
                         positionReadOnly = false,
-                        onEditingChanged = {
-                            isInspectorEditing = it
-                        },
+                        dimensionsReadOnly = !canResizeGroup,
+                        rotationReadOnly = false,
+                        rotationLabel = "Δ°",
+                        onEditingChanged = { isInspectorEditing = it },
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(16.dp)
+                            .padding(16.dp),
                     )
                 }
             }

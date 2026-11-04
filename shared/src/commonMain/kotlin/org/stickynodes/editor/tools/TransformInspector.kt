@@ -56,6 +56,9 @@ fun TransformInspector(
     onEditingChanged: (Boolean) -> Unit = {},
     readOnly: Boolean = false,
     positionReadOnly: Boolean = readOnly,
+    dimensionsReadOnly: Boolean = readOnly,
+    rotationReadOnly: Boolean = readOnly,
+    rotationLabel: String = "°",
 ) {
 
     val currentOnEditingChanged by rememberUpdatedState(onEditingChanged)
@@ -127,7 +130,7 @@ fun TransformInspector(
                             )
                         },
                         isValid = { it > 0f },
-                        readOnly = readOnly,
+                        readOnly = dimensionsReadOnly,
                     )
 
                     CoordinateField(
@@ -139,7 +142,7 @@ fun TransformInspector(
                             )
                         },
                         isValid = { it > 0f },
-                        readOnly = readOnly,
+                        readOnly = dimensionsReadOnly,
                     )
                 }
             }
@@ -152,14 +155,14 @@ fun TransformInspector(
                     TransformIcon("rotate_right")
 
                     CoordinateField(
-                        label = "°",
+                        label = rotationLabel,
                         value = rotation * (180f / PI.toFloat()),
                         onCommit = { degrees ->
                             onRotationChanged(
                                 degrees * (PI.toFloat() / 180f)
                             )
                         },
-                        readOnly = readOnly,
+                        readOnly = rotationReadOnly,
                     )
                 }
             }
