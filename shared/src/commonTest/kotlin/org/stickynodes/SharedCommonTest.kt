@@ -3040,4 +3040,145 @@ class SharedCommonTest {
         assertEquals(original, state.document)
         assertFalse(state.canUndo)
     }
+
+
+    @Test
+    fun `member hierarchy resolves nested ancestry`() {
+        val node = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val inner = EditorGroup(members = listOf(node))
+        val outer = EditorGroup(members = listOf(inner))
+
+        val members = listOf(outer)
+
+        assertEquals(
+            listOf(outer, inner, node),
+            members.pathToMember(node.id),
+        )
+
+        assertEquals(
+            listOf(outer, inner, node),
+            members.flattenedMembers(),
+        )
+    }
+
+    @Test
+    fun `repeated clicks descend through groups`() {
+        val node = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val inner = EditorGroup(members = listOf(node))
+        val outer = EditorGroup(members = listOf(inner))
+
+        val document = EditorDocument(members = listOf(outer))
+
+        val first = document.resolveMemberSelection(
+            hitNodeId = node.id,
+            selectedMemberIds = emptySet(),
+        )
+
+        assertEquals(setOf(outer.id), first)
+
+        val second = document.resolveMemberSelection(
+            hitNodeId = node.id,
+            selectedMemberIds = first,
+        )
+
+        assertEquals(setOf(inner.id), second)
+
+        val third = document.resolveMemberSelection(
+            hitNodeId = node.id,
+            selectedMemberIds = second,
+        )
+
+        assertEquals(setOf(node.id), third)
+    }
+
+    @Test
+    fun `shift selection promotes members to common parent`() {
+        val a = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val c = EditorEllipse(
+            x = 30f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val e = EditorRectangle(
+            x = 60f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val d = EditorGroup(members = listOf(e))
+        val b = EditorGroup(members = listOf(c, d))
+
+        val document = EditorDocument(
+            members = listOf(a, b)
+        )
+
+        val insideGroup = document.resolveMemberSelection(
+            hitNodeId = c.id,
+            selectedMemberIds = setOf(e.id),
+            extendSelection = true,
+        )
+
+        assertEquals(setOf(c.id, d.id), insideGroup)
+
+        val outsideGroup = document.resolveMemberSelection(
+            hitNodeId = a.id,
+            selectedMemberIds = setOf(e.id),
+            extendSelection = true,
+        )
+
+        assertEquals(setOf(a.id, b.id), outsideGroup)
+    }
+
+    @Test
+    fun `shift clicking inside selected group preserves group selection`() {
+        val node = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val group = EditorGroup(members = listOf(node))
+        val document = EditorDocument(members = listOf(group))
+
+        val selection = document.resolveMemberSelection(
+            hitNodeId = node.id,
+            selectedMemberIds = setOf(group.id),
+            extendSelection = true,
+        )
+
+        assertEquals(setOf(group.id), selection)
+    }
+
+    @Test
+    fun `shift clicking selected sibling toggles selection`() {
+        val a = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val b = EditorRectangle(
+            x = 30f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val document = EditorDocument(members = listOf(a, b))
+
+        val selection = document.resolveMemberSelection(
+            hitNodeId = a.id,
+            selectedMemberIds = setOf(a.id, b.id),
+            extendSelection = true,
+        )
+
+        assertEquals(setOf(b.id), selection)
+    }
 }
