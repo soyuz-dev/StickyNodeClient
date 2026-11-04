@@ -3181,4 +3181,439 @@ class SharedCommonTest {
 
         assertEquals(setOf(b.id), selection)
     }
+
+
+    @Test
+    fun `member selection normalization preserves sibling invariant`() {
+        val a = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val c = EditorEllipse(
+            x = 30f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val e = EditorRectangle(
+            x = 60f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val d = EditorGroup(members = listOf(e))
+        val b = EditorGroup(members = listOf(c, d))
+
+        val document = EditorDocument(
+            members = listOf(a, b)
+        )
+
+        assertEquals(
+            setOf(e.id),
+            document.normalizeMemberSelection(setOf(e.id)),
+        )
+
+        assertEquals(
+            setOf(c.id, d.id),
+            document.normalizeMemberSelection(setOf(c.id, e.id)),
+        )
+
+        assertEquals(
+            setOf(a.id, b.id),
+            document.normalizeMemberSelection(setOf(a.id, e.id)),
+        )
+
+        assertEquals(
+            setOf(b.id),
+            document.normalizeMemberSelection(setOf(b.id, e.id)),
+        )
+
+        assertEquals(
+            emptySet(),
+            document.normalizeMemberSelection(setOf(Uuid.random())),
+        )
+    }
+
+
+    @Test
+    fun `selecting a group exposes its descendant nodes`() {
+        val a = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val b = EditorEllipse(
+            x = 30f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val group = EditorGroup(members = listOf(a, b))
+        val state = EditorDocumentState(
+            EditorDocument(members = listOf(group))
+        )
+
+        state.selectMember(group.id)
+
+        assertEquals(setOf(group.id), state.selectedMemberIds)
+        assertEquals(listOf(group), state.selectedMembers)
+        assertEquals(group, state.selectedMember)
+
+        assertEquals(listOf(a, b), state.selectedNodes)
+        assertEquals(setOf(a.id, b.id), state.selectedNodeIds)
+
+        assertNull(state.selectedNode)
+        assertNull(state.selectedNodeId)
+    }
+
+    @Test
+    fun `document state progressively selects nested groups`() {
+        val node = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val inner = EditorGroup(members = listOf(node))
+        val outer = EditorGroup(members = listOf(inner))
+
+        val state = EditorDocumentState(
+            EditorDocument(members = listOf(outer))
+        )
+
+        state.selectHitNode(node.id)
+        assertEquals(setOf(outer.id), state.selectedMemberIds)
+
+        state.selectHitNode(node.id)
+        assertEquals(setOf(inner.id), state.selectedMemberIds)
+
+        state.selectHitNode(node.id)
+        assertEquals(setOf(node.id), state.selectedMemberIds)
+
+        assertEquals(node, state.selectedNode)
+    }
+
+    @Test
+    fun `selecting nested members promotes them to siblings`() {
+        val a = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val c = EditorEllipse(
+            x = 30f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val e = EditorRectangle(
+            x = 60f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val d = EditorGroup(members = listOf(e))
+        val b = EditorGroup(members = listOf(c, d))
+
+        val state = EditorDocumentState(
+            EditorDocument(members = listOf(a, b))
+        )
+
+        state.selectMembers(setOf(c.id, e.id))
+        assertEquals(setOf(c.id, d.id), state.selectedMemberIds)
+
+        state.selectMembers(setOf(a.id, e.id))
+        assertEquals(setOf(a.id, b.id), state.selectedMemberIds)
+
+        state.selectMembers(setOf(b.id, e.id))
+        assertEquals(setOf(b.id), state.selectedMemberIds)
+    }
+
+    @Test
+    fun `ungrouping selected group invalidates its selection`() {
+        val node = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val group = EditorGroup(members = listOf(node))
+        val state = EditorDocumentState(
+            EditorDocument(members = listOf(group))
+        )
+
+        state.selectMember(group.id)
+
+        assertTrue(state.ungroup(group.id))
+        assertTrue(state.selectedMemberIds.isEmpty())
+
+        state.undo()
+
+        assertTrue(state.selectedMemberIds.isEmpty())
+        assertEquals(
+            listOf(group),
+            state.document.members,
+        )
+    }
+
+
+    @Test
+    fun `clipboard preserves nested group hierarchy`() {
+        val rectangle = EditorRectangle(
+            x = 10f, y = 20f,
+            width = 30f, height = 40f,
+        )
+
+        val ellipse = EditorEllipse(
+            x = 50f, y = 60f,
+            width = 20f, height = 20f,
+        )
+
+        val inner = EditorGroup(members = listOf(ellipse))
+        val outer = EditorGroup(members = listOf(rectangle, inner))
+
+        val clipboard = EditorNodeClipboard()
+
+        clipboard.copyMembers(
+            members = listOf(outer),
+            selectedIds = setOf(outer.id),
+        )
+
+        val pasted = clipboard.pasteMembers().single() as EditorGroup
+        val pastedInner = pasted.members[1] as EditorGroup
+        val pastedRectangle = pasted.members[0] as EditorRectangle
+        val pastedEllipse = pastedInner.members.single() as EditorEllipse
+
+        assertNotEquals(outer.id, pasted.id)
+        assertNotEquals(inner.id, pastedInner.id)
+        assertNotEquals(rectangle.id, pastedRectangle.id)
+        assertNotEquals(ellipse.id, pastedEllipse.id)
+
+        assertEquals(30f, pastedRectangle.x)
+        assertEquals(40f, pastedRectangle.y)
+        assertEquals(70f, pastedEllipse.x)
+        assertEquals(80f, pastedEllipse.y)
+
+        assertEquals(listOf(rectangle, inner), outer.members)
+    }
+
+    @Test
+    fun `repeated group pastes generate fresh identities`() {
+        val rectangle = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val group = EditorGroup(members = listOf(rectangle))
+        val clipboard = EditorNodeClipboard()
+
+        clipboard.copyMembers(
+            members = listOf(group),
+            selectedIds = setOf(group.id),
+        )
+
+        val first = clipboard.pasteMembers().single() as EditorGroup
+        val second = clipboard.pasteMembers().single() as EditorGroup
+
+        assertNotEquals(first.id, second.id)
+        assertNotEquals(
+            first.members.single().id,
+            second.members.single().id,
+        )
+
+        val firstRectangle = first.members.single() as EditorRectangle
+        val secondRectangle = second.members.single() as EditorRectangle
+
+        assertEquals(20f, firstRectangle.x)
+        assertEquals(40f, secondRectangle.x)
+    }
+
+    @Test
+    fun `legacy node clipboard remains compatible`() {
+        val rectangle = EditorRectangle(
+            x = 10f, y = 10f,
+            width = 20f, height = 20f,
+        )
+
+        val clipboard = EditorNodeClipboard()
+
+        clipboard.copy(
+            nodes = listOf(rectangle),
+            selectedIds = setOf(rectangle.id),
+        )
+
+        val pasted = clipboard.paste().single()
+
+        assertNotEquals(rectangle.id, pasted.id)
+        assertEquals(30f, pasted.x)
+        assertEquals(30f, pasted.y)
+    }
+
+
+    @Test
+    fun `deleting selected group removes its entire subtree`() {
+        val a = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+        val b = EditorEllipse(
+            x = 30f, y = 0f,
+            width = 20f, height = 20f,
+        )
+        val c = EditorRectangle(
+            x = 60f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val inner = EditorGroup(members = listOf(b))
+        val outer = EditorGroup(members = listOf(a, inner))
+
+        val original = EditorDocument(members = listOf(outer, c))
+        val state = EditorDocumentState(original)
+
+        state.selectMember(outer.id)
+        state.deleteSelectedMembers()
+
+        assertEquals(listOf(c), state.document.members)
+        assertTrue(state.selectedMemberIds.isEmpty())
+
+        state.undo()
+        assertEquals(original, state.document)
+
+        state.redo()
+        assertEquals(listOf(c), state.document.members)
+    }
+
+    @Test
+    fun `duplicating selected group preserves nested hierarchy`() {
+        val a = EditorRectangle(
+            x = 10f, y = 20f,
+            width = 20f, height = 20f,
+        )
+        val b = EditorEllipse(
+            x = 50f, y = 60f,
+            width = 20f, height = 20f,
+        )
+
+        val inner = EditorGroup(members = listOf(b))
+        val outer = EditorGroup(members = listOf(a, inner))
+
+        val state = EditorDocumentState(
+            EditorDocument(members = listOf(outer))
+        )
+
+        state.selectMember(outer.id)
+        state.duplicateSelectedMembers()
+
+        val duplicate = state.document.members[1] as EditorGroup
+        val duplicateInner = duplicate.members[1] as EditorGroup
+        val duplicateA = duplicate.members[0] as EditorRectangle
+        val duplicateB = duplicateInner.members.single() as EditorEllipse
+
+        assertNotEquals(outer.id, duplicate.id)
+        assertNotEquals(inner.id, duplicateInner.id)
+        assertNotEquals(a.id, duplicateA.id)
+        assertNotEquals(b.id, duplicateB.id)
+
+        assertEquals(30f, duplicateA.x)
+        assertEquals(40f, duplicateA.y)
+        assertEquals(70f, duplicateB.x)
+        assertEquals(80f, duplicateB.y)
+
+        assertEquals(setOf(duplicate.id), state.selectedMemberIds)
+        assertEquals(listOf(outer), state.document.members.take(1))
+    }
+
+    @Test
+    fun `grouping selected groups preserves their identities`() {
+        val a = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+        val b = EditorEllipse(
+            x = 30f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val first = EditorGroup(members = listOf(a))
+        val second = EditorGroup(members = listOf(b))
+
+        val state = EditorDocumentState(
+            EditorDocument(members = listOf(first, second))
+        )
+
+        state.selectMembers(setOf(first.id, second.id))
+
+        assertTrue(state.groupSelectedMembers())
+
+        val combined = state.document.members.single() as EditorGroup
+
+        assertEquals(listOf(first, second), combined.members)
+        assertEquals(setOf(combined.id), state.selectedMemberIds)
+        assertEquals(listOf(a, b), state.nodes)
+
+        state.undo()
+        assertEquals(listOf(first, second), state.document.members)
+    }
+
+    @Test
+    fun `reordering selected group moves it as one member`() {
+        val a = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+        val b = EditorEllipse(
+            x = 30f, y = 0f,
+            width = 20f, height = 20f,
+        )
+        val c = EditorRectangle(
+            x = 60f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val group = EditorGroup(members = listOf(a, b))
+        val state = EditorDocumentState(
+            EditorDocument(members = listOf(group, c))
+        )
+
+        state.selectMember(group.id)
+
+        assertTrue(state.canBringSelectionForward)
+
+        state.bringSelectionForward()
+
+        assertEquals(
+            listOf(c, group),
+            state.document.members,
+        )
+
+        assertEquals(listOf(a, b), group.members)
+
+        state.undo()
+
+        assertEquals(
+            listOf(group, c),
+            state.document.members,
+        )
+    }
+
+    @Test
+    fun `copying and pasting selected group preserves structure`() {
+        val rectangle = EditorRectangle(
+            x = 10f, y = 20f,
+            width = 30f, height = 40f,
+        )
+
+        val group = EditorGroup(members = listOf(rectangle))
+        val state = EditorDocumentState(
+            EditorDocument(members = listOf(group))
+        )
+
+        state.selectMember(group.id)
+        state.copySelectedMembers()
+        state.pasteMembers()
+
+        val pasted = state.document.members.last() as EditorGroup
+        val pastedRectangle = pasted.members.single() as EditorRectangle
+
+        assertNotEquals(group.id, pasted.id)
+        assertNotEquals(rectangle.id, pastedRectangle.id)
+        assertEquals(30f, pastedRectangle.x)
+        assertEquals(40f, pastedRectangle.y)
+        assertEquals(setOf(pasted.id), state.selectedMemberIds)
+    }
 }

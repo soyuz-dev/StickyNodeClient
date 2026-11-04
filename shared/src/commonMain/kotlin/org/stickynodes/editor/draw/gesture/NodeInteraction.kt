@@ -32,9 +32,8 @@ suspend fun PointerInputScope.detectNodeInteraction(
     rotationHandleAt: (Offset) -> Uuid?,
     onEditText: (EditorText) -> Unit,
     selectionBounds: (EditorNode) -> Rect,
+    onHitSelection: ((Uuid, Boolean) -> Set<Uuid>)? = null,
 ) {
-
-
     var lastClickNodeId: Uuid? = null
     var lastClickPosition = Offset.Unspecified
     var lastClickUpTime = 0L
@@ -45,12 +44,10 @@ suspend fun PointerInputScope.detectNodeInteraction(
         lastClickUpTime = 0L
     }
 
-
     try {
         awaitEachGesture {
             val down = awaitFirstDown()
 
-            // Rotation takes priority over other interactions.
             val rotationId = rotationHandleAt(down.position)
 
             if (rotationId != null) {
@@ -77,7 +74,6 @@ suspend fun PointerInputScope.detectNodeInteraction(
                 }
             }
 
-            // Resize handles take priority over node movement.
             val resizeHandle = resizeHandleAt(down.position)
 
             if (resizeHandle != null) {
@@ -104,13 +100,11 @@ suspend fun PointerInputScope.detectNodeInteraction(
                 }
             }
 
-            // Regular selection, marquee and movement.
             val shiftPressed =
                 currentEvent.keyboardModifiers.isShiftPressed
 
             val worldPoint = screenToWorld(down.position)
 
-            // Reverse order ensures the topmost node is hit first.
             val hitNode = nodes()
                 .asReversed()
                 .firstOrNull { node ->
@@ -123,10 +117,15 @@ suspend fun PointerInputScope.detectNodeInteraction(
             onPreview(emptyList())
             onMarquee(null)
 
-            // Shift-click toggles a node's selection.
             if (shiftPressed && hitNode != null) {
-                onToggleSelection(hitNode.id)
+                if (onHitSelection != null) {
+                    onHitSelection(hitNode.id, true)
+                } else {
+                    onToggleSelection(hitNode.id)
+                }
+
                 waitForUpOrCancellation()
+                resetClickTracking()
                 return@awaitEachGesture
             }
 
@@ -140,20 +139,19 @@ suspend fun PointerInputScope.detectNodeInteraction(
                     onSelect = onSelect,
                     onSelectNodes = onSelectNodes,
                     selectionBounds = selectionBounds,
-                    onMarquee = onMarquee
+                    onMarquee = onMarquee,
                 )
 
+                resetClickTracking()
                 return@awaitEachGesture
-            }
-
-            // Select the node before initiating movement.
-            if (!wasSelected) {
-                onSelect(hitNode.id)
             }
 
             val startingSelection = if (wasSelected) {
                 initialSelection
+            } else if (onHitSelection != null) {
+                onHitSelection(hitNode.id, false)
             } else {
+                onSelect(hitNode.id)
                 setOf(hitNode.id)
             }
 
@@ -161,8 +159,6 @@ suspend fun PointerInputScope.detectNodeInteraction(
                 node.id in startingSelection
             }
 
-            // Movement is handled by NodeDrag.kt.
-            // Boolean indicates whether drag slop was crossed.
             val dragStarted = handleNodeDrag(
                 down = down,
                 nodes = originalNodes,
@@ -170,9 +166,6 @@ suspend fun PointerInputScope.detectNodeInteraction(
                 onPreview = onPreview,
                 onCommit = onCommit,
             )
-
-            // Clicking an already-selected node without dragging
-            // collapses a multi-selection to that node.
 
             if (dragStarted) {
                 resetClickTracking()
@@ -188,30 +181,34 @@ suspend fun PointerInputScope.detectNodeInteraction(
                             (down.position - lastClickPosition).getDistance() <=
                             viewConfiguration.touchSlop
 
-                if (isDoubleClick) {
-                    onSelect(hitNode.id)
+                val finalSelection = if (wasSelected) {
+                    if (onHitSelection != null) {
+                        onHitSelection(hitNode.id, false)
+                    } else {
+                        onSelect(hitNode.id)
+                        setOf(hitNode.id)
+                    }
+                } else {
+                    startingSelection
+                }
+
+                if (
+                    isDoubleClick &&
+                    hitNode.id in finalSelection &&
+                    finalSelection.size == 1
+                ) {
                     onEditText(hitNode)
                     resetClickTracking()
                 } else {
-                    if (wasSelected) {
-                        onSelect(hitNode.id)
-                    }
-
                     lastClickNodeId = hitNode.id
                     lastClickPosition = down.position
-
-                    // handleNodeDrag has already awaited the end
-                    // of this interaction.
                     lastClickUpTime =
                         currentEvent.changes.firstOrNull()?.uptimeMillis
                             ?: down.uptimeMillis
                 }
             }
-
         }
     } finally {
-        // Always clean up temporary interaction state,
-        // including when the pointer-input coroutine is cancelled.
         onPreview(emptyList())
         onMarquee(null)
     }

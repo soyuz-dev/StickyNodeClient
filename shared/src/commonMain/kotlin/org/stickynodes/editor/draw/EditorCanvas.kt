@@ -66,6 +66,7 @@ fun EditorCanvas(
     onNodesSelected: (Set<Uuid>) -> Unit,
     onNodeSelectionToggled: (Uuid) -> Unit,
     onTextEdit: (EditorText) -> Unit,
+    onHitSelection: ((Uuid, Boolean) -> Set<Uuid>)? = null,
 ) {
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
@@ -84,7 +85,6 @@ fun EditorCanvas(
 
     val selectionColor = Color(0xFF4492FF)
 
-    // Keep state and callbacks current inside long-running pointer handlers.
     val currentCamera by rememberUpdatedState(camera)
     val currentNodes by rememberUpdatedState(nodes)
     val currentRectangleStyle by rememberUpdatedState(rectangleStyle)
@@ -100,6 +100,7 @@ fun EditorCanvas(
     val currentOnNodesSelected by rememberUpdatedState(onNodesSelected)
     val currentOnTextPlacement by rememberUpdatedState(onTextPlacement)
     val currentOnTextEdit by rememberUpdatedState(onTextEdit)
+    val currentOnHitSelection by rememberUpdatedState(onHitSelection)
 
     Canvas(
         modifier = modifier
@@ -224,19 +225,23 @@ fun EditorCanvas(
                                 if (
                                     selected.isEmpty() ||
                                     shapes.size != selected.size ||
-                                    (shapes.size > 1 && shapes.any { it.rotation != 0f })
+                                    (shapes.size > 1 &&
+                                            shapes.any { it.rotation != 0f })
                                 ) {
                                     null
                                 } else {
                                     shapes.resizeHandleAt(
                                         pointer = screenPoint,
                                         camera = currentCamera,
-                                        padding = with(density) {8.dp.toPx()},
-                                        radius = with(density) {10.dp.toPx()}
+                                        padding = with(density) {
+                                            8.dp.toPx()
+                                        },
+                                        radius = with(density) {
+                                            10.dp.toPx()
+                                        },
                                     )
                                 }
                             },
-
                             rotationHandleAt = { screenPoint ->
                                 val selected = currentNodes.filter {
                                     it.id in currentSelectedNodeIds
@@ -253,8 +258,12 @@ fun EditorCanvas(
                                     shapes.isRotationHandleHit(
                                         pointer = screenPoint,
                                         camera = currentCamera,
-                                        offset = with(density) { 28.dp.toPx() },
-                                        radius = with(density) { 12.dp.toPx() },
+                                        offset = with(density) {
+                                            28.dp.toPx()
+                                        },
+                                        radius = with(density) {
+                                            12.dp.toPx()
+                                        },
                                     )
                                 ) {
                                     shapes.first().id
@@ -270,9 +279,10 @@ fun EditorCanvas(
                                     textMeasurer = textMeasurer,
                                     textStyle = { text ->
                                         text.layoutStyle(density)
-                                    }
+                                    },
                                 )
-                            }
+                            },
+                            onHitSelection = currentOnHitSelection,
                         )
                     }
 
@@ -299,7 +309,6 @@ fun EditorCanvas(
                 )
             },
     ) {
-        // World-space rendering.
         scale(
             scale = camera.zoom,
             pivot = Offset.Zero,
@@ -337,22 +346,23 @@ fun EditorCanvas(
                     )
                 }
 
+                val selected = nodes.filter {
+                    it.id in selectedNodeIds
+                }
+
                 val allSelectedAreShapes =
-                    selectedNodeIds.isNotEmpty() &&
-                            nodes.filter { it.id in selectedNodeIds }.let { selected ->
-                                selected.size == selectedNodeIds.size &&
-                                        selected.all { it is EditorShape }
-                            }
+                    selected.isNotEmpty() &&
+                            selected.size == selectedNodeIds.size &&
+                            selected.all { it is EditorShape }
 
-                for (node in nodes) {
-                    if (node.id !in selectedNodeIds) continue
-                    if (allSelectedAreShapes) continue
-
-                    drawSelection(
-                        node = previewById[node.id] ?: node,
-                        color = selectionColor,
-                        textMeasurer = textMeasurer,
-                    )
+                if (!allSelectedAreShapes) {
+                    for (node in selected) {
+                        drawSelection(
+                            node = previewById[node.id] ?: node,
+                            color = selectionColor,
+                            textMeasurer = textMeasurer,
+                        )
+                    }
                 }
 
                 marquee?.let { rect ->
@@ -367,18 +377,25 @@ fun EditorCanvas(
                         topLeft = rect.topLeft,
                         size = rect.size,
                         style = Stroke(
-                            width = 1.5.dp.toPx() / camera.zoom
+                            width = 1.5.dp.toPx() / camera.zoom,
                         ),
                     )
                 }
             }
         }
 
-        if(selectedTool == EditorTool.SELECT) {
-            val selected = nodes.filter { it.id in selectedNodeIds }
+        if (selectedTool == EditorTool.SELECT) {
+            val selected = nodes.filter {
+                it.id in selectedNodeIds
+            }
 
-            if (selected.isNotEmpty() && selected.all { it is EditorShape }) {
-                val previewById = interactionPreview.associateBy { it.id }
+            if (
+                selected.isNotEmpty() &&
+                selected.all { it is EditorShape }
+            ) {
+                val previewById = interactionPreview.associateBy {
+                    it.id
+                }
 
                 val displayedShapes = selected.map { node ->
                     (previewById[node.id] as? EditorShape)
@@ -388,7 +405,7 @@ fun EditorCanvas(
                 drawShapeSelection(
                     shapes = displayedShapes,
                     camera = camera,
-                    color = selectionColor
+                    color = selectionColor,
                 )
             }
         }
@@ -398,9 +415,17 @@ fun EditorCanvas(
 @Composable
 @Preview(showBackground = true)
 fun EditorCanvasPreview() {
-    var nodes by remember { mutableStateOf<List<EditorNode>>(listOf()) }
-    var selectedNodeId by remember { mutableStateOf<Uuid?>(null) }
-    var camera by remember { mutableStateOf(EditorCamera()) }
+    var nodes by remember {
+        mutableStateOf<List<EditorNode>>(listOf())
+    }
+
+    var selectedNodeId by remember {
+        mutableStateOf<Uuid?>(null)
+    }
+
+    var camera by remember {
+        mutableStateOf(EditorCamera())
+    }
 
     EditorCanvas(
         modifier = Modifier.size(400.dp),
@@ -448,6 +473,6 @@ fun EditorCanvasPreview() {
             selectedNodeId = ids.singleOrNull()
         },
         onTextPlacement = {},
-        onTextEdit = {}
+        onTextEdit = {},
     )
 }

@@ -23,11 +23,30 @@ class EditorDocumentState(
     )
         private set
 
-    var selectedNodeIds by mutableStateOf<Set<Uuid>>(emptySet())
+    var selectedMemberIds by mutableStateOf<Set<Uuid>>(emptySet())
         private set
 
+    val selectedMemberId: Uuid?
+        get() = selectedMemberIds.singleOrNull()
+
+    val selectedMembers: List<EditorGroupMember>
+        get() = document.members.flattenedMembers()
+            .filter { it.id in selectedMemberIds }
+
+    val selectedMember: EditorGroupMember?
+        get() = selectedMembers.singleOrNull()
+
+    val selectedNodes: List<EditorNode>
+        get() = selectedMembers.flatMap { it.flattenedNodes() }
+
+    val selectedNodeIds: Set<Uuid>
+        get() = selectedNodes.mapTo(mutableSetOf()) { it.id }
+
     val selectedNodeId: Uuid?
-        get() = selectedNodeIds.singleOrNull()
+        get() = (selectedMember as? EditorNode)?.id
+
+    val selectedNode: EditorNode?
+        get() = selectedMember as? EditorNode
 
     private var stylePreview by
     mutableStateOf<Pair<Uuid, NodeStyle>?>(null)
@@ -50,16 +69,10 @@ class EditorDocumentState(
             } ?: baseNodes
         }
 
-    val selectedNode: EditorNode?
-        get() = nodes.firstOrNull { it.id == selectedNodeId }
-
     val selectedStyle: NodeStyle?
         get() = stylePreview
             ?.takeIf { it.first == selectedNodeId }
             ?.second ?: selectedNode?.style
-
-    val selectedNodes: List<EditorNode>
-        get() = nodes.filter { it.id in selectedNodeIds }
 
     val canUndo: Boolean
         get() = history.canUndo
@@ -68,10 +81,10 @@ class EditorDocumentState(
         get() = history.canRedo
 
     val canAlignSelection: Boolean
-        get() = selectedNodeIds.size >= 2
+        get() = selectedNodes.size >= 2
 
     val canDistributeSelection: Boolean
-        get() = selectedNodeIds.size >= 3
+        get() = selectedNodes.size >= 3
 
     val canMatchShapeSizes: Boolean
         get() = selectedNodes.count { it is EditorShape } >= 2
@@ -158,20 +171,18 @@ class EditorDocumentState(
         selectionBounds: (EditorNode) -> Rect,
     ) {
         require(position.x.isFinite() && position.y.isFinite())
+        if (selectedNodes.size < 2) return
 
-        if (selectedNodeIds.size < 2) return
-
-        val rectangles = selectedNodes.map(selectionBounds)
-        val bounds = rectangles.enclosingBounds() ?: return
+        val bounds = selectedNodes
+            .map(selectionBounds)
+            .enclosingBounds() ?: return
 
         val delta = position - bounds.topLeft
         if (delta == Offset.Zero) return
 
-        val updatedNodes = selectedNodes.map { node ->
-            node.translatedBy(delta)
-        }
-
-        commitNodes(updatedNodes)
+        commitNodes(
+            selectedNodes.map { it.translatedBy(delta) }
+        )
     }
 
     fun resizeSelectedShapesTo(size: Size) {
@@ -190,12 +201,12 @@ class EditorDocumentState(
 
         if (delta == Offset.Zero) return
 
-        val resized = shapes.resizedTogether(
-            handle = ResizeHandle.SE,
-            delta = delta,
+        updateNodes(
+            shapes.resizedTogether(
+                handle = ResizeHandle.SE,
+                delta = delta,
+            )
         )
-
-        updateNodes(resized)
     }
 
     fun rotateSelectedShapesBy(angle: Float) {
@@ -208,55 +219,84 @@ class EditorDocumentState(
         val shapes = selectedNodes.filterIsInstance<EditorShape>()
         val center = shapes.combinedVisualBounds()?.center ?: return
 
-        val rotated = shapes.rotatedTogether(
-            angle = angle,
-            center = center,
+        updateNodes(
+            shapes.rotatedTogether(
+                angle = angle,
+                center = center,
+            )
         )
-
-        updateNodes(rotated)
     }
 
     fun open(document: EditorDocument) {
         cancelNudge()
         history = EditorHistory(document = document)
-        selectedNodeIds = emptySet()
+        selectedMemberIds = emptySet()
         stylePreview = null
     }
 
+    fun selectMember(id: Uuid?) {
+        selectMembers(
+            if (id == null) emptySet() else setOf(id)
+        )
+    }
+
+    fun selectMembers(ids: Set<Uuid>) {
+        val selection = document.normalizeMemberSelection(ids)
+
+        if (selection != selectedMemberIds) {
+            cancelNudge()
+            stylePreview = null
+            selectedMemberIds = selection
+        }
+    }
+
+    fun selectHitNode(
+        hitNodeId: Uuid,
+        extendSelection: Boolean = false,
+    ) {
+        val selection = document.resolveMemberSelection(
+            hitNodeId = hitNodeId,
+            selectedMemberIds = selectedMemberIds,
+            extendSelection = extendSelection,
+        )
+
+        selectMembers(selection)
+    }
+
     fun selectNode(id: Uuid?) {
-        val selection = if (id == null) emptySet() else setOf(id)
-        selectNodes(selection)
+        if (id != null && nodes.none { it.id == id }) return
+        selectMember(id)
     }
 
     fun toggleNodeSelection(id: Uuid) {
         if (nodes.none { it.id == id }) return
 
-        val selection = if (id in selectedNodeIds) {
-            selectedNodeIds - id
+        val selection = if (id in selectedMemberIds) {
+            selectedMemberIds - id
         } else {
-            selectedNodeIds + id
+            selectedMemberIds + id
         }
 
-        selectNodes(selection)
+        selectMembers(selection)
     }
 
     fun selectNodes(ids: Set<Uuid>) {
         val validIds = nodes.mapTo(mutableSetOf()) { it.id }
-        val selection = ids.intersect(validIds)
-
-        if (selection != selectedNodeIds) {
-            stylePreview = null
-            selectedNodeIds = selection
-        }
+        selectMembers(ids.intersect(validIds))
     }
 
     fun clearSelection() {
+        cancelNudge()
         stylePreview = null
-        selectedNodeIds = emptySet()
+        selectedMemberIds = emptySet()
     }
 
     fun selectAllNodes() {
         selectNodes(nodes.mapTo(mutableSetOf()) { it.id })
+    }
+
+    fun selectAllMembers() {
+        selectMembers(document.members.mapTo(mutableSetOf()) { it.id })
     }
 
     fun cancelStylePreview() {
@@ -291,8 +331,8 @@ class EditorDocumentState(
     }
 
     fun addNode(node: EditorNode) {
-        require(nodes.none { it.id == node.id }) {
-            "A node with this ID already exists"
+        require(document.members.pathToMember(node.id) == null) {
+            "A member with this ID already exists"
         }
 
         commitMembers(document.members + node)
@@ -306,38 +346,59 @@ class EditorDocumentState(
         commitNodes(updatedNodes)
     }
 
-    fun deleteSelectedNodes() {
-        if (selectedNodeIds.isEmpty()) return
+    fun deleteSelectedMembers() {
+        if (selectedMemberIds.isEmpty()) return
 
-        val updatedMembers = document.members.removeNodes(
-            selectedNodeIds
+        val updated = document.members.removeMembers(
+            selectedMemberIds
         )
 
-        commitMembers(updatedMembers)
+        commitMembers(updated)
         clearSelection()
+    }
+
+    fun deleteSelectedNodes() {
+        deleteSelectedMembers()
+    }
+
+    fun groupSelectedMembers(): Boolean {
+        if (selectedMemberIds.size < 2) return false
+
+        val result = document.members.groupMembers(
+            selectedMemberIds
+        ) ?: return false
+
+        commitMembers(result.members)
+        selectMember(result.groupId)
+
+        return true
     }
 
     fun groupSelectedNodes(): Boolean {
-        if (selectedNodeIds.size < 2) return false
+        if (selectedMemberIds.size < 2) return false
+        if (selectedMembers.any { it !is EditorNode }) return false
 
-        val updatedMembers = document.members.groupNodes(
-            selectedNodeIds
+        val result = document.members.groupMembers(
+            selectedMemberIds
         ) ?: return false
 
-        commitMembers(updatedMembers)
+        commitMembers(result.members)
         clearSelection()
 
         return true
     }
 
-
     fun ungroup(id: Uuid): Boolean {
-        val updatedMembers = document.members.ungroup(id) ?: return false
+        val updated = document.members.ungroup(id) ?: return false
 
-        commitMembers(updatedMembers)
+        commitMembers(updated)
         return true
     }
 
+    fun ungroupSelectedMembers(): Boolean {
+        val group = selectedMember as? EditorGroup ?: return false
+        return ungroup(group.id)
+    }
 
     fun undo() {
         if (stylePreview != null) {
@@ -380,52 +441,80 @@ class EditorDocumentState(
     }
 
     private fun validateSelection() {
-        val existingIds = nodes.mapTo(mutableSetOf()) { it.id }
-        selectedNodeIds = selectedNodeIds.intersect(existingIds)
+        selectMembers(selectedMemberIds)
+    }
+
+    fun duplicateSelectedMembers(
+        offset: Offset = Offset(20f, 20f),
+    ) {
+        if (selectedMemberIds.isEmpty()) return
+
+        val originals = document.members.selectedSiblings(
+            selectedMemberIds
+        ) ?: return
+
+        val duplicates = originals.map { member ->
+            member.duplicateMember(offset)
+        }
+
+        commitMembers(document.members + duplicates)
+
+        selectMembers(
+            duplicates.mapTo(mutableSetOf()) { it.id }
+        )
     }
 
     fun duplicateSelectedNodes(
         offset: Offset = Offset(20f, 20f),
     ) {
-        if (selectedNodeIds.isEmpty()) return
-
-        val originals = selectedNodes
-        if (originals.isEmpty()) return
-
-        val duplicates = originals.map { node ->
-            node.duplicatedBy(offset)
-        }
-
-        commitMembers(document.members + duplicates)
-
-        selectedNodeIds = duplicates
-            .mapTo(mutableSetOf()) { it.id }
+        duplicateSelectedMembers(offset)
     }
 
-    fun copySelectedNodes() {
-        clipboard.copy(
-            nodes = nodes,
-            selectedIds = selectedNodeIds,
+    fun copySelectedMembers() {
+        if (selectedMemberIds.isEmpty()) return
+
+        val originals = document.members.selectedSiblings(
+            selectedMemberIds
+        ) ?: return
+
+        clipboard.copyMembers(
+            members = originals,
+            selectedIds = selectedMemberIds,
         )
     }
 
-    fun cutSelectedNodes() {
-        if (selectedNodeIds.isEmpty()) return
+    fun copySelectedNodes() {
+        copySelectedMembers()
+    }
 
-        copySelectedNodes()
-        deleteSelectedNodes()
+    fun cutSelectedMembers() {
+        if (selectedMemberIds.isEmpty()) return
+
+        copySelectedMembers()
+        deleteSelectedMembers()
+    }
+
+    fun cutSelectedNodes() {
+        cutSelectedMembers()
+    }
+
+    fun pasteMembers(
+        offset: Offset = Offset(20f, 20f),
+    ) {
+        val pasted = clipboard.pasteMembers(offset)
+        if (pasted.isEmpty()) return
+
+        commitMembers(document.members + pasted)
+
+        selectMembers(
+            pasted.mapTo(mutableSetOf()) { it.id }
+        )
     }
 
     fun pasteNodes(
         offset: Offset = Offset(20f, 20f),
     ) {
-        val pasted = clipboard.paste(offset)
-        if (pasted.isEmpty()) return
-
-        commitMembers(document.members + pasted)
-
-        selectedNodeIds = pasted
-            .mapTo(mutableSetOf()) { it.id }
+        pasteMembers(offset)
     }
 
     fun beginNudge() {
@@ -476,10 +565,10 @@ class EditorDocumentState(
     private fun reorderedMembers(
         operation: ReorderOperation,
     ): List<EditorGroupMember> {
-        if (selectedNodeIds.isEmpty()) return document.members
+        if (selectedMemberIds.isEmpty()) return document.members
 
-        return document.members.reorderNodes(
-            selectedIds = selectedNodeIds,
+        return document.members.reorderMembers(
+            selectedIds = selectedMemberIds,
             operation = operation,
         )
     }
@@ -508,30 +597,32 @@ private enum class ReorderOperation {
     BACK,
 }
 
-private fun List<EditorGroupMember>.removeNodes(
+private data class GroupingResult(
+    val members: List<EditorGroupMember>,
+    val groupId: Uuid,
+)
+
+private fun List<EditorGroupMember>.removeMembers(
     selectedIds: Set<Uuid>,
 ): List<EditorGroupMember> {
     val result = mutableListOf<EditorGroupMember>()
 
     for (member in this) {
+        if (member.id in selectedIds) continue
+
         when (member) {
-            is EditorNode -> {
-                if (member.id !in selectedIds) {
-                    result.add(member)
-                }
-            }
+            is EditorNode -> result.add(member)
 
             is EditorGroup -> {
-                val remaining = member.members.removeNodes(selectedIds)
+                val remaining = member.members.removeMembers(
+                    selectedIds
+                )
 
                 if (remaining.isNotEmpty()) {
-                    val updated = if (remaining == member.members) {
-                        member
-                    } else {
-                        member.copy(members = remaining)
-                    }
-
-                    result.add(updated)
+                    result.add(
+                        if (remaining == member.members) member
+                        else member.copy(members = remaining)
+                    )
                 }
             }
         }
@@ -540,31 +631,62 @@ private fun List<EditorGroupMember>.removeNodes(
     return result
 }
 
-private fun List<EditorGroupMember>.reorderNodes(
+private fun List<EditorGroupMember>.selectedSiblings(
+    selectedIds: Set<Uuid>,
+): List<EditorGroupMember>? {
+    if (selectedIds.isEmpty()) return null
+
+    val selected = filter { it.id in selectedIds }
+
+    if (selected.size == selectedIds.size) {
+        return selected
+    }
+
+    for (member in this) {
+        if (member !is EditorGroup) continue
+
+        val children = member.members.selectedSiblings(
+            selectedIds
+        )
+
+        if (children != null) return children
+    }
+
+    return null
+}
+
+private fun EditorGroupMember.duplicateMember(
+    offset: Offset,
+): EditorGroupMember = when (this) {
+    is EditorNode -> duplicatedBy(offset)
+
+    is EditorGroup -> EditorGroup(
+        members = members.map { member ->
+            member.duplicateMember(offset)
+        }
+    )
+}
+
+private fun List<EditorGroupMember>.reorderMembers(
     selectedIds: Set<Uuid>,
     operation: ReorderOperation,
 ): List<EditorGroupMember> {
     val reordered = map { member ->
-        when (member) {
-            is EditorNode -> member
+        if (member !is EditorGroup) {
+            member
+        } else {
+            val children = member.members.reorderMembers(
+                selectedIds,
+                operation,
+            )
 
-            is EditorGroup -> {
-                val children = member.members.reorderNodes(
-                    selectedIds = selectedIds,
-                    operation = operation,
-                )
-
-                if (children == member.members) {
-                    member
-                } else {
-                    member.copy(members = children)
-                }
-            }
+            if (children == member.members) member
+            else member.copy(members = children)
         }
     }.toMutableList()
 
     fun isSelected(member: EditorGroupMember): Boolean =
-        member is EditorNode && member.id in selectedIds
+        member.id in selectedIds
 
     when (operation) {
         ReorderOperation.FRONT -> {
@@ -609,54 +731,52 @@ private fun List<EditorGroupMember>.reorderNodes(
     return reordered
 }
 
-
-private fun List<EditorGroupMember>.groupNodes(
+private fun List<EditorGroupMember>.groupMembers(
     selectedIds: Set<Uuid>,
-): List<EditorGroupMember>? {
+): GroupingResult? {
     val selectedIndices = indices.filter { index ->
-        val member = this[index]
-        member is EditorNode && member.id in selectedIds
+        this[index].id in selectedIds
     }
 
-    if (selectedIndices.size == selectedIds.size &&
+    if (
+        selectedIndices.size == selectedIds.size &&
         selectedIndices.size >= 2
     ) {
-        val selectedMembers = selectedIndices.map { this[it] }
-        val insertIndex = selectedIndices.last()
-
         val group = EditorGroup(
-            members = selectedMembers
+            members = selectedIndices.map { this[it] }
         )
 
-        return buildList {
-            for (index in this@groupNodes.indices) {
-                if (index == insertIndex) {
-                    add(group)
-                }
+        val insertIndex = selectedIndices.last()
 
-                val member = this@groupNodes[index]
+        val updated = buildList {
+            for (index in this@groupMembers.indices) {
+                if (index == insertIndex) add(group)
 
                 if (index !in selectedIndices) {
-                    add(member)
+                    add(this@groupMembers[index])
                 }
             }
         }
+
+        return GroupingResult(updated, group.id)
     }
 
     for ((index, member) in withIndex()) {
         if (member !is EditorGroup) continue
 
-        val updatedChildren = member.members.groupNodes(
+        val result = member.members.groupMembers(
             selectedIds
         ) ?: continue
 
-        return mapIndexed { i, current ->
+        val updated = mapIndexed { i, current ->
             if (i == index) {
-                member.copy(members = updatedChildren)
+                member.copy(members = result.members)
             } else {
                 current
             }
         }
+
+        return GroupingResult(updated, result.groupId)
     }
 
     return null
