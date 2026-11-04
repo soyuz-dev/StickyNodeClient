@@ -192,7 +192,7 @@ class SharedCommonTest {
     fun `committing a document creates an undo entry`() {
         val initial = EditorHistory()
         val document = EditorDocument(
-            nodes = listOf(
+            members = listOf(
                 EditorRectangle(
                     x = 10f,
                     y = 20f,
@@ -213,7 +213,7 @@ class SharedCommonTest {
     fun `undo restores the previous document`() {
         val initial = EditorHistory()
         val document = EditorDocument(
-            nodes = listOf(
+            members = listOf(
                 EditorRectangle(
                     x = 10f,
                     y = 20f,
@@ -233,7 +233,7 @@ class SharedCommonTest {
     fun `redo restores an undone document`() {
         val initial = EditorHistory()
         val document = EditorDocument(
-            nodes = listOf(
+            members = listOf(
                 EditorRectangle(
                     x = 10f,
                     y = 20f,
@@ -255,7 +255,7 @@ class SharedCommonTest {
     @Test
     fun `new commits clear redo history`() {
         val first = EditorDocument(
-            nodes = listOf(
+            members = listOf(
                 EditorRectangle(
                     x = 0f,
                     y = 0f,
@@ -266,7 +266,7 @@ class SharedCommonTest {
         )
 
         val second = EditorDocument(
-            nodes = listOf(
+            members = listOf(
                 EditorEllipse(
                     x = 10f,
                     y = 10f,
@@ -303,7 +303,7 @@ class SharedCommonTest {
             height = 50f,
         )
 
-        val original = EditorDocument(nodes = listOf(node))
+        val original = EditorDocument(members = listOf(node))
 
         val history = EditorHistory(document = original)
             .commit(EditorDocument())
@@ -321,7 +321,7 @@ class SharedCommonTest {
             height = 50f,
         )
 
-        val original = EditorDocument(nodes = listOf(node))
+        val original = EditorDocument(members = listOf(node))
 
         val history = EditorHistory(document = original)
             .commit(EditorDocument())
@@ -335,7 +335,7 @@ class SharedCommonTest {
     @Test
     fun `document survives JSON round trip`() {
         val original = EditorDocument(
-            nodes = listOf(
+            members = listOf(
                 EditorRectangle(
                     x = 10f,
                     y = 20f,
@@ -806,7 +806,7 @@ class SharedCommonTest {
     @Test
     fun `document preserves shape rotations through JSON round trip`() {
         val original = EditorDocument(
-            nodes = listOf(
+            members = listOf(
                 EditorRectangle(
                     x = 10f,
                     y = 20f,
@@ -834,7 +834,7 @@ class SharedCommonTest {
     @Test
     fun `legacy documents without rotation remain readable`() {
         val original = EditorDocument(
-            nodes = listOf(
+            members = listOf(
                 EditorRectangle(
                     x = 10f,
                     y = 20f,
@@ -1146,7 +1146,7 @@ class SharedCommonTest {
         )
 
         val state = EditorDocumentState(
-            EditorDocument(nodes = listOf(rectangle))
+            EditorDocument(members = listOf(rectangle))
         )
 
         state.selectNode(rectangle.id)
@@ -1179,7 +1179,7 @@ class SharedCommonTest {
         )
 
         val state = EditorDocumentState(
-            EditorDocument(nodes = listOf(rectangle, ellipse))
+            EditorDocument(members = listOf(rectangle, ellipse))
         )
 
         state.selectNodes(setOf(rectangle.id, ellipse.id))
@@ -1208,7 +1208,7 @@ class SharedCommonTest {
         )
 
         val state = EditorDocumentState(
-            EditorDocument(nodes = listOf(rectangle))
+            EditorDocument(members = listOf(rectangle))
         )
 
         state.selectNode(rectangle.id)
@@ -1236,7 +1236,7 @@ class SharedCommonTest {
         )
 
         val state = EditorDocumentState(
-            EditorDocument(nodes = listOf(rectangle))
+            EditorDocument(members = listOf(rectangle))
         )
 
         state.selectNode(rectangle.id)
@@ -1265,7 +1265,7 @@ class SharedCommonTest {
         )
 
         val state = EditorDocumentState(
-            EditorDocument(nodes = listOf(rectangle))
+            EditorDocument(members = listOf(rectangle))
         )
 
         state.selectNode(rectangle.id)
@@ -1304,7 +1304,7 @@ class SharedCommonTest {
         )
 
         val state = EditorDocumentState(
-            EditorDocument(nodes = listOf(rectangle))
+            EditorDocument(members = listOf(rectangle))
         )
 
         state.selectNode(rectangle.id)
@@ -1351,7 +1351,7 @@ class SharedCommonTest {
 
         val state = EditorDocumentState(
             EditorDocument(
-                nodes = listOf(rectangle, ellipse, untouched)
+                members = listOf(rectangle, ellipse, untouched)
             )
         )
 
@@ -1389,7 +1389,7 @@ class SharedCommonTest {
         )
 
         val state = EditorDocumentState(
-            EditorDocument(nodes = listOf(rectangle))
+            EditorDocument(members = listOf(rectangle))
         )
 
         state.selectNode(rectangle.id)
@@ -1535,7 +1535,7 @@ class SharedCommonTest {
         )
 
         val state = EditorDocumentState(
-            EditorDocument(nodes = listOf(bottom, middle, top))
+            EditorDocument(members = listOf(bottom, middle, top))
         )
 
         state.selectNode(top.id)
@@ -1585,7 +1585,7 @@ class SharedCommonTest {
         )
 
         val state = EditorDocumentState(
-            EditorDocument(nodes = listOf(rectangle, ellipse))
+            EditorDocument(members = listOf(rectangle, ellipse))
         )
 
         state.selectNode(rectangle.id)
@@ -1675,7 +1675,7 @@ class SharedCommonTest {
         )
 
         val state = EditorDocumentState(
-            EditorDocument(nodes = listOf(rectangle))
+            EditorDocument(members = listOf(rectangle))
         )
 
         state.selectNode(rectangle.id)
@@ -1696,7 +1696,7 @@ class SharedCommonTest {
         )
 
         val state = EditorDocumentState(
-            EditorDocument(nodes = listOf(rectangle))
+            EditorDocument(members = listOf(rectangle))
         )
 
         state.selectNode(rectangle.id)
@@ -1734,7 +1734,7 @@ class SharedCommonTest {
         )
 
         val state = EditorDocumentState(
-            EditorDocument(nodes = listOf(rectangle))
+            EditorDocument(members = listOf(rectangle))
         )
 
         state.selectNode(rectangle.id)
@@ -1982,7 +1982,7 @@ class SharedCommonTest {
         )
 
         val state = EditorDocumentState(
-            EditorDocument(nodes = listOf(first, second))
+            EditorDocument(members = listOf(first, second))
         )
 
         state.selectNodes(setOf(first.id, second.id))
@@ -2025,7 +2025,7 @@ class SharedCommonTest {
         )
 
         val state = EditorDocumentState(
-            EditorDocument(nodes = listOf(first, second))
+            EditorDocument(members = listOf(first, second))
         )
 
         state.selectNode(first.id)
@@ -2106,7 +2106,7 @@ class SharedCommonTest {
         val originals = listOf(first, middle, last)
 
         val state = EditorDocumentState(
-            EditorDocument(nodes = originals)
+            EditorDocument(members = originals)
         )
 
         state.selectNodes(originals.mapTo(mutableSetOf()) { it.id })
@@ -2152,7 +2152,7 @@ class SharedCommonTest {
         )
 
         val state = EditorDocumentState(
-            EditorDocument(nodes = listOf(first, second))
+            EditorDocument(members = listOf(first, second))
         )
 
         state.selectNodes(setOf(first.id, second.id))
@@ -2267,7 +2267,7 @@ class SharedCommonTest {
         val originals = listOf(small, large)
 
         val state = EditorDocumentState(
-            EditorDocument(nodes = originals)
+            EditorDocument(members = originals)
         )
 
         state.selectNodes(setOf(small.id, large.id))
@@ -2321,7 +2321,7 @@ class SharedCommonTest {
         val originals = listOf(rectangle, text)
 
         val state = EditorDocumentState(
-            EditorDocument(nodes = originals)
+            EditorDocument(members = originals)
         )
 
         state.selectNodes(setOf(rectangle.id, text.id))
@@ -2400,7 +2400,7 @@ class SharedCommonTest {
         )
 
         val state = EditorDocumentState(
-            EditorDocument(nodes = listOf(rectangle))
+            EditorDocument(members = listOf(rectangle))
         )
 
         state.selectNode(rectangle.id)
@@ -2443,7 +2443,7 @@ class SharedCommonTest {
         val originals = listOf(first, second)
 
         val state = EditorDocumentState(
-            EditorDocument(nodes = originals)
+            EditorDocument(members = originals)
         )
 
         state.selectNodes(setOf(first.id, second.id))
@@ -2466,7 +2466,7 @@ class SharedCommonTest {
         )
 
         val state = EditorDocumentState(
-            EditorDocument(nodes = listOf(rectangle))
+            EditorDocument(members = listOf(rectangle))
         )
 
         state.selectNode(rectangle.id)
@@ -2641,7 +2641,7 @@ class SharedCommonTest {
         val originals = listOf(first, second, unselected)
 
         val state = EditorDocumentState(
-            EditorDocument(nodes = originals)
+            EditorDocument(members = originals)
         )
 
         state.selectNodes(setOf(first.id, second.id))
@@ -2682,7 +2682,7 @@ class SharedCommonTest {
         )
 
         val state = EditorDocumentState(
-            EditorDocument(nodes = listOf(first, second))
+            EditorDocument(members = listOf(first, second))
         )
 
         state.selectNodes(setOf(first.id, second.id))
@@ -2692,6 +2692,352 @@ class SharedCommonTest {
             selectionBounds = { it.selectionBounds },
         )
 
+        assertFalse(state.canUndo)
+    }
+
+
+    @Test
+    fun `nested groups flatten nodes in order`() {
+        val first = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val second = EditorEllipse(
+            x = 50f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val third = EditorText(
+            x = 100f, y = 0f,
+            text = "Hello",
+        )
+
+        val inner = EditorGroup(
+            members = listOf(second, third),
+        )
+
+        val outer = EditorGroup(
+            members = listOf(first, inner),
+        )
+
+        assertEquals(
+            listOf(first, second, third),
+            outer.flattenedNodes(),
+        )
+    }
+
+    @Test
+    fun `recursive node mapping preserves nested groups`() {
+        val rectangle = EditorRectangle(
+            x = 10f, y = 20f,
+            width = 30f, height = 40f,
+        )
+
+        val ellipse = EditorEllipse(
+            x = 100f, y = 200f,
+            width = 20f, height = 20f,
+        )
+
+        val inner = EditorGroup(
+            members = listOf(ellipse),
+        )
+
+        val outer = EditorGroup(
+            members = listOf(rectangle, inner),
+        )
+
+        val updated = outer.mapNodes { node ->
+            if (node.id == ellipse.id) {
+                node.translatedBy(Offset(10f, 20f))
+            } else {
+                node
+            }
+        } as EditorGroup
+
+        val updatedInner = updated.members[1] as EditorGroup
+        val updatedEllipse = updatedInner.members[0] as EditorEllipse
+
+        assertEquals(110f, updatedEllipse.x)
+        assertEquals(220f, updatedEllipse.y)
+
+        assertEquals(outer.id, updated.id)
+        assertEquals(inner.id, updatedInner.id)
+        assertEquals(rectangle, updated.members[0])
+
+        // Original tree is unchanged.
+        assertEquals(ellipse, inner.members[0])
+    }
+
+    @Test
+    fun `unchanged recursive mapping preserves group instances`() {
+        val rectangle = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val inner = EditorGroup(
+            members = listOf(rectangle),
+        )
+
+        val outer = EditorGroup(
+            members = listOf(inner),
+        )
+
+        val result = outer.mapNodes { it }
+
+        assertSame(outer, result)
+    }
+
+
+    @Test
+    fun `grouping selected nodes creates one group`() {
+        val a = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+        val b = EditorRectangle(
+            x = 30f, y = 0f,
+            width = 20f, height = 20f,
+        )
+        val c = EditorEllipse(
+            x = 60f, y = 0f,
+            width = 20f, height = 20f,
+        )
+        val d = EditorRectangle(
+            x = 90f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val original = EditorDocument(
+            members = listOf(a, b, c, d)
+        )
+
+        val state = EditorDocumentState(original)
+        state.selectNodes(setOf(a.id, c.id))
+
+        assertTrue(state.groupSelectedNodes())
+
+        val members = state.document.members
+
+        assertEquals(3, members.size)
+        assertEquals(b, members[0])
+        assertEquals(d, members[2])
+
+        val group = members[1] as EditorGroup
+
+        assertEquals(listOf(a, c), group.members)
+        assertEquals(listOf(b, a, c, d), state.nodes)
+        assertTrue(state.selectedNodeIds.isEmpty())
+        assertTrue(state.canUndo)
+
+        state.undo()
+        assertEquals(original, state.document)
+
+        state.redo()
+        assertEquals(members, state.document.members)
+    }
+
+    @Test
+    fun `grouping inside nested groups preserves ancestors`() {
+        val a = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+        val b = EditorEllipse(
+            x = 30f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val inner = EditorGroup(
+            members = listOf(a, b)
+        )
+        val outer = EditorGroup(
+            members = listOf(inner)
+        )
+
+        val state = EditorDocumentState(
+            EditorDocument(members = listOf(outer))
+        )
+
+        state.selectNodes(setOf(a.id, b.id))
+
+        assertTrue(state.groupSelectedNodes())
+
+        val updatedOuter =
+            state.document.members.single() as EditorGroup
+
+        val updatedInner =
+            updatedOuter.members.single() as EditorGroup
+
+        val createdGroup =
+            updatedInner.members.single() as EditorGroup
+
+        assertEquals(outer.id, updatedOuter.id)
+        assertEquals(inner.id, updatedInner.id)
+        assertEquals(listOf(a, b), createdGroup.members)
+    }
+
+    @Test
+    fun `grouping nodes from different parents is rejected`() {
+        val a = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+        val b = EditorRectangle(
+            x = 30f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val firstGroup = EditorGroup(members = listOf(a))
+        val secondGroup = EditorGroup(members = listOf(b))
+
+        val original = EditorDocument(
+            members = listOf(firstGroup, secondGroup)
+        )
+
+        val state = EditorDocumentState(original)
+        state.selectNodes(setOf(a.id, b.id))
+
+        assertFalse(state.groupSelectedNodes())
+        assertEquals(original, state.document)
+        assertFalse(state.canUndo)
+        assertEquals(setOf(a.id, b.id), state.selectedNodeIds)
+    }
+
+    @Test
+    fun `grouping fewer than two nodes is a no op`() {
+        val a = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val original = EditorDocument(
+            members = listOf(a)
+        )
+
+        val state = EditorDocumentState(original)
+        state.selectNode(a.id)
+
+        assertFalse(state.groupSelectedNodes())
+        assertEquals(original, state.document)
+        assertFalse(state.canUndo)
+    }
+
+
+    @Test
+    fun `ungrouping restores children at original position`() {
+        val a = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+        val b = EditorEllipse(
+            x = 30f, y = 0f,
+            width = 20f, height = 20f,
+        )
+        val c = EditorRectangle(
+            x = 60f, y = 0f,
+            width = 20f, height = 20f,
+        )
+        val d = EditorRectangle(
+            x = 90f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val group = EditorGroup(members = listOf(b, c))
+        val original = EditorDocument(
+            members = listOf(a, group, d)
+        )
+
+        val state = EditorDocumentState(original)
+
+        assertTrue(state.ungroup(group.id))
+        assertEquals(listOf(a, b, c, d), state.document.members)
+        assertEquals(listOf(a, b, c, d), state.nodes)
+
+        state.undo()
+        assertEquals(original, state.document)
+
+        state.redo()
+        assertEquals(listOf(a, b, c, d), state.document.members)
+    }
+
+    @Test
+    fun `ungrouping outer group preserves inner group`() {
+        val rectangle = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+        val ellipse = EditorEllipse(
+            x = 30f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val inner = EditorGroup(members = listOf(ellipse))
+        val outer = EditorGroup(members = listOf(rectangle, inner))
+
+        val state = EditorDocumentState(
+            EditorDocument(members = listOf(outer))
+        )
+
+        assertTrue(state.ungroup(outer.id))
+
+        assertEquals(
+            listOf(rectangle, inner),
+            state.document.members,
+        )
+
+        assertEquals(
+            listOf(rectangle, ellipse),
+            state.nodes,
+        )
+
+        assertEquals(inner.id, (state.document.members[1] as EditorGroup).id)
+    }
+
+    @Test
+    fun `ungrouping nested group preserves ancestor`() {
+        val rectangle = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+        val ellipse = EditorEllipse(
+            x = 30f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val inner = EditorGroup(members = listOf(rectangle, ellipse))
+        val outer = EditorGroup(members = listOf(inner))
+
+        val state = EditorDocumentState(
+            EditorDocument(members = listOf(outer))
+        )
+
+        assertTrue(state.ungroup(inner.id))
+
+        val updatedOuter =
+            state.document.members.single() as EditorGroup
+
+        assertEquals(outer.id, updatedOuter.id)
+        assertEquals(listOf(rectangle, ellipse), updatedOuter.members)
+    }
+
+    @Test
+    fun `ungrouping unknown id is a no op`() {
+        val rectangle = EditorRectangle(
+            x = 0f, y = 0f,
+            width = 20f, height = 20f,
+        )
+
+        val original = EditorDocument(
+            members = listOf(rectangle)
+        )
+
+        val state = EditorDocumentState(original)
+
+        assertFalse(state.ungroup(Uuid.random()))
+        assertFalse(state.ungroup(rectangle.id))
+        assertEquals(original, state.document)
         assertFalse(state.canUndo)
     }
 }

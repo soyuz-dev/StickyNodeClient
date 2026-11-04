@@ -1,44 +1,26 @@
+
 package org.stickynodes.editor.history
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.internal.composableLambdaInstance
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import org.stickynodes.editor.draw.geometry.NodeAlignment
-import org.stickynodes.editor.draw.geometry.NodeDistribution
-import org.stickynodes.editor.draw.geometry.NodeSizing
-import org.stickynodes.editor.draw.geometry.ResizeHandle
-import org.stickynodes.editor.draw.geometry.alignNodes
-import org.stickynodes.editor.draw.geometry.bringForward
-import org.stickynodes.editor.draw.geometry.bringToFront
-import org.stickynodes.editor.draw.geometry.combinedBounds
-import org.stickynodes.editor.draw.geometry.combinedVisualBounds
-import org.stickynodes.editor.draw.geometry.distributeNodes
-import org.stickynodes.editor.draw.geometry.duplicatedBy
-import org.stickynodes.editor.draw.geometry.enclosingBounds
-import org.stickynodes.editor.draw.geometry.matchShapeSizes
-import org.stickynodes.editor.draw.geometry.positionedAt
-import org.stickynodes.editor.draw.geometry.resizedTogether
-import org.stickynodes.editor.draw.geometry.rotatedTogether
-import org.stickynodes.editor.draw.geometry.sendBackward
-import org.stickynodes.editor.draw.geometry.sendToBack
-import org.stickynodes.editor.draw.geometry.translatedBy
-import org.stickynodes.editor.draw.geometry.withStyle
-import org.stickynodes.editor.draw.model.EditorNode
-import org.stickynodes.editor.draw.model.EditorShape
+import org.stickynodes.editor.draw.geometry.*
+import org.stickynodes.editor.draw.model.*
 import org.stickynodes.editor.draw.style.NodeStyle
 import kotlin.uuid.Uuid
 
 class EditorDocumentState(
     initialDocument: EditorDocument = EditorDocument(),
-    val clipboard: EditorNodeClipboard = EditorNodeClipboard()
+    val clipboard: EditorNodeClipboard = EditorNodeClipboard(),
 ) {
-    var history by mutableStateOf(EditorHistory(document = initialDocument))
+    var history by mutableStateOf(
+        EditorHistory(document = initialDocument)
+    )
         private set
 
     var selectedNodeIds by mutableStateOf<Set<Uuid>>(emptySet())
@@ -47,7 +29,8 @@ class EditorDocumentState(
     val selectedNodeId: Uuid?
         get() = selectedNodeIds.singleOrNull()
 
-    private var stylePreview by mutableStateOf<Pair<Uuid, NodeStyle>?>(null)
+    private var stylePreview by
+    mutableStateOf<Pair<Uuid, NodeStyle>?>(null)
 
     val document: EditorDocument
         get() = history.document
@@ -61,7 +44,8 @@ class EditorDocumentState(
 
             return stylePreview?.let { (id, style) ->
                 baseNodes.map { node ->
-                    if (node.id == id) node.withStyle(style) else node
+                    if (node.id == id) node.withStyle(style)
+                    else node
                 }
             } ?: baseNodes
         }
@@ -74,34 +58,14 @@ class EditorDocumentState(
             ?.takeIf { it.first == selectedNodeId }
             ?.second ?: selectedNode?.style
 
+    val selectedNodes: List<EditorNode>
+        get() = nodes.filter { it.id in selectedNodeIds }
+
     val canUndo: Boolean
         get() = history.canUndo
 
     val canRedo: Boolean
         get() = history.canRedo
-
-
-    val canBringSelectionForward: Boolean
-        get() = selectedNodeIds.isNotEmpty() &&
-                nodes.bringForward(selectedNodeIds) != nodes
-
-    val canBringSelectionToFront: Boolean
-        get() = selectedNodeIds.isNotEmpty() &&
-                nodes.bringToFront(selectedNodeIds) != nodes
-
-    val canSendSelectionBackward: Boolean
-        get() = selectedNodeIds.isNotEmpty() &&
-                nodes.sendBackward(selectedNodeIds) != nodes
-
-    val canSendSelectionToBack: Boolean
-        get() = selectedNodeIds.isNotEmpty() &&
-                nodes.sendToBack(selectedNodeIds) != nodes
-
-    private var nudgeStartNodes: List<EditorNode>? = null
-    private var nudgeDelta = Offset.Zero
-    private var nudgeSelectedIds: Set<Uuid>? = null
-    private var nudgePreviewNodes by
-    mutableStateOf<List<EditorNode>?>(null)
 
     val canAlignSelection: Boolean
         get() = selectedNodeIds.size >= 2
@@ -110,19 +74,36 @@ class EditorDocumentState(
         get() = selectedNodeIds.size >= 3
 
     val canMatchShapeSizes: Boolean
-        get() = nodes.count {
-            it.id in selectedNodeIds && it is EditorShape
-        } >= 2
+        get() = selectedNodes.count { it is EditorShape } >= 2
 
-    val selectedNodes = nodes.filter { it.id in selectedNodeIds }
+    val canResizeGroup: Boolean
+        get() = selectedNodes.size >= 2 &&
+                selectedNodes.all { node ->
+                    node is EditorShape && node.rotation == 0f
+                }
 
-    val canResizeGroup = selectedNodes.size >= 2 &&
-            selectedNodes.all { node ->
-                node is EditorShape && node.rotation == 0f
-            }
+    val canRotateGroup: Boolean
+        get() = selectedNodes.size >= 2 &&
+                selectedNodes.all { it is EditorShape }
 
-    val canRotateGroup = selectedNodes.size >= 2 &&
-            selectedNodes.all { it is EditorShape }
+    val canBringSelectionForward: Boolean
+        get() = reorderedMembers(ReorderOperation.FORWARD) != document.members
+
+    val canBringSelectionToFront: Boolean
+        get() = reorderedMembers(ReorderOperation.FRONT) != document.members
+
+    val canSendSelectionBackward: Boolean
+        get() = reorderedMembers(ReorderOperation.BACKWARD) != document.members
+
+    val canSendSelectionToBack: Boolean
+        get() = reorderedMembers(ReorderOperation.BACK) != document.members
+
+    private var nudgeStartNodes: List<EditorNode>? = null
+    private var nudgeDelta = Offset.Zero
+    private var nudgeSelectedIds: Set<Uuid>? = null
+
+    private var nudgePreviewNodes by
+    mutableStateOf<List<EditorNode>?>(null)
 
     fun alignSelectedNodes(
         alignment: NodeAlignment,
@@ -133,7 +114,7 @@ class EditorDocumentState(
         val alignedNodes = nodes.alignNodes(
             selectedIds = selectedNodeIds,
             alignment = alignment,
-            selectionBounds = selectionBounds
+            selectionBounds = selectionBounds,
         )
 
         if (alignedNodes != nodes) commitNodes(alignedNodes)
@@ -148,15 +129,13 @@ class EditorDocumentState(
         val distributedNodes = nodes.distributeNodes(
             selectedIds = selectedNodeIds,
             distribution = distribution,
-            selectionBounds = selectionBounds
+            selectionBounds = selectionBounds,
         )
 
         if (distributedNodes != nodes) commitNodes(distributedNodes)
     }
 
-    fun matchSelectedShapeSizes(
-        sizing: NodeSizing,
-    ) {
+    fun matchSelectedShapeSizes(sizing: NodeSizing) {
         if (!canMatchShapeSizes) return
 
         val resizedNodes = nodes.matchShapeSizes(
@@ -169,33 +148,27 @@ class EditorDocumentState(
 
     fun positionSelectedNodeAt(position: Offset) {
         require(position.x.isFinite() && position.y.isFinite())
-        val id = selectedNodeId ?: return
 
-        val updatedNodes = nodes.map { node ->
-            if (node.id == id) node.positionedAt(position)
-            else node
-        }
-
-        if (updatedNodes != nodes) commitNodes(updatedNodes)
+        val node = selectedNode ?: return
+        updateNode(node.positionedAt(position))
     }
 
     fun positionSelectedNodesAt(
         position: Offset,
-        selectionBounds: (EditorNode) -> Rect
+        selectionBounds: (EditorNode) -> Rect,
     ) {
         require(position.x.isFinite() && position.y.isFinite())
+
         if (selectedNodeIds.size < 2) return
 
-        val selected = nodes.filter { it.id in selectedNodeIds }
-        val rectangles = selected.map(selectionBounds)
+        val rectangles = selectedNodes.map(selectionBounds)
         val bounds = rectangles.enclosingBounds() ?: return
 
         val delta = position - bounds.topLeft
         if (delta == Offset.Zero) return
 
-        val updatedNodes = nodes.map { node ->
-            if (node.id in selectedNodeIds) node.translatedBy(delta)
-            else node
+        val updatedNodes = selectedNodes.map { node ->
+            node.translatedBy(delta)
         }
 
         commitNodes(updatedNodes)
@@ -205,17 +178,9 @@ class EditorDocumentState(
         require(size.width.isFinite() && size.height.isFinite())
         require(size.width > 0f && size.height > 0f)
 
-        if (selectedNodeIds.size < 2) return
+        if (!canResizeGroup) return
 
-        val selected = nodes.filter { it.id in selectedNodeIds }
-
-        if (
-            selected.any {
-                it !is EditorShape &&
-                (it as? EditorShape)?.rotation != 0f
-            }) return
-
-        val shapes = selected.filterIsInstance<EditorShape>()
+        val shapes = selectedNodes.filterIsInstance<EditorShape>()
         val bounds = shapes.combinedBounds() ?: return
 
         val delta = Offset(
@@ -238,13 +203,9 @@ class EditorDocumentState(
             "Rotation must be finite"
         }
 
-        if (selectedNodeIds.size < 2 || angle == 0f) return
+        if (!canRotateGroup || angle == 0f) return
 
-        val selected = nodes.filter { it.id in selectedNodeIds }
-
-        if (selected.any { it !is EditorShape }) return
-
-        val shapes = selected.filterIsInstance<EditorShape>()
+        val shapes = selectedNodes.filterIsInstance<EditorShape>()
         val center = shapes.combinedVisualBounds()?.center ?: return
 
         val rotated = shapes.rotatedTogether(
@@ -264,21 +225,19 @@ class EditorDocumentState(
 
     fun selectNode(id: Uuid?) {
         val selection = if (id == null) emptySet() else setOf(id)
-
-        if (selection != selectedNodeIds) {
-            stylePreview = null
-            selectedNodeIds = selection
-        }
+        selectNodes(selection)
     }
 
     fun toggleNodeSelection(id: Uuid) {
-        stylePreview = null
+        if (nodes.none { it.id == id }) return
 
-        selectedNodeIds = if (id in selectedNodeIds) {
+        val selection = if (id in selectedNodeIds) {
             selectedNodeIds - id
         } else {
             selectedNodeIds + id
         }
+
+        selectNodes(selection)
     }
 
     fun selectNodes(ids: Set<Uuid>) {
@@ -290,88 +249,134 @@ class EditorDocumentState(
             selectedNodeIds = selection
         }
     }
+
     fun clearSelection() {
         stylePreview = null
         selectedNodeIds = emptySet()
+    }
+
+    fun selectAllNodes() {
+        selectNodes(nodes.mapTo(mutableSetOf()) { it.id })
     }
 
     fun cancelStylePreview() {
         stylePreview = null
     }
 
-    fun commitNodes(updatedNodes: List<EditorNode>) {
+    private fun commitMembers(
+        updatedMembers: List<EditorGroupMember>,
+    ) {
+        if (updatedMembers == document.members) return
+
         cancelNudge()
         stylePreview = null
-        history = history.commit(document.copy(nodes = updatedNodes))
+
+        history = history.commit(
+            document.copy(members = updatedMembers)
+        )
+
         validateSelection()
     }
 
-    fun addNode(node: EditorNode) {
-        commitNodes(nodes + node)
-    }
-
-    fun updateNode(updated: EditorNode) {
-        commitNodes(nodes.map { node ->
-            if (node.id == updated.id) updated else node
-        })
-    }
-
-    fun updateNodes(updatedNodes: List<EditorNode>) {
+    fun commitNodes(updatedNodes: List<EditorNode>) {
         if (updatedNodes.isEmpty()) return
 
         val replacements = updatedNodes.associateBy { it.id }
 
-        commitNodes(nodes.map { node ->
+        val updatedMembers = document.members.mapNodes { node ->
             replacements[node.id] ?: node
-        })
+        }
+
+        commitMembers(updatedMembers)
+    }
+
+    fun addNode(node: EditorNode) {
+        require(nodes.none { it.id == node.id }) {
+            "A node with this ID already exists"
+        }
+
+        commitMembers(document.members + node)
+    }
+
+    fun updateNode(updated: EditorNode) {
+        commitNodes(listOf(updated))
+    }
+
+    fun updateNodes(updatedNodes: List<EditorNode>) {
+        commitNodes(updatedNodes)
     }
 
     fun deleteSelectedNodes() {
         if (selectedNodeIds.isEmpty()) return
 
-        commitNodes(nodes.filterNot { it.id in selectedNodeIds })
+        val updatedMembers = document.members.removeNodes(
+            selectedNodeIds
+        )
+
+        commitMembers(updatedMembers)
         clearSelection()
     }
+
+    fun groupSelectedNodes(): Boolean {
+        if (selectedNodeIds.size < 2) return false
+
+        val updatedMembers = document.members.groupNodes(
+            selectedNodeIds
+        ) ?: return false
+
+        commitMembers(updatedMembers)
+        clearSelection()
+
+        return true
+    }
+
+
+    fun ungroup(id: Uuid): Boolean {
+        val updatedMembers = document.members.ungroup(id) ?: return false
+
+        commitMembers(updatedMembers)
+        return true
+    }
+
 
     fun undo() {
         if (stylePreview != null) {
             stylePreview = null
             return
         }
+
+        cancelNudge()
         history = history.undo()
         validateSelection()
     }
 
     fun redo() {
+        cancelNudge()
         stylePreview = null
         history = history.redo()
         validateSelection()
     }
 
-    /** Returns false if no selected node exists; callers may instead change tool defaults. */
     fun previewSelectedStyle(style: NodeStyle): Boolean {
         val id = selectedNodeId ?: return false
         if (nodes.none { it.id == id }) return false
+
         stylePreview = id to style
         return true
     }
 
     fun commitSelectedStyle(style: NodeStyle): Boolean {
-        val id = selectedNodeId ?: return false
-        if (nodes.none { it.id == id }) return false
-        commitNodes(nodes.map { node ->
-            if (node.id == id) node.withStyle(style) else node
-        })
+        val node = selectedNode ?: return false
+        updateNode(node.withStyle(style))
         return true
     }
 
     fun finishStyleChange() {
         val (id, style) = stylePreview ?: return
         stylePreview = null
-        if (nodes.none { it.id == id }) return
-        commitNodes(nodes.map { node ->
-            if (node.id == id) node.withStyle(style) else node
-        })
+
+        val node = nodes.firstOrNull { it.id == id } ?: return
+        updateNode(node.withStyle(style))
     }
 
     private fun validateSelection() {
@@ -380,23 +385,46 @@ class EditorDocumentState(
     }
 
     fun duplicateSelectedNodes(
-        offset: Offset = Offset(20f, 20f)
+        offset: Offset = Offset(20f, 20f),
     ) {
         if (selectedNodeIds.isEmpty()) return
 
-        val originals = nodes.filter { node ->
-            node.id in selectedNodeIds
-        }
-
+        val originals = selectedNodes
         if (originals.isEmpty()) return
 
         val duplicates = originals.map { node ->
             node.duplicatedBy(offset)
         }
 
-        commitNodes(nodes + duplicates)
+        commitMembers(document.members + duplicates)
 
         selectedNodeIds = duplicates
+            .mapTo(mutableSetOf()) { it.id }
+    }
+
+    fun copySelectedNodes() {
+        clipboard.copy(
+            nodes = nodes,
+            selectedIds = selectedNodeIds,
+        )
+    }
+
+    fun cutSelectedNodes() {
+        if (selectedNodeIds.isEmpty()) return
+
+        copySelectedNodes()
+        deleteSelectedNodes()
+    }
+
+    fun pasteNodes(
+        offset: Offset = Offset(20f, 20f),
+    ) {
+        val pasted = clipboard.paste(offset)
+        if (pasted.isEmpty()) return
+
+        commitMembers(document.members + pasted)
+
+        selectedNodeIds = pasted
             .mapTo(mutableSetOf()) { it.id }
     }
 
@@ -445,59 +473,226 @@ class EditorDocumentState(
         nudgePreviewNodes = null
     }
 
-    fun bringSelectionForward() {
-        if(selectedNodeIds.isEmpty()) return
-        commitNodes(nodes.bringForward(selectedNodeIds))
-    }
+    private fun reorderedMembers(
+        operation: ReorderOperation,
+    ): List<EditorGroupMember> {
+        if (selectedNodeIds.isEmpty()) return document.members
 
-    fun sendSelectionBackward() {
-        if(selectedNodeIds.isEmpty()) return
-        commitNodes(nodes.sendBackward(selectedNodeIds))
-    }
-
-    fun bringSelectionToFront() {
-        if(selectedNodeIds.isEmpty()) return
-        commitNodes(nodes.bringToFront(selectedNodeIds))
-    }
-
-    fun sendSelectionToBack() {
-        if(selectedNodeIds.isEmpty()) return
-        commitNodes(nodes.sendToBack(selectedNodeIds))
-    }
-
-    fun selectAllNodes() {
-        selectNodes(nodes.mapTo(mutableSetOf()) { it.id })
-    }
-
-    fun copySelectedNodes() {
-        clipboard.copy(
-            nodes = nodes,
+        return document.members.reorderNodes(
             selectedIds = selectedNodeIds,
+            operation = operation,
         )
     }
 
-    fun cutSelectedNodes() {
-        if (selectedNodeIds.isEmpty()) return
-
-        copySelectedNodes()
-        deleteSelectedNodes()
+    fun bringSelectionForward() {
+        commitMembers(reorderedMembers(ReorderOperation.FORWARD))
     }
 
-    fun pasteNodes(
-        offset: Offset = Offset(20f, 20f),
+    fun sendSelectionBackward() {
+        commitMembers(reorderedMembers(ReorderOperation.BACKWARD))
+    }
+
+    fun bringSelectionToFront() {
+        commitMembers(reorderedMembers(ReorderOperation.FRONT))
+    }
+
+    fun sendSelectionToBack() {
+        commitMembers(reorderedMembers(ReorderOperation.BACK))
+    }
+}
+
+private enum class ReorderOperation {
+    FORWARD,
+    BACKWARD,
+    FRONT,
+    BACK,
+}
+
+private fun List<EditorGroupMember>.removeNodes(
+    selectedIds: Set<Uuid>,
+): List<EditorGroupMember> {
+    val result = mutableListOf<EditorGroupMember>()
+
+    for (member in this) {
+        when (member) {
+            is EditorNode -> {
+                if (member.id !in selectedIds) {
+                    result.add(member)
+                }
+            }
+
+            is EditorGroup -> {
+                val remaining = member.members.removeNodes(selectedIds)
+
+                if (remaining.isNotEmpty()) {
+                    val updated = if (remaining == member.members) {
+                        member
+                    } else {
+                        member.copy(members = remaining)
+                    }
+
+                    result.add(updated)
+                }
+            }
+        }
+    }
+
+    return result
+}
+
+private fun List<EditorGroupMember>.reorderNodes(
+    selectedIds: Set<Uuid>,
+    operation: ReorderOperation,
+): List<EditorGroupMember> {
+    val reordered = map { member ->
+        when (member) {
+            is EditorNode -> member
+
+            is EditorGroup -> {
+                val children = member.members.reorderNodes(
+                    selectedIds = selectedIds,
+                    operation = operation,
+                )
+
+                if (children == member.members) {
+                    member
+                } else {
+                    member.copy(members = children)
+                }
+            }
+        }
+    }.toMutableList()
+
+    fun isSelected(member: EditorGroupMember): Boolean =
+        member is EditorNode && member.id in selectedIds
+
+    when (operation) {
+        ReorderOperation.FRONT -> {
+            val selected = reordered.filter(::isSelected)
+            reordered.removeAll(selected)
+            reordered.addAll(selected)
+        }
+
+        ReorderOperation.BACK -> {
+            val selected = reordered.filter(::isSelected)
+            reordered.removeAll(selected)
+            reordered.addAll(0, selected)
+        }
+
+        ReorderOperation.FORWARD -> {
+            for (index in reordered.lastIndex - 1 downTo 0) {
+                if (
+                    isSelected(reordered[index]) &&
+                    !isSelected(reordered[index + 1])
+                ) {
+                    val current = reordered[index]
+                    reordered[index] = reordered[index + 1]
+                    reordered[index + 1] = current
+                }
+            }
+        }
+
+        ReorderOperation.BACKWARD -> {
+            for (index in 1..reordered.lastIndex) {
+                if (
+                    isSelected(reordered[index]) &&
+                    !isSelected(reordered[index - 1])
+                ) {
+                    val current = reordered[index]
+                    reordered[index] = reordered[index - 1]
+                    reordered[index - 1] = current
+                }
+            }
+        }
+    }
+
+    return reordered
+}
+
+
+private fun List<EditorGroupMember>.groupNodes(
+    selectedIds: Set<Uuid>,
+): List<EditorGroupMember>? {
+    val selectedIndices = indices.filter { index ->
+        val member = this[index]
+        member is EditorNode && member.id in selectedIds
+    }
+
+    if (selectedIndices.size == selectedIds.size &&
+        selectedIndices.size >= 2
     ) {
-        val pasted = clipboard.paste(offset)
+        val selectedMembers = selectedIndices.map { this[it] }
+        val insertIndex = selectedIndices.last()
 
-        if (pasted.isEmpty()) return
+        val group = EditorGroup(
+            members = selectedMembers
+        )
 
-        commitNodes(nodes + pasted)
+        return buildList {
+            for (index in this@groupNodes.indices) {
+                if (index == insertIndex) {
+                    add(group)
+                }
 
-        selectedNodeIds = pasted
-            .mapTo(mutableSetOf()) { it.id }
+                val member = this@groupNodes[index]
+
+                if (index !in selectedIndices) {
+                    add(member)
+                }
+            }
+        }
     }
+
+    for ((index, member) in withIndex()) {
+        if (member !is EditorGroup) continue
+
+        val updatedChildren = member.members.groupNodes(
+            selectedIds
+        ) ?: continue
+
+        return mapIndexed { i, current ->
+            if (i == index) {
+                member.copy(members = updatedChildren)
+            } else {
+                current
+            }
+        }
+    }
+
+    return null
+}
+
+private fun List<EditorGroupMember>.ungroup(
+    id: Uuid,
+): List<EditorGroupMember>? {
+    for ((index, member) in withIndex()) {
+        if (member !is EditorGroup) continue
+
+        if (member.id == id) {
+            return buildList {
+                addAll(this@ungroup.take(index))
+                addAll(member.members)
+                addAll(this@ungroup.drop(index + 1))
+            }
+        }
+
+        val updatedChildren = member.members.ungroup(id)
+            ?: continue
+
+        return mapIndexed { i, current ->
+            if (i == index) {
+                member.copy(members = updatedChildren)
+            } else {
+                current
+            }
+        }
+    }
+
+    return null
 }
 
 @Composable
 fun rememberEditorDocumentState(
     initialDocument: EditorDocument = EditorDocument(),
-): EditorDocumentState = remember { EditorDocumentState(initialDocument) }
+): EditorDocumentState =
+    remember { EditorDocumentState(initialDocument) }

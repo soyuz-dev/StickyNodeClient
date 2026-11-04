@@ -33,7 +33,7 @@ fun DocumentDto.toDocument(): EditorDocument {
     }
 
     return EditorDocument(
-        nodes = nodes.map { it.toNode() },
+        members = nodes.map { it.toNode() },
     )
 }
 
