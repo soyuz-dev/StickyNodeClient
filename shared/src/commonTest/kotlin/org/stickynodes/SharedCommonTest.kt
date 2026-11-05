@@ -22,6 +22,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -543,7 +544,7 @@ class SharedCommonTest {
         width = 20f, height = 20f,
     )
 
-    val shapes = listOf<EditorShape>(a, b)
+    val shapes = listOf(a, b)
 
 
     @Test
@@ -3828,5 +3829,926 @@ class SharedCommonTest {
         )
 
         assertEquals(nodes, rotated)
+    }
+
+    @Test
+    fun `zero rotation preserves rectangle bounds`() {
+        val bounds = Rect(
+            left = 10f,
+            top = 20f,
+            right = 50f,
+            bottom = 40f,
+        )
+
+        assertEquals(bounds, bounds.rotatedVisualBounds(0f))
+    }
+
+    @Test
+    fun `quarter turn swaps rectangular extents`() {
+        val bounds = Rect(
+            left = 10f,
+            top = 20f,
+            right = 50f,
+            bottom = 40f,
+        )
+
+        val rotated = bounds.rotatedVisualBounds(
+            (PI / 2).toFloat()
+        )
+
+        assertEquals(20f, rotated.left, 0.001f)
+        assertEquals(10f, rotated.top, 0.001f)
+        assertEquals(40f, rotated.right, 0.001f)
+        assertEquals(50f, rotated.bottom, 0.001f)
+    }
+
+    @Test
+    fun `rotated visual bounds enclose transformed corners`() {
+        val bounds = Rect(10f, 20f, 50f, 40f)
+        val angle = (PI / 4).toFloat()
+
+        val visual = bounds.rotatedVisualBounds(angle)
+
+        val corners = listOf(
+            bounds.topLeft,
+            Offset(bounds.right, bounds.top),
+            bounds.bottomRight,
+            Offset(bounds.left, bounds.bottom),
+        )
+
+        for (corner in corners) {
+            val rotated = corner.rotatedAround(
+                center = bounds.center,
+                angle = angle,
+            )
+
+            assertTrue(rotated.x >= visual.left - 0.001f)
+            assertTrue(rotated.x <= visual.right + 0.001f)
+            assertTrue(rotated.y >= visual.top - 0.001f)
+            assertTrue(rotated.y <= visual.bottom + 0.001f)
+        }
+    }
+
+    @Test
+    fun `rotated visual bounds reject non finite angles`() {
+        val bounds = Rect(0f, 0f, 20f, 10f)
+
+        assertFailsWith<IllegalArgumentException> {
+            bounds.rotatedVisualBounds(Float.NaN)
+        }
+
+        assertFailsWith<IllegalArgumentException> {
+            bounds.rotatedVisualBounds(Float.POSITIVE_INFINITY)
+        }
+    }
+
+
+    @Test
+    fun `nodes with identical rotations share an orientation`() {
+        val nodes: List<EditorNode> = listOf(
+            EditorRectangle(
+                x = 0f,
+                y = 0f,
+                width = 20f,
+                height = 10f,
+                rotation = 0.5f,
+            ),
+            EditorText(
+                x = 30f,
+                y = 20f,
+                text = "Hello",
+                rotation = 0.5f,
+            ),
+        )
+
+        assertEquals(0.5f, nodes.commonRotationOrNull())
+    }
+
+    @Test
+    fun `orientations differing by a full turn are equivalent`() {
+        val angle = (PI / 6).toFloat()
+        val fullTurn = (2 * PI).toFloat()
+
+        val nodes: List<EditorNode> = listOf(
+            EditorRectangle(
+                x = 0f,
+                y = 0f,
+                width = 20f,
+                height = 10f,
+                rotation = angle,
+            ),
+            EditorText(
+                x = 30f,
+                y = 0f,
+                text = "Hello",
+                rotation = angle + fullTurn,
+            ),
+        )
+
+        assertEquals(
+            angle,
+            nodes.commonRotationOrNull()!!,
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun `different orientations have no common rotation`() {
+        val nodes: List<EditorNode> = listOf(
+            EditorRectangle(
+                x = 0f,
+                y = 0f,
+                width = 20f,
+                height = 10f,
+                rotation = 0f,
+            ),
+            EditorRectangle(
+                x = 30f,
+                y = 0f,
+                width = 20f,
+                height = 10f,
+                rotation = (PI / 2).toFloat(),
+            ),
+        )
+
+        assertNull(nodes.commonRotationOrNull())
+    }
+
+    @Test
+    fun `freehand paths have no defined common orientation`() {
+        val nodes: List<EditorNode> = listOf(
+            EditorRectangle(
+                x = 0f,
+                y = 0f,
+                width = 20f,
+                height = 10f,
+            ),
+            EditorPath(
+                x = 30f,
+                y = 0f,
+                points = listOf(
+                    Offset.Zero,
+                    Offset(10f, 10f),
+                ),
+            ),
+        )
+
+        assertNull(nodes.commonRotationOrNull())
+    }
+
+    @Test
+    fun `empty selection has no common orientation`() {
+        val nodes = listOf<EditorNode>()
+
+        assertNull(nodes.commonRotationOrNull())
+    }
+
+    @Test
+    fun `common orientation respects angular tolerance`() {
+        val nodes: List<EditorNode> = listOf(
+            EditorRectangle(
+                x = 0f,
+                y = 0f,
+                width = 20f,
+                height = 10f,
+                rotation = 1f,
+            ),
+            EditorRectangle(
+                x = 30f,
+                y = 0f,
+                width = 20f,
+                height = 10f,
+                rotation = 1.00005f,
+            ),
+        )
+
+        assertNotNull(nodes.commonRotationOrNull())
+
+        assertNull(
+            nodes.commonRotationOrNull(
+                tolerance = 0.00001f,
+            )
+        )
+    }
+
+    @Test
+    fun `unrotated group bounds match enclosing node bounds`() {
+        val nodes: List<EditorNode> = listOf(
+            EditorRectangle(
+                x = 10f,
+                y = 20f,
+                width = 30f,
+                height = 20f,
+            ),
+            EditorRectangle(
+                x = 60f,
+                y = 40f,
+                width = 20f,
+                height = 30f,
+            ),
+        )
+
+        val bounds = nodes.orientedGroupBoundsOrNull {
+            it.bounds
+        }
+
+        assertEquals(Rect(10f, 20f, 80f, 70f), bounds)
+    }
+
+    @Test
+    fun `quarter turned nodes use shared rotated coordinates`() {
+        val angle = (PI / 2).toFloat()
+
+        val nodes: List<EditorNode> = listOf(
+            EditorRectangle(
+                x = 10f,
+                y = 20f,
+                width = 20f,
+                height = 10f,
+                rotation = angle,
+            ),
+            EditorRectangle(
+                x = 40f,
+                y = 20f,
+                width = 20f,
+                height = 10f,
+                rotation = angle,
+            ),
+        )
+
+        val bounds = nodes.orientedGroupBoundsOrNull {
+            it.bounds
+        }!!
+
+        assertEquals(15f, bounds.left, 0.001f)
+        assertEquals(-55f, bounds.top, 0.001f)
+        assertEquals(35f, bounds.right, 0.001f)
+        assertEquals(-15f, bounds.bottom, 0.001f)
+    }
+
+    @Test
+    fun `mixed rotations have no oriented group bounds`() {
+        val nodes: List<EditorNode> = listOf(
+            EditorRectangle(
+                x = 0f,
+                y = 0f,
+                width = 20f,
+                height = 10f,
+                rotation = 0f,
+            ),
+            EditorRectangle(
+                x = 30f,
+                y = 0f,
+                width = 20f,
+                height = 10f,
+                rotation = 0.5f,
+            ),
+        )
+
+        assertNull(
+            nodes.orientedGroupBoundsOrNull { it.bounds }
+        )
+    }
+
+    @Test
+    fun `oriented group bounds use supplied text layout bounds`() {
+        val nodes: List<EditorNode> = listOf(
+            EditorRectangle(
+                x = 0f,
+                y = 0f,
+                width = 10f,
+                height = 10f,
+            ),
+            EditorText(
+                x = 20f,
+                y = 0f,
+                text = "Hello",
+            ),
+        )
+
+        val bounds = nodes.orientedGroupBoundsOrNull { node ->
+            if (node is EditorText) {
+                Rect(20f, 0f, 70f, 20f)
+            } else {
+                node.bounds
+            }
+        }
+
+        assertEquals(Rect(0f, 0f, 70f, 20f), bounds)
+    }
+
+
+    @Test
+    fun `unrotated group resize scales points normally`() {
+        val transform = orientedGroupResizeTransform(
+            source = Rect(0f, 0f, 100f, 50f),
+            rotation = 0f,
+            handle = ResizeHandle.SE,
+            worldDelta = Offset(50f, 25f),
+        )
+
+        assertEquals(1.5f, transform.scaleX, 0.001f)
+        assertEquals(1.5f, transform.scaleY, 0.001f)
+
+        val point = transform.transform(Offset(40f, 20f))
+
+        assertEquals(60f, point.x, 0.001f)
+        assertEquals(30f, point.y, 0.001f)
+    }
+
+    @Test
+    fun `quarter turned group uses rotated drag axes`() {
+        val angle = (PI / 2).toFloat()
+
+        val transform = orientedGroupResizeTransform(
+            source = Rect(0f, 0f, 100f, 50f),
+            rotation = angle,
+            handle = ResizeHandle.E,
+            worldDelta = Offset(0f, 20f),
+        )
+
+        assertEquals(120f, transform.target.right, 0.001f)
+        assertEquals(50f, transform.target.bottom, 0.001f)
+
+        // Local (100, 25) becomes (120, 25).
+        // Rotated into world coordinates: (-25, 120).
+        val point = transform.transform(Offset(-25f, 100f))
+
+        assertEquals(-25f, point.x, 0.001f)
+        assertEquals(120f, point.y, 0.001f)
+    }
+
+    @Test
+    fun `oriented group resize preserves fixed opposite edge`() {
+        val transform = orientedGroupResizeTransform(
+            source = Rect(10f, 20f, 110f, 70f),
+            rotation = 0f,
+            handle = ResizeHandle.E,
+            worldDelta = Offset(30f, 0f),
+        )
+
+        val fixedPoint = transform.transform(Offset(10f, 45f))
+
+        assertEquals(10f, fixedPoint.x, 0.001f)
+        assertEquals(45f, fixedPoint.y, 0.001f)
+    }
+
+    @Test
+    fun `zero drag leaves oriented group geometry unchanged`() {
+        val angle = (PI / 6).toFloat()
+
+        val transform = orientedGroupResizeTransform(
+            source = Rect(10f, 20f, 110f, 70f),
+            rotation = angle,
+            handle = ResizeHandle.NE,
+            worldDelta = Offset.Zero,
+        )
+
+        val originalPoint = Offset(47f, 83f)
+        val result = transform.transform(originalPoint)
+
+        assertEquals(originalPoint.x, result.x, 0.001f)
+        assertEquals(originalPoint.y, result.y, 0.001f)
+    }
+
+    @Test
+    fun `oriented group resize rejects invalid rotation`() {
+        assertFailsWith<IllegalArgumentException> {
+            orientedGroupResizeTransform(
+                source = Rect(0f, 0f, 100f, 50f),
+                rotation = Float.NaN,
+                handle = ResizeHandle.SE,
+                worldDelta = Offset(10f, 10f),
+            )
+        }
+    }
+
+
+    @Test
+    fun `negative quarter turn maps drag into local axes`() {
+        val transform = orientedGroupResizeTransform(
+            source = Rect(0f, 0f, 100f, 50f),
+            rotation = (-PI / 2).toFloat(),
+            handle = ResizeHandle.E,
+            worldDelta = Offset(0f, -20f),
+        )
+
+        assertEquals(120f, transform.target.right, 0.001f)
+        assertEquals(50f, transform.target.bottom, 0.001f)
+    }
+
+    @Test
+    fun `full turn rotation produces equivalent resize`() {
+        val source = Rect(10f, 20f, 110f, 70f)
+        val delta = Offset(25f, 15f)
+
+        val first = orientedGroupResizeTransform(
+            source = source,
+            rotation = 0f,
+            handle = ResizeHandle.SE,
+            worldDelta = delta,
+        )
+
+        val second = orientedGroupResizeTransform(
+            source = source,
+            rotation = (2 * PI).toFloat(),
+            handle = ResizeHandle.SE,
+            worldDelta = delta,
+        )
+
+        assertEquals(first.target.left, second.target.left, 0.001f)
+        assertEquals(first.target.top, second.target.top, 0.001f)
+        assertEquals(first.target.right, second.target.right, 0.001f)
+        assertEquals(first.target.bottom, second.target.bottom, 0.001f)
+    }
+
+    @Test
+    fun `proportional group resize preserves aspect ratio`() {
+        val transform = orientedGroupResizeTransform(
+            source = Rect(0f, 0f, 100f, 50f),
+            rotation = 0f,
+            handle = ResizeHandle.SE,
+            worldDelta = Offset(50f, 25f),
+            proportional = true,
+        )
+
+        assertEquals(1.5f, transform.scaleX, 0.001f)
+        assertEquals(1.5f, transform.scaleY, 0.001f)
+
+        assertEquals(
+            transform.source.width / transform.source.height,
+            transform.target.width / transform.target.height,
+            0.001f,
+        )
+    }
+
+    @Test
+    fun `group resize respects minimum dimensions`() {
+        val transform = orientedGroupResizeTransform(
+            source = Rect(0f, 0f, 100f, 50f),
+            rotation = 0f,
+            handle = ResizeHandle.SE,
+            worldDelta = Offset(-200f, -200f),
+            minimumSize = 10f,
+        )
+
+        assertEquals(10f, transform.target.width, 0.001f)
+        assertEquals(10f, transform.target.height, 0.001f)
+    }
+
+    @Test
+    fun `rotated group resize preserves opposite corner`() {
+        val angle = (PI / 4).toFloat()
+        val source = Rect(10f, 20f, 110f, 70f)
+
+        val transform = orientedGroupResizeTransform(
+            source = source,
+            rotation = angle,
+            handle = ResizeHandle.SE,
+            worldDelta = Offset(30f, 20f),
+        )
+
+        val fixedCorner = source.topLeft.rotatedAround(
+            center = Offset.Zero,
+            angle = angle,
+        )
+
+        val transformedCorner = transform.transform(fixedCorner)
+
+        assertEquals(
+            fixedCorner.x,
+            transformedCorner.x,
+            0.001f,
+        )
+        assertEquals(
+            fixedCorner.y,
+            transformedCorner.y,
+            0.001f,
+        )
+    }
+
+
+    @Test
+    fun `oriented resize scales aligned shapes`() {
+        val shapes = listOf(
+            EditorRectangle(
+                x = 0f,
+                y = 0f,
+                width = 20f,
+                height = 10f,
+            ),
+            EditorEllipse(
+                x = 40f,
+                y = 20f,
+                width = 20f,
+                height = 10f,
+            ),
+        )
+
+        val transform = orientedGroupResizeTransform(
+            source = Rect(0f, 0f, 60f, 30f),
+            rotation = 0f,
+            handle = ResizeHandle.SE,
+            worldDelta = Offset(60f, 30f),
+        )
+
+        val result = shapes.resizedWith(transform)
+
+        assertEquals(40f, result[0].width, 0.001f)
+        assertEquals(20f, result[0].height, 0.001f)
+        assertEquals(80f, result[1].x, 0.001f)
+        assertEquals(40f, result[1].y, 0.001f)
+        assertEquals(shapes.map { it.id }, result.map { it.id })
+    }
+
+    @Test
+    fun `oriented resize preserves nonzero common rotation`() {
+        val angle = (PI / 4).toFloat()
+
+        val shapes = listOf(
+            EditorRectangle(
+                x = 10f,
+                y = 20f,
+                width = 20f,
+                height = 10f,
+                rotation = angle,
+            ),
+            EditorEllipse(
+                x = 60f,
+                y = 20f,
+                width = 20f,
+                height = 10f,
+                rotation = angle,
+            ),
+        )
+
+        val transform = OrientedGroupResizeTransform(
+            source = Rect(-100f, -100f, 100f, 100f),
+            target = Rect(-200f, -200f, 200f, 200f),
+            rotation = angle,
+        )
+
+        val result = shapes.resizedWith(transform)
+
+        assertEquals(40f, result[0].width, 0.001f)
+        assertEquals(20f, result[0].height, 0.001f)
+        assertEquals(angle, result[0].rotation, 0.001f)
+        assertEquals(angle, result[1].rotation, 0.001f)
+
+        for (index in shapes.indices) {
+            val expectedCenter = transform.transform(
+                shapes[index].bounds.center
+            )
+
+            val actualCenter = result[index].bounds.center
+
+            assertEquals(expectedCenter.x, actualCenter.x, 0.001f)
+            assertEquals(expectedCenter.y, actualCenter.y, 0.001f)
+        }
+    }
+
+    @Test
+    fun `oriented resize rejects inconsistent rotation`() {
+        val shapes = listOf(
+            EditorRectangle(
+                x = 0f,
+                y = 0f,
+                width = 20f,
+                height = 10f,
+                rotation = 0f,
+            ),
+            EditorEllipse(
+                x = 30f,
+                y = 0f,
+                width = 20f,
+                height = 10f,
+                rotation = 0.5f,
+            ),
+        )
+
+        val transform = OrientedGroupResizeTransform(
+            source = Rect(0f, 0f, 50f, 10f),
+            target = Rect(0f, 0f, 100f, 20f),
+            rotation = 0f,
+        )
+
+        assertFailsWith<IllegalStateException> {
+            shapes.resizedWith(transform)
+        }
+    }
+
+    @Test
+    fun `oriented resize refuses undersized descendants`() {
+        val shapes = listOf(
+            EditorRectangle(
+                x = 0f,
+                y = 0f,
+                width = 5f,
+                height = 5f,
+            ),
+        )
+
+        val transform = OrientedGroupResizeTransform(
+            source = Rect(0f, 0f, 10f, 10f),
+            target = Rect(0f, 0f, 1f, 1f),
+            rotation = 0f,
+        )
+
+        assertFailsWith<IllegalStateException> {
+            shapes.resizedWith(
+                transform = transform,
+                minimumSize = 1f,
+            )
+        }
+    }
+
+
+    @Test
+    fun `group resize clamps to smallest descendant width`() {
+        val shapes = listOf(
+            EditorRectangle(
+                x = 0f,
+                y = 0f,
+                width = 100f,
+                height = 20f,
+            ),
+            EditorRectangle(
+                x = 120f,
+                y = 0f,
+                width = 10f,
+                height = 20f,
+            ),
+        )
+
+        val transform = shapes.constrainedOrientedResizeTransform(
+            handle = ResizeHandle.E,
+            worldDelta = Offset(-1000f, 0f),
+        )!!
+
+        assertEquals(0.1f, transform.scaleX, 0.001f)
+        assertEquals(1f, transform.scaleY, 0.001f)
+        assertEquals(
+            transform.source.left,
+            transform.target.left,
+            0.001f,
+        )
+
+        val resized = shapes.resizedWith(transform)
+
+        assertEquals(10f, resized[0].width, 0.001f)
+        assertEquals(1f, resized[1].width, 0.001f)
+    }
+
+    @Test
+    fun `left handle preserves opposite edge when clamped`() {
+        val shapes = listOf(
+            EditorRectangle(
+                x = 0f,
+                y = 0f,
+                width = 10f,
+                height = 20f,
+            ),
+            EditorRectangle(
+                x = 30f,
+                y = 0f,
+                width = 20f,
+                height = 20f,
+            ),
+        )
+
+        val transform = shapes.constrainedOrientedResizeTransform(
+            handle = ResizeHandle.W,
+            worldDelta = Offset(1000f, 0f),
+        )!!
+
+        assertEquals(
+            transform.source.right,
+            transform.target.right,
+            0.001f,
+        )
+        assertEquals(0.1f, transform.scaleX, 0.001f)
+    }
+
+    @Test
+    fun `proportional group resize respects both minimum scales`() {
+        val shapes = listOf(
+            EditorRectangle(
+                x = 0f,
+                y = 0f,
+                width = 10f,
+                height = 100f,
+            ),
+            EditorRectangle(
+                x = 30f,
+                y = 0f,
+                width = 100f,
+                height = 5f,
+            ),
+        )
+
+        val transform = shapes.constrainedOrientedResizeTransform(
+            handle = ResizeHandle.SE,
+            worldDelta = Offset(-1000f, -1000f),
+            proportional = true,
+        )!!
+
+        assertEquals(0.2f, transform.scaleX, 0.001f)
+        assertEquals(0.2f, transform.scaleY, 0.001f)
+
+        val resized = shapes.resizedWith(transform)
+
+        assertTrue(resized.all {
+            it.width >= 1f - 0.0001f &&
+                    it.height >= 1f - 0.0001f
+        })
+    }
+
+    @Test
+    fun `mixed orientation group cannot construct resize transform`() {
+        val shapes = listOf(
+            EditorRectangle(
+                x = 0f,
+                y = 0f,
+                width = 20f,
+                height = 10f,
+                rotation = 0f,
+            ),
+            EditorRectangle(
+                x = 40f,
+                y = 0f,
+                width = 20f,
+                height = 10f,
+                rotation = 0.5f,
+            ),
+        )
+
+        assertNull(
+            shapes.constrainedOrientedResizeTransform(
+                handle = ResizeHandle.SE,
+                worldDelta = Offset(10f, 10f),
+            )
+        )
+    }
+
+    @Test
+    fun `rotated group resize clamps in local axes`() {
+        val angle = (PI / 2).toFloat()
+
+        val shapes = listOf(
+            EditorRectangle(
+                x = 0f,
+                y = 0f,
+                width = 10f,
+                height = 20f,
+                rotation = angle,
+            ),
+            EditorRectangle(
+                x = 30f,
+                y = 0f,
+                width = 20f,
+                height = 20f,
+                rotation = angle,
+            ),
+        )
+
+        val transform = shapes.constrainedOrientedResizeTransform(
+            handle = ResizeHandle.E,
+            worldDelta = Offset(0f, -1000f),
+        )!!
+
+        assertEquals(0.1f, transform.scaleX, 0.001f)
+        assertEquals(angle, transform.rotation, 0.001f)
+
+        val resized = shapes.resizedWith(transform)
+
+        assertEquals(1f, resized[0].width, 0.001f)
+        assertEquals(2f, resized[1].width, 0.001f)
+    }
+
+
+    @Test
+    fun `unrotated group resize handles use padded bounds`() {
+        val positions = Rect(0f, 0f, 100f, 50f)
+            .orientedResizeHandleScreenPositions(
+                rotation = 0f,
+                camera = EditorCamera(),
+                padding = 8f,
+            )
+
+        assertEquals(
+            Offset(108f, 25f),
+            positions[ResizeHandle.E],
+        )
+        assertEquals(
+            Offset(-8f, 25f),
+            positions[ResizeHandle.W],
+        )
+        assertEquals(
+            Offset(108f, 58f),
+            positions[ResizeHandle.SE],
+        )
+    }
+
+    @Test
+    fun `quarter turned group rotates resize handles`() {
+        val positions = Rect(0f, 0f, 100f, 50f)
+            .orientedResizeHandleScreenPositions(
+                rotation = (PI / 2).toFloat(),
+                camera = EditorCamera(),
+                padding = 8f,
+            )
+
+        val east = positions.getValue(ResizeHandle.E)
+        val north = positions.getValue(ResizeHandle.N)
+
+        assertEquals(-25f, east.x, 0.001f)
+        assertEquals(108f, east.y, 0.001f)
+
+        assertEquals(8f, north.x, 0.001f)
+        assertEquals(50f, north.y, 0.001f)
+    }
+
+    @Test
+    fun `oriented resize handle padding stays constant with zoom`() {
+        val bounds = Rect(0f, 0f, 100f, 50f)
+
+        val first = bounds.orientedResizeHandleScreenPositions(
+            rotation = 0f,
+            camera = EditorCamera(zoom = 1f),
+            padding = 8f,
+        )
+
+        val second = bounds.orientedResizeHandleScreenPositions(
+            rotation = 0f,
+            camera = EditorCamera(zoom = 2f),
+            padding = 8f,
+        )
+
+        assertEquals(
+            8f,
+            first.getValue(ResizeHandle.E).x - 100f,
+            0.001f,
+        )
+
+        assertEquals(
+            8f,
+            second.getValue(ResizeHandle.E).x - 200f,
+            0.001f,
+        )
+    }
+
+    @Test
+    fun `oriented resize handle hit testing finds correct handle`() {
+        val bounds = Rect(0f, 0f, 100f, 50f)
+        val angle = (PI / 2).toFloat()
+
+        val positions = bounds.orientedResizeHandleScreenPositions(
+            rotation = angle,
+            camera = EditorCamera(),
+            padding = 8f,
+        )
+
+        val east = positions.getValue(ResizeHandle.E)
+
+        assertEquals(
+            ResizeHandle.E,
+            bounds.orientedResizeHandleAt(
+                pointer = east + Offset(3f, 2f),
+                rotation = angle,
+                camera = EditorCamera(),
+                padding = 8f,
+                radius = 10f,
+            ),
+        )
+
+        assertNull(
+            bounds.orientedResizeHandleAt(
+                pointer = Offset(1000f, 1000f),
+                rotation = angle,
+                camera = EditorCamera(),
+                padding = 8f,
+                radius = 10f,
+            )
+        )
+    }
+
+    @Test
+    fun `oriented resize handle positions respect camera translation`() {
+        val camera = EditorCamera(
+            position = Offset(10f, 20f),
+            zoom = 2f,
+        )
+
+        val positions = Rect(0f, 0f, 100f, 50f)
+            .orientedResizeHandleScreenPositions(
+                rotation = 0f,
+                camera = camera,
+                padding = 8f,
+            )
+
+        val east = positions.getValue(ResizeHandle.E)
+
+        assertEquals(188f, east.x, 0.001f)
+        assertEquals(10f, east.y, 0.001f)
     }
 }

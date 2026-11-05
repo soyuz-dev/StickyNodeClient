@@ -35,6 +35,56 @@ fun List<EditorShape>.resizeHandleScreenPositions(
     }
 }
 
+fun Rect.orientedResizeHandleScreenPositions(
+    rotation: Float,
+    camera: EditorCamera,
+    padding: Float,
+): Map<ResizeHandle, Offset> {
+    require(rotation.isFinite()) {
+        "Rotation must be finite"
+    }
+    require(padding.isFinite() && padding >= 0f) {
+        "Padding must be finite and non-negative"
+    }
+    require(camera.zoom.isFinite() && camera.zoom > 0f) {
+        "Camera zoom must be finite and positive"
+    }
+
+    val localBounds = inflate(padding / camera.zoom)
+
+    return localBounds.resizeHandlePositions().mapValues {
+            (_, localPosition) ->
+        camera.worldToScreen(
+            localPosition.rotatedAround(
+                center = Offset.Zero,
+                angle = rotation,
+            )
+        )
+    }
+}
+
+fun Rect.orientedResizeHandleAt(
+    pointer: Offset,
+    rotation: Float,
+    camera: EditorCamera,
+    padding: Float,
+    radius: Float,
+): ResizeHandle? {
+    require(radius.isFinite() && radius > 0f) {
+        "Hit radius must be finite and positive"
+    }
+
+    val radiusSquared = radius * radius
+
+    return orientedResizeHandleScreenPositions(
+        rotation = rotation,
+        camera = camera,
+        padding = padding,
+    ).entries.firstOrNull { (_, position) ->
+        (pointer - position).getDistanceSquared() <= radiusSquared
+    }?.key
+}
+
 fun List<EditorShape>.rotationHandleScreenPosition(
     camera: EditorCamera,
     offset: Float,

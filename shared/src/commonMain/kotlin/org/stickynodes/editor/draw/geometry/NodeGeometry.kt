@@ -1,4 +1,3 @@
-
 package org.stickynodes.editor.draw.geometry
 
 import androidx.compose.ui.geometry.Offset
@@ -15,7 +14,6 @@ import org.stickynodes.editor.draw.style.NodeStyle
 
 val EditorNode.bounds: Rect
     get() = when (this) {
-
         is EditorShape -> this.bounds
 
         is EditorPath -> {
@@ -37,7 +35,8 @@ val EditorNode.bounds: Rect
             if (positions.isEmpty()) {
                 Rect(x, y, x, y)
             } else {
-                val strokeRadius = (style.stroke?.width ?: 0f) / 2f
+                val strokeRadius =
+                    (style.stroke?.width ?: 0f) / 2f
 
                 Rect(
                     left = x + positions.minOf { it.x } - strokeRadius,
@@ -48,8 +47,6 @@ val EditorNode.bounds: Rect
             }
         }
 
-        // Accurate text bounds require a TextMeasurer.
-        // Use measuredBounds() for text-aware geometry.
         is EditorText -> Rect(x, y, x, y)
     }
 
@@ -70,13 +67,14 @@ fun EditorNode.measuredSelectionBounds(
     textStyle: (EditorText) -> TextStyle,
 ): Rect = when (this) {
     is EditorShape -> visualBounds
+
     is EditorText -> measuredBounds(
         textMeasurer = textMeasurer,
         textStyle = textStyle,
-    )
+    ).rotatedVisualBounds(rotation)
+
     else -> bounds
 }
-
 
 fun EditorNode.contains(
     point: Offset,
@@ -112,11 +110,9 @@ fun EditorNode.contains(
 
         is EditorPath -> containsStroke(point, zoom)
 
-        // Text requires its measured bounds.
         is EditorText -> false
     }
 }
-
 
 fun EditorNode.contains(
     point: Offset,
@@ -124,10 +120,19 @@ fun EditorNode.contains(
     textStyle: (EditorText) -> TextStyle,
     zoom: Float = 1f,
 ): Boolean = when (this) {
-    is EditorText -> measuredBounds(
-        textMeasurer = textMeasurer,
-        textStyle = textStyle,
-    ).contains(point)
+    is EditorText -> {
+        val layoutBounds = measuredBounds(
+            textMeasurer = textMeasurer,
+            textStyle = textStyle,
+        )
+
+        val localPoint = point.rotatedAround(
+            center = layoutBounds.center,
+            angle = -rotation,
+        )
+
+        layoutBounds.contains(localPoint)
+    }
 
     else -> contains(point, zoom)
 }
@@ -163,9 +168,8 @@ fun EditorNode.withStyle(style: NodeStyle): EditorNode =
         is EditorText -> copy(style = style)
     }
 
-
 val EditorNode.selectionBounds: Rect
-    get() = when(this) {
+    get() = when (this) {
         is EditorShape -> visualBounds
         else -> bounds
     }
