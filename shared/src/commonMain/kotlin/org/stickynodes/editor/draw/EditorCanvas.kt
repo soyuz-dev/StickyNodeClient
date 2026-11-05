@@ -1,4 +1,3 @@
-
 package org.stickynodes.editor.draw
 
 import androidx.compose.foundation.Canvas
@@ -10,9 +9,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
@@ -34,6 +35,8 @@ import org.stickynodes.editor.draw.gesture.detectPathCreation
 import org.stickynodes.editor.draw.gesture.detectShapeCreation
 import org.stickynodes.editor.draw.gesture.detectTextCreation
 import org.stickynodes.editor.draw.model.EditorEllipse
+import org.stickynodes.editor.draw.model.EditorGroup
+import org.stickynodes.editor.draw.model.EditorGroupMember
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorRectangle
 import org.stickynodes.editor.draw.model.EditorShape
@@ -67,6 +70,8 @@ fun EditorCanvas(
     onNodeSelectionToggled: (Uuid) -> Unit,
     onTextEdit: (EditorText) -> Unit,
     onHitSelection: ((Uuid, Boolean) -> Set<Uuid>)? = null,
+    selectedMembers: List<EditorGroupMember> = listOf(),
+    ancestorGroups: List<EditorGroup> = listOf(),
 ) {
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
@@ -84,6 +89,10 @@ fun EditorCanvas(
     }
 
     val selectionColor = Color(0xFF4492FF)
+    val selectedGroups = selectedMembers.filterIsInstance<EditorGroup>()
+    val selectedLeafIds = selectedMembers
+        .filterIsInstance<EditorNode>()
+        .mapTo(mutableSetOf()) { it.id }
 
     val currentCamera by rememberUpdatedState(camera)
     val currentNodes by rememberUpdatedState(nodes)
@@ -95,6 +104,7 @@ fun EditorCanvas(
     val currentOnNodeUpdated by rememberUpdatedState(onNodeUpdated)
     val currentOnNodesUpdated by rememberUpdatedState(onNodesUpdated)
     val currentSelectedNodeIds by rememberUpdatedState(selectedNodeIds)
+    val currentSelectedMembers by rememberUpdatedState(selectedMembers)
     val currentOnNodeSelectionToggled by rememberUpdatedState(onNodeSelectionToggled)
     val currentOnNodeSelected by rememberUpdatedState(onNodeSelected)
     val currentOnNodesSelected by rememberUpdatedState(onNodesSelected)
@@ -216,59 +226,57 @@ fun EditorCanvas(
                                 currentOnNodesUpdated(it)
                             },
                             resizeHandleAt = { screenPoint ->
-                                val selected = currentNodes.filter {
-                                    it.id in currentSelectedNodeIds
-                                }
-
-                                val shapes = selected.filterIsInstance<EditorShape>()
-
-                                if (
-                                    selected.isEmpty() ||
-                                    shapes.size != selected.size ||
-                                    (shapes.size > 1 &&
-                                            shapes.any { it.rotation != 0f })
-                                ) {
+                                if (currentSelectedMembers.any { it is EditorGroup }) {
                                     null
                                 } else {
-                                    shapes.resizeHandleAt(
-                                        pointer = screenPoint,
-                                        camera = currentCamera,
-                                        padding = with(density) {
-                                            8.dp.toPx()
-                                        },
-                                        radius = with(density) {
-                                            10.dp.toPx()
-                                        },
-                                    )
+                                    val selected = currentNodes.filter {
+                                        it.id in currentSelectedNodeIds
+                                    }
+                                    val shapes = selected.filterIsInstance<EditorShape>()
+
+                                    if (
+                                        selected.isEmpty() ||
+                                        shapes.size != selected.size ||
+                                        (shapes.size > 1 &&
+                                                shapes.any { it.rotation != 0f })
+                                    ) {
+                                        null
+                                    } else {
+                                        shapes.resizeHandleAt(
+                                            pointer = screenPoint,
+                                            camera = currentCamera,
+                                            padding = with(density) { 8.dp.toPx() },
+                                            radius = with(density) { 10.dp.toPx() },
+                                        )
+                                    }
                                 }
                             },
                             rotationHandleAt = { screenPoint ->
-                                val selected = currentNodes.filter {
-                                    it.id in currentSelectedNodeIds
-                                }
-
-                                val shapes = selected.filterIsInstance<EditorShape>()
-
-                                if (
-                                    selected.isEmpty() ||
-                                    shapes.size != selected.size
-                                ) {
+                                if (currentSelectedMembers.any { it is EditorGroup }) {
                                     null
-                                } else if (
-                                    shapes.isRotationHandleHit(
-                                        pointer = screenPoint,
-                                        camera = currentCamera,
-                                        offset = with(density) {
-                                            28.dp.toPx()
-                                        },
-                                        radius = with(density) {
-                                            12.dp.toPx()
-                                        },
-                                    )
-                                ) {
-                                    shapes.first().id
                                 } else {
-                                    null
+                                    val selected = currentNodes.filter {
+                                        it.id in currentSelectedNodeIds
+                                    }
+                                    val shapes = selected.filterIsInstance<EditorShape>()
+
+                                    if (
+                                        selected.isEmpty() ||
+                                        shapes.size != selected.size
+                                    ) {
+                                        null
+                                    } else if (
+                                        shapes.isRotationHandleHit(
+                                            pointer = screenPoint,
+                                            camera = currentCamera,
+                                            offset = with(density) { 28.dp.toPx() },
+                                            radius = with(density) { 12.dp.toPx() },
+                                        )
+                                    ) {
+                                        shapes.first().id
+                                    } else {
+                                        null
+                                    }
                                 }
                             },
                             onEditText = { node ->
@@ -346,8 +354,14 @@ fun EditorCanvas(
                     )
                 }
 
+                val visibleSelectionIds = if (selectedGroups.isEmpty()) {
+                    selectedNodeIds
+                } else {
+                    selectedLeafIds
+                }
+
                 val selected = nodes.filter {
-                    it.id in selectedNodeIds
+                    it.id in visibleSelectionIds
                 }
 
                 val allSelectedAreShapes =
@@ -390,6 +404,7 @@ fun EditorCanvas(
             }
 
             if (
+                selectedGroups.isEmpty() &&
                 selected.isNotEmpty() &&
                 selected.all { it is EditorShape }
             ) {
@@ -406,6 +421,53 @@ fun EditorCanvas(
                     shapes = displayedShapes,
                     camera = camera,
                     color = selectionColor,
+                )
+            }
+
+            val previewById = interactionPreview.associateBy { it.id }
+
+            for (group in ancestorGroups + selectedGroups) {
+                val bounds = group.flattenedNodes()
+                    .map { node ->
+                        val displayedNode = previewById[node.id] ?: node
+                        displayedNode.measuredSelectionBounds(
+                            textMeasurer = textMeasurer,
+                            textStyle = { text -> text.layoutStyle(density) },
+                        )
+                    }
+                    .reduceOrNull { a, b ->
+                        Rect(
+                            left = minOf(a.left, b.left),
+                            top = minOf(a.top, b.top),
+                            right = maxOf(a.right, b.right),
+                            bottom = maxOf(a.bottom, b.bottom),
+                        )
+                    } ?: continue
+
+                val screenBounds = Rect(
+                    camera.worldToScreen(bounds.topLeft),
+                    camera.worldToScreen(bounds.bottomRight),
+                ).inflate(8.dp.toPx())
+
+                val isAncestor = group in ancestorGroups
+
+                drawRoundRect(
+                    color = selectionColor.copy(
+                        alpha = if (isAncestor) 0.5f else 1f
+                    ),
+                    topLeft = screenBounds.topLeft,
+                    size = screenBounds.size,
+                    cornerRadius = CornerRadius(6.dp.toPx()),
+                    style = Stroke(
+                        width = if (isAncestor) 1.dp.toPx() else 2.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(
+                            if (isAncestor) {
+                                floatArrayOf(5.dp.toPx(), 5.dp.toPx())
+                            } else {
+                                floatArrayOf(9.dp.toPx(), 5.dp.toPx())
+                            },
+                        ),
+                    ),
                 )
             }
         }

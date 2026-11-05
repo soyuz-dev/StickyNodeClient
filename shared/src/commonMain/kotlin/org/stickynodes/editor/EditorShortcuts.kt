@@ -22,9 +22,11 @@ sealed interface EditorShortcut {
     data object DuplicateSelection : EditorShortcut
     data object SelectAll : EditorShortcut
     data object Escape : EditorShortcut
-    data object Cut: EditorShortcut
-    data object Copy: EditorShortcut
-    data object Paste: EditorShortcut
+    data object Cut : EditorShortcut
+    data object Copy : EditorShortcut
+    data object Paste : EditorShortcut
+    data object GroupSelection : EditorShortcut
+    data object UngroupSelection : EditorShortcut
 
     data class SelectTool(
         val tool: EditorTool,
@@ -41,7 +43,6 @@ fun KeyEvent.editorShortcut(): EditorShortcut? {
     val shift = isShiftPressed
     val meta = isMetaPressed
 
-    // Preserve the current Ctrl-based shortcuts.
     if (ctrl && !alt && !meta) {
         return when {
             !shift && key == Key.S -> EditorShortcut.Save
@@ -52,6 +53,8 @@ fun KeyEvent.editorShortcut(): EditorShortcut? {
             !shift && key == Key.C -> EditorShortcut.Copy
             !shift && key == Key.X -> EditorShortcut.Cut
             !shift && key == Key.V -> EditorShortcut.Paste
+            !shift && key == Key.G -> EditorShortcut.GroupSelection
+            shift && key == Key.G -> EditorShortcut.UngroupSelection
             key == Key.Y || (shift && key == Key.Z) ->
                 EditorShortcut.Redo
 

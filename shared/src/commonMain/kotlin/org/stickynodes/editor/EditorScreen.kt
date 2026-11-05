@@ -1,4 +1,3 @@
-
 package org.stickynodes.editor
 
 import androidx.compose.animation.AnimatedVisibility
@@ -66,7 +65,6 @@ import org.stickynodes.editor.history.rememberEditorDocumentState
 import org.stickynodes.editor.tools.*
 import kotlin.uuid.Uuid
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun EditorScreen(
     modifier: Modifier = Modifier,
@@ -287,6 +285,13 @@ fun EditorScreen(
                 } else {
                     false
                 }
+            }
+            EditorShortcut.GroupSelection -> {
+                documentState.groupSelectedMembers()
+            }
+
+            EditorShortcut.UngroupSelection -> {
+                documentState.ungroupSelectedMembers()
             }
         }
 
@@ -567,10 +572,35 @@ fun EditorScreen(
             onNodeUpdated = documentState::updateNode,
             onNodesUpdated = documentState::updateNodes,
             selectedNodeIds = selectedNodeIds,
+            selectedMembers = documentState.selectedMembers,
+            ancestorGroups = documentState.selectedMemberIds
+                .mapNotNull { id ->
+                    documentState.document.members.pathToMember(id)
+                }.let { paths ->
+                    if(paths.isEmpty()) listOf()
+                    else {
+                        paths
+                            .first()
+                            .dropLast(1)
+                            .filterIsInstance<EditorGroup>()
+                            .filter { group ->
+                                paths.all { path ->
+                                    path.any { it.id == group.id }
+                                }
+                            }
+                    }
+                },
             onNodeSelected = documentState::selectNode,
             onNodesSelected = documentState::selectNodes,
             onNodeSelectionToggled =
                 documentState::toggleNodeSelection,
+            onHitSelection = { hitNodeId, extendSelection ->
+                documentState.selectHitNode(
+                    hitNodeId = hitNodeId,
+                    extendSelection = extendSelection,
+                )
+                documentState.selectedNodeIds
+            },
             onTextPlacement = { position ->
                 textEditSession = TextEditSession.Create(
                     position = position,
