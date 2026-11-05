@@ -2,11 +2,11 @@
 
 **A lightweight, cross-platform vector whiteboard built with Kotlin Multiplatform and Compose Multiplatform.**
 
-StickyNodes is an open-source canvas editor for sketching ideas, drawing shapes, writing notes, and organising things visually.
+StickyNodes is an open-source graphical editor for sketching ideas, creating diagrams, writing notes, and organising information visually.
 
-Create objects, move them around, transform them individually or together, and save your work for later.
+Draw shapes, manipulate objects individually or in groups, arrange your workspace, and save your documents for later.
 
-It's currently in early development, with an emphasis on responsive editing, straightforward controls, and a maintainable shared codebase.
+The project is currently in active development, with a focus on responsive interactions, precise transformations, and a maintainable shared codebase.
 
 **[Try it online](https://stickynodes.vercel.app/) · [Desktop releases](https://github.com/soyuz-dev/StickyNodeClient/releases) · [Report an issue](https://github.com/soyuz-dev/StickyNodeClient/issues)**
 
@@ -14,68 +14,79 @@ It's currently in early development, with an emphasis on responsive editing, str
 
 ### Canvas and drawing
 
-- **Infinite canvas** — Pan and zoom freely around your workspace.
-- **Basic shapes** — Create rectangles and ellipses.
+- **Infinite canvas** — Pan and zoom around your workspace.
+- **Shapes** — Create rectangles and ellipses.
 - **Freehand drawing** — Draw paths with configurable stroke widths and colours.
-- **Text** — Place text directly on the canvas and customise its appearance.
-- **Styling** — Change fill colours, strokes, and other supported properties.
-- **Fit to content** — Automatically frame your work using an animated camera transition.
+- **Text editing** — Create and edit text directly on the canvas.
+- **Styling** — Customise fill colours, strokes, and supported text properties.
+- **Camera controls** — Zoom, reset the view, and automatically fit your content to the viewport.
 
 ### Selection and transformations
 
-- **Multi-selection** — Select multiple objects using Shift-click or rectangular marquee selection.
+- **Multi-selection** — Select nodes using Shift-click or rectangular marquee selection.
 - **Movement** — Drag individual objects or entire selections.
-- **Resizing** — Resize shapes using eight handles, with optional aspect-ratio preservation.
-- **Rotation** — Rotate individual shapes using a dedicated handle.
-- **Group rotation** — Rotate multiple shapes around a shared centre while preserving their relative arrangement.
+- **Keyboard nudging** — Move selected objects using the arrow keys.
+- **Resizing** — Resize shapes using eight handles, including proportional resizing.
+- **Rotation** — Rotate shapes using a dedicated handle.
+- **Group transformations** — Move, resize, and rotate multiple selected shapes.
 - **Angle snapping** — Hold Shift while rotating to snap to 15° increments.
-- **Duplication** — Duplicate individual objects or entire selections with Ctrl+D.
-- **Undo and redo** — Reverse or restore document changes.
+- **Rotation-aware geometry** — Accurate interaction and selection bounds for rotated shapes.
+- **Duplication** — Duplicate selected nodes while preserving their properties.
 
-Rotated shapes use rotation-aware hit-testing and selection geometry, so interaction remains consistent with what appears on screen.
+Group resizing currently has some limitations when rotated shapes are involved.
 
-**Current limitation:** Group resizing is disabled when the selection includes rotated shapes. Group rotation and movement remain supported.
+### Layout and arrangement
+
+StickyNodes includes layout tools for organising multiple objects.
+
+- **Alignment** — Align selected objects along common edges or centres.
+- **Distribution** — Evenly distribute selected objects.
+- **Match dimensions** — Make selected shapes share the same width, height, or dimensions.
+- **Layer ordering** — Bring objects forward or to the front, or send them backward or to the back.
+- **Viewport selection** — Select objects visible within the current viewport.
+
+These operations are integrated into the editor's existing selection and history systems.
+
+### Transform Inspector
+
+The floating Transform Inspector provides precise numerical control over selected shapes.
+
+- Edit absolute X and Y coordinates.
+- Set exact width and height.
+- Specify rotation in degrees.
+- Validate numerical input.
+- Commit edits with Enter or by leaving a field.
+- Cancel edits using Escape.
+- Undo and redo committed transformations.
+
+The inspector uses dedicated geometry operations, keeping transformation calculations separate from the UI.
+
+### Editing and history
+
+- Undo and redo document changes.
+- Cut, copy, and paste nodes.
+- Duplicate and delete selections.
+- Modify node ordering.
+- Group related movement actions into single undoable operations.
+- Preview interactive transformations before committing them.
 
 ### Documents
 
-- Save and reopen documents using the `.stn` format.
-- Preserve object positions, dimensions, styling, and shape rotations.
-- Retain compatibility with older documents that do not contain rotation information.
-- Work with documents locally without requiring an account or a collaboration server.
+StickyNodes supports saving and reopening documents using its own `.stn` format.
 
-The document format is still evolving and may change during development.
+Documents preserve node positions, dimensions, styling, text, and shape rotations.
 
-## Keyboard shortcuts
+Persistence uses Kotlinx Serialization with platform-specific storage implementations. Documents can be edited locally without requiring an account.
 
-| Shortcut                     | Action                                      |
-|------------------------------|---------------------------------------------|
-| `S`                          | Selection tool                              |
-| `R`                          | Rectangle tool                              |
-| `E`                          | Ellipse tool                                |
-| `D`                          | Freehand drawing tool                       |
-| `T`                          | Text tool                                   |
-| `W`                          | Pan tool                                    |
-| `Ctrl+D`                     | Duplicate selection                         |
-| `Ctrl+Z`                     | Undo                                        |
-| `Ctrl+Y` / `Ctrl+Shift+Z`    | Redo                                        |
-| `Ctrl+S`                     | Save document                               |
-| `Ctrl+O`                     | Open document                               |
-| `Delete`                     | Delete selection                            |
-| `Escape`                     | Clear selection or return to selection tool |
-| `Shift+Click`                | Toggle an object in the selection           |
-| `Shift+Drag` on empty canvas | Add objects using marquee selection         |
-| `Shift+Resize`               | Preserve aspect ratio                       |
-| `Shift+Rotate`               | Snap rotation to 15° increments             |
-
-These shortcuts describe the current Ctrl-based implementation, primarily used on desktop. Browser and operating-system shortcuts may interfere with certain combinations.
+The format is still evolving and may change between development versions.
 
 ## Getting started
 
 ### Web
 
-Open StickyNodes in your browser:
+Open the application directly in your browser:
 
-**https://stickynodes.vercel.app/**
+https://stickynodes.vercel.app/
 
 No installation required.
 
@@ -83,7 +94,7 @@ No installation required.
 
 Download a build from [GitHub Releases](https://github.com/soyuz-dev/StickyNodeClient/releases).
 
-Desktop builds are provided for:
+Desktop builds are generated for:
 
 | Platform | Architecture          |
 |----------|-----------------------|
@@ -94,23 +105,29 @@ Desktop builds are provided for:
 
 Desktop releases are currently distributed as executable JAR files and require a compatible Java runtime.
 
-Run a downloaded JAR using:
-
 ```bash
 java -jar <downloaded-file>.jar
 ```
 
-Replace `<downloaded-file>` with the actual filename.
-
 **Platform testing:** Windows has been tested locally. Linux and macOS builds are generated through GitHub Actions but have not yet been manually runtime-tested.
+
+### Android
+
+An Android target is included in the project and can be built from source.
+
+```bash
+./gradlew :androidApp:assembleDebug
+```
+
+Android is not currently included in the published desktop releases.
 
 ## Building from source
 
 ### Requirements
 
 - Git
-- A JDK compatible with the project's Gradle version
-- The Android SDK if building for Android
+- A compatible JDK
+- Android SDK for Android builds
 - Additional platform tooling where required
 
 Clone the repository:
@@ -128,19 +145,15 @@ Run the desktop application:
 ./gradlew :desktopApp:run
 ```
 
-Create an executable JAR:
+Build an executable JAR:
 
 ```bash
 ./gradlew :desktopApp:packageUberJarForCurrentOS
 ```
 
-The JAR will be generated under:
+Generated JAR files are placed in `desktopApp/build/compose/jars/`.
 
-```text
-desktopApp/build/compose/jars/
-```
-
-For development with Compose Hot Reload:
+For desktop development with Compose Hot Reload:
 
 ```bash
 ./gradlew :desktopApp:hotRun --auto
@@ -150,35 +163,23 @@ On Windows, use `.\gradlew` instead of `./gradlew`.
 
 ### Web
 
-Run the Kotlin/Wasm development server:
+Start the Kotlin/Wasm development server:
 
 ```bash
 ./gradlew :webApp:wasmJsBrowserDevelopmentRun
 ```
 
-Alternatively, run the Kotlin/JS target:
+Alternatively, use the Kotlin/JS target:
 
 ```bash
 ./gradlew :webApp:jsBrowserDevelopmentRun
 ```
 
-### Android
-
-Build the Android debug APK:
-
-```bash
-./gradlew :androidApp:assembleDebug
-```
-
-Alternatively, run the Android app directly from IntelliJ IDEA or Android Studio using a connected device or emulator, or install the APK using ADB.
-
-Android and iOS are not currently part of the published desktop releases.
-
 ## Architecture
 
-StickyNodes uses **Kotlin Multiplatform** to share its editor implementation across platforms.
+StickyNodes uses Kotlin Multiplatform to share its editor implementation across supported targets.
 
-Most application logic and rendering live in `shared/src/commonMain`, allowing the desktop, web, and mobile applications to reuse the same editor.
+The majority of editor logic resides in `shared/src/commonMain`, allowing rendering, geometry, document history, and user interactions to be implemented without duplicating them for every platform.
 
 ### Project structure
 
@@ -199,8 +200,7 @@ StickyNodeClient/
 │       │           │   └── style/
 │       │           ├── history/
 │       │           └── tools/
-│       ├── commonTest/
-│       └── ...
+│       └── commonTest/
 ├── desktopApp/
 ├── webApp/
 ├── androidApp/
@@ -209,75 +209,119 @@ StickyNodeClient/
 
 ### Design principles
 
-**Shared document model**
-
-Rectangles, ellipses, freehand paths, and text share a sealed node hierarchy. Shape-specific geometry and transformations are implemented separately from document persistence.
-
 **Geometry separate from rendering**
 
-Pure geometry functions handle operations such as translation, resizing, rotation, bounding-box calculations, and hit-testing.
+Shape transformations, hit-testing, selection bounds, and related calculations are implemented as reusable geometry operations.
 
-Rendering uses Compose Canvas and reuses the same geometry calculations employed by the interaction system.
+The canvas renderer and interaction system use these calculations without embedding all transformation logic directly into UI components.
 
-**Gesture dispatch and handling**
+**Dedicated gesture handling**
 
-A central interaction detector determines which operation owns a pointer gesture. Dedicated handlers manage movement, resizing, rotation, and marquee selection.
+Pointer interactions are divided into separate handlers for movement, resizing, rotation, and selection.
+
+This keeps individual operations easier to understand, test, and maintain.
 
 **Preview before commit**
 
-Interactive transformations produce temporary previews while dragging. Completed operations are committed to document history, allowing a drag to become a single undoable action.
+Interactive transformations can be previewed during a gesture before being committed to the document.
 
-**Document history**
+Completed gestures are recorded as undoable operations rather than requiring a separate history entry for every pointer movement.
 
-Undo and redo use immutable document snapshots, keeping history management separate from drawing and gesture recognition.
+**Immutable document history**
 
-**Cross-platform persistence**
+Document changes are managed using immutable snapshots, separating undo/redo management from rendering and pointer interactions.
 
-Documents are serialized using Kotlinx Serialization, with platform-specific storage implementations.
+**Shared models and platform-specific services**
+
+The document model and editor logic are shared across platforms, while services such as document storage can use platform-specific implementations.
+
+## Keyboard shortcuts
+
+| Shortcut                     | Action                                      |
+|------------------------------|---------------------------------------------|
+| `S`                          | Selection tool                              |
+| `R`                          | Rectangle tool                              |
+| `E`                          | Ellipse tool                                |
+| `D`                          | Freehand drawing tool                       |
+| `T`                          | Text tool                                   |
+| `W`                          | Pan tool                                    |
+| Arrow keys                   | Nudge selection                             |
+| `Ctrl+A`                     | Select all                                  |
+| `Ctrl+C`                     | Copy                                        |
+| `Ctrl+X`                     | Cut                                         |
+| `Ctrl+V`                     | Paste                                       |
+| `Ctrl+D`                     | Duplicate                                   |
+| `Ctrl+Z`                     | Undo                                        |
+| `Ctrl+Y` / `Ctrl+Shift+Z`    | Redo                                        |
+| `Ctrl+S`                     | Save                                        |
+| `Ctrl+O`                     | Open                                        |
+| `Delete`                     | Delete selection                            |
+| `Escape`                     | Clear selection or return to selection tool |
+| `Shift+Click`                | Toggle node selection                       |
+| `Shift+Drag` on empty canvas | Add nodes using marquee selection           |
+| `Shift+Resize`               | Preserve aspect ratio                       |
+| `Shift+Rotate`               | Snap rotation to 15° increments             |
+
+Shortcuts describe the current Ctrl-based implementation. Browser and operating-system shortcuts may interfere with some key combinations.
 
 ## Tech stack
 
-- **Kotlin Multiplatform** — Shared application implementation
-- **Compose Multiplatform** — UI, canvas rendering, pointer and keyboard input
-- **Kotlinx Serialization** — JSON document serialization
-- **Gradle** — Build system and dependency management
-- **Compose Hot Reload** — Iterative desktop development
+- **Kotlin Multiplatform** — Shared editor implementation
+- **Compose Multiplatform** — UI, canvas rendering, and interaction handling
+- **Material 3** — User interface components and theming
+- **Kotlinx Serialization** — Document serialization
+- **Gradle** — Build automation
+- **Compose Hot Reload** — Desktop development workflow
 - **GitHub Actions** — Automated desktop builds
 - **Vercel** — Web deployment
 
 ## Testing
 
-The shared test suite covers editor logic, including geometry, transformations, selection behaviour, document history, and serialization.
+StickyNodes includes a common test suite for deterministic editor operations.
 
-Recent tests cover rotated geometry, group transformations, selection-handle calculations, and duplication.
+Tests cover areas including:
 
-The emphasis is on testing deterministic editor operations independently of the user interface, alongside manual interaction testing.
+- Geometry and shape transformations
+- Selection and hit-testing
+- Rotation and resizing
+- Node positioning and arrangement
+- Alignment and distribution
+- Document history
+- Clipboard and duplication operations
+- Document serialization
+- Numerical transformation validation
+
+Geometry and editor operations are tested separately from the user interface wherever practical.
+
+Interactive behavior is additionally tested manually during development.
 
 ## Development status
 
-StickyNodes is an early-stage, single-user vector editor.
+StickyNodes is currently an early-stage, single-user graphical editor.
 
-Current priorities include:
+The immediate focus is on improving editing correctness, interaction consistency, platform usability, and test coverage.
 
-- Improving editor correctness and consistency
-- Refining the existing tools and interaction experience
-- Keeping the shared architecture maintainable
-- Expanding automated tests
-- Improving platform-specific usability
+Future development may include:
 
-Collaborative editing, advanced drawing tools, and further document-format improvements may be explored later, but they are not currently guaranteed features.
+- Real-time collaborative editing
+- Additional drawing and editing tools
+- Further improvements to the document format
+- More advanced object and layout controls
+- Better cross-platform desktop and mobile experiences
+
+Collaboration is a longer-term goal and is not yet implemented.
 
 Contributions, bug reports, and suggestions are welcome through [GitHub Issues](https://github.com/soyuz-dev/StickyNodeClient/issues).
 
 ## Links
 
-- **Web app:** https://stickynodes.vercel.app/
-- **Desktop releases:** https://github.com/soyuz-dev/StickyNodeClient/releases
-- **Source code:** https://github.com/soyuz-dev/StickyNodeClient
-- **Issue tracker:** https://github.com/soyuz-dev/StickyNodeClient/issues
+- [Live web app](https://stickynodes.vercel.app/)
+- [Desktop releases](https://github.com/soyuz-dev/StickyNodeClient/releases)
+- [Source code](https://github.com/soyuz-dev/StickyNodeClient)
+- [Issue tracker](https://github.com/soyuz-dev/StickyNodeClient/issues)
 
 ---
 
 Made with Kotlin, Compose Multiplatform, and a suspicious amount of geometric manipulation.
 
-**The nodes have learned to move, rotate, and reproduce.**
+**The nodes have learned to move, rotate, reproduce, and organise themselves.**
