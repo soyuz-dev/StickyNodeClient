@@ -13,10 +13,15 @@ data class EditorText(
     override val style: NodeStyle = NodeStyle(
         fill = FillStyle.Solid(0xFF0D0D0D.toInt()),
     ),
+    val rotation: Float = 0f,
 ) : EditorNode {
     init {
         require(fontSize > 0f) {
             "Font size must be positive"
+        }
+
+        require(rotation.isFinite()) {
+            "Rotation must be finite"
         }
     }
 }

@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.drawText
 import org.stickynodes.editor.draw.geometry.layoutStyle
+import org.stickynodes.editor.draw.geometry.measureBounds
 import org.stickynodes.editor.draw.geometry.smoothPath
 import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorNode
@@ -30,16 +31,28 @@ fun DrawScope.drawNode(
     if (node is EditorText) {
         val fill = node.style.fill as? FillStyle.Solid ?: return
         val color = fill.color.toComposeColor()
-
-        drawText(
+        val textStyle = node.layoutStyle(this)
+        val bounds = node.measureBounds(
             textMeasurer = textMeasurer,
-            text = node.text,
-            topLeft = Offset(node.x, node.y),
-            style = node.layoutStyle(this).copy(
-                color = color.copy(alpha = color.alpha * alpha),
-            ),
-            softWrap = false,
+            style = textStyle,
         )
+        rotate(
+            degrees = node.rotation * 180f / PI.toFloat(),
+            pivot = bounds.center,
+        ) {
+            drawText(
+                textMeasurer = textMeasurer,
+                text = node.text,
+                topLeft = Offset(node.x, node.y),
+                style = textStyle.copy(
+                    color = color.copy(
+                        alpha = color.alpha * alpha,
+                    ),
+                ),
+                softWrap = false,
+            )
+        }
+
         return
     }
 

@@ -11,5 +11,6 @@ data class TextDto(
     override val y: Float,
     override val style: StyleDto,
     val text: String,
-    val fontSize: Float
+    val fontSize: Float,
+    val rotation: Float = 0f,
 ) : NodeDto

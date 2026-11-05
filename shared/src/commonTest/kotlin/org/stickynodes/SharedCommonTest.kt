@@ -3,7 +3,12 @@ package org.stickynodes
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.IntSize
+import kotlinx.serialization.json.Json
 import org.stickynodes.data.DocumentCodec
+import org.stickynodes.data.mapper.toDocument
+import org.stickynodes.data.mapper.toDto
+import org.stickynodes.data.model.StyleDto
+import org.stickynodes.data.model.TextDto
 import org.stickynodes.editor.draw.camera.EditorCamera
 import org.stickynodes.editor.draw.geometry.*
 import org.stickynodes.editor.draw.model.*
@@ -3615,5 +3620,213 @@ class SharedCommonTest {
         assertEquals(30f, pastedRectangle.x)
         assertEquals(40f, pastedRectangle.y)
         assertEquals(setOf(pasted.id), state.selectedMemberIds)
+    }
+
+
+    @Test
+    fun `text defaults to zero rotation`() {
+        val text = EditorText(
+            x = 10f,
+            y = 20f,
+            text = "Hello",
+        )
+
+        assertEquals(0f, text.rotation)
+    }
+
+    @Test
+    fun `text rotation can be updated immutably`() {
+        val text = EditorText(
+            x = 10f,
+            y = 20f,
+            text = "Hello",
+        )
+
+        val rotated = text.copy(
+            rotation = (PI / 4).toFloat(),
+        )
+
+        assertEquals(
+            (PI / 4).toFloat(),
+            rotated.rotation,
+        )
+        assertEquals(text.id, rotated.id)
+        assertEquals(text.text, rotated.text)
+        assertEquals(0f, text.rotation)
+    }
+
+    @Test
+    fun `text rejects non finite rotation`() {
+        assertFailsWith<IllegalArgumentException> {
+            EditorText(
+                x = 0f,
+                y = 0f,
+                text = "Hello",
+                rotation = Float.NaN,
+            )
+        }
+
+        assertFailsWith<IllegalArgumentException> {
+            EditorText(
+                x = 0f,
+                y = 0f,
+                text = "Hello",
+                rotation = Float.POSITIVE_INFINITY,
+            )
+        }
+    }
+
+
+    @Test
+    fun `text rotation survives document DTO round trip`() {
+        val original = EditorText(
+            x = 10f,
+            y = 20f,
+            text = "Rotated text",
+            rotation = 1.25f,
+        )
+
+        val document = EditorDocument(
+            members = listOf(original),
+        )
+
+        val restored = document.toDto()
+            .toDocument()
+            .nodes
+            .single() as EditorText
+
+        assertEquals(original, restored)
+    }
+
+    @Test
+    fun `legacy text DTO defaults to zero rotation`() {
+        val original = TextDto(
+            id = Uuid.random().toString(),
+            x = 10f,
+            y = 20f,
+            style = StyleDto(
+                fillColor = null,
+                stroke = null,
+            ),
+            text = "Old document",
+            fontSize = 24f,
+        )
+
+        val json = Json.encodeToString(original)
+
+        assertFalse("\"rotation\"" in json)
+
+        val restored = Json.decodeFromString<TextDto>(json)
+
+        assertEquals(0f, restored.rotation)
+    }
+
+
+    @Test
+    fun `collective rotation preserves node identity and shape orientation`() {
+        val rectangle = EditorRectangle(
+            x = 20f,
+            y = 0f,
+            width = 20f,
+            height = 20f,
+            rotation = 0.25f,
+        )
+
+        val rotated = listOf<EditorNode>(rectangle)
+            .rotatedNodesTogether(
+                angle = (PI / 2).toFloat(),
+                center = Offset.Zero,
+                textBounds = { error("No text expected") },
+            )
+            .single() as EditorRectangle
+
+        assertEquals(rectangle.id, rotated.id)
+        assertEquals(-20f, rotated.x, 0.001f)
+        assertEquals(20f, rotated.y, 0.001f)
+        assertEquals(
+            rectangle.rotation + (PI / 2).toFloat(),
+            rotated.rotation,
+            0.001f,
+        )
+    }
+
+    @Test
+    fun `collective rotation uses measured text centre`() {
+        val text = EditorText(
+            x = 10f,
+            y = 20f,
+            text = "Hello",
+            rotation = 0.3f,
+        )
+
+        val rotated = listOf<EditorNode>(text)
+            .rotatedNodesTogether(
+                angle = (PI / 2).toFloat(),
+                center = Offset.Zero,
+                textBounds = {
+                    Rect(10f, 20f, 50f, 40f)
+                },
+            )
+            .single() as EditorText
+
+        assertEquals(text.id, rotated.id)
+        assertEquals(-50f, rotated.x, 0.001f)
+        assertEquals(20f, rotated.y, 0.001f)
+        assertEquals(
+            text.rotation + (PI / 2).toFloat(),
+            rotated.rotation,
+            0.001f,
+        )
+    }
+
+    @Test
+    fun `collective rotation transforms freehand path points`() {
+        val path = EditorPath(
+            x = 10f,
+            y = 0f,
+            points = listOf(
+                Offset.Zero,
+                Offset(10f, 0f),
+            ),
+        )
+
+        val rotated = listOf<EditorNode>(path)
+            .rotatedNodesTogether(
+                angle = (PI / 2).toFloat(),
+                center = Offset.Zero,
+                textBounds = { error("No text expected") },
+            )
+            .single() as EditorPath
+
+        assertEquals(path.id, rotated.id)
+        assertEquals(0f, rotated.x, 0.001f)
+        assertEquals(10f, rotated.y, 0.001f)
+        assertEquals(0f, rotated.points[1].x, 0.001f)
+        assertEquals(10f, rotated.points[1].y, 0.001f)
+    }
+
+    @Test
+    fun `zero collective rotation preserves original nodes`() {
+        val nodes: List<EditorNode> = listOf(
+            EditorRectangle(
+                x = 10f,
+                y = 20f,
+                width = 40f,
+                height = 30f,
+            ),
+            EditorText(
+                x = 50f,
+                y = 60f,
+                text = "Hello",
+            ),
+        )
+
+        val rotated = nodes.rotatedNodesTogether(
+            angle = 0f,
+            center = Offset.Zero,
+            textBounds = { error("Should not measure text") },
+        )
+
+        assertEquals(nodes, rotated)
     }
 }

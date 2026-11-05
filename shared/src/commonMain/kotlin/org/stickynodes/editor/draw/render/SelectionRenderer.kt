@@ -1,3 +1,4 @@
+
 package org.stickynodes.editor.draw.render
 
 import androidx.compose.ui.geometry.CornerRadius
@@ -15,9 +16,11 @@ import org.stickynodes.editor.draw.geometry.combinedVisualBounds
 import org.stickynodes.editor.draw.geometry.layoutStyle
 import org.stickynodes.editor.draw.geometry.measuredBounds
 import org.stickynodes.editor.draw.geometry.resizeHandleScreenPositions
+import org.stickynodes.editor.draw.geometry.rotationHandlePosition
 import org.stickynodes.editor.draw.geometry.rotationHandleScreenPosition
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorShape
+import org.stickynodes.editor.draw.model.EditorText
 import kotlin.math.PI
 
 fun DrawScope.drawSelection(
@@ -38,6 +41,74 @@ fun DrawScope.drawSelection(
     )
 }
 
+fun DrawScope.drawTextSelection(
+    text: EditorText,
+    camera: EditorCamera,
+    color: Color,
+    textMeasurer: TextMeasurer,
+) {
+    val bounds = text.measuredBounds(
+        textMeasurer = textMeasurer,
+        textStyle = { node -> node.layoutStyle(this) },
+    )
+
+    val padding = 8.dp.toPx()
+    val handleOffset = 28.dp.toPx()
+    val outlineWidth = 1.5.dp.toPx()
+    val handleRadius = 7.dp.toPx()
+
+    val screenBounds = Rect(
+        camera.worldToScreen(bounds.topLeft),
+        camera.worldToScreen(bounds.bottomRight),
+    ).inflate(padding)
+
+    rotate(
+        degrees = text.rotation * 180f / PI.toFloat(),
+        pivot = camera.worldToScreen(bounds.center),
+    ) {
+        drawRoundRect(
+            color = color,
+            topLeft = screenBounds.topLeft,
+            size = screenBounds.size,
+            cornerRadius = CornerRadius(6.dp.toPx()),
+            style = Stroke(width = outlineWidth),
+        )
+    }
+
+    val stemStart = text.rotationHandlePosition(
+        bounds = bounds,
+        camera = camera,
+        padding = padding,
+        offset = 0f,
+    )
+
+    val handlePosition = text.rotationHandlePosition(
+        bounds = bounds,
+        camera = camera,
+        padding = padding,
+        offset = handleOffset,
+    )
+
+    drawLine(
+        color = color,
+        start = stemStart,
+        end = handlePosition,
+        strokeWidth = outlineWidth,
+    )
+
+    drawCircle(
+        color = Color.White,
+        radius = handleRadius,
+        center = handlePosition,
+    )
+
+    drawCircle(
+        color = color,
+        radius = handleRadius,
+        center = handlePosition,
+        style = Stroke(width = outlineWidth),
+    )
+}
 
 fun DrawScope.drawShapeSelection(
     shapes: List<EditorShape>,
@@ -133,4 +204,3 @@ fun DrawScope.drawShapeSelection(
         )
     }
 }
-

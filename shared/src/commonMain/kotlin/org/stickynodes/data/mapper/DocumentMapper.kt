@@ -74,7 +74,8 @@ private fun EditorNode.toDto(): NodeDto = when (this) {
         y = y,
         style = style.toDto(),
         text = text,
-        fontSize = fontSize
+        fontSize = fontSize,
+        rotation = rotation
     )
 }
 
@@ -116,7 +117,8 @@ private fun NodeDto.toNode(): EditorNode = when (this) {
         y = y,
         style = style.toStyle(),
         text = text,
-        fontSize = fontSize
+        fontSize = fontSize,
+        rotation = rotation
     )
 }
 

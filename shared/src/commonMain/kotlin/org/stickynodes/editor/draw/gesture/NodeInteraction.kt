@@ -33,6 +33,8 @@ suspend fun PointerInputScope.detectNodeInteraction(
     onEditText: (EditorText) -> Unit,
     selectionBounds: (EditorNode) -> Rect,
     onHitSelection: ((Uuid, Boolean) -> Set<Uuid>)? = null,
+    groupRotationHandleAt: (Offset) -> Boolean = { false },
+    textRotationHandleAt: (Offset) -> Boolean = { false },
 ) {
     var lastClickNodeId: Uuid? = null
     var lastClickPosition = Offset.Unspecified
@@ -48,24 +50,22 @@ suspend fun PointerInputScope.detectNodeInteraction(
         awaitEachGesture {
             val down = awaitFirstDown()
 
-            val rotationId = rotationHandleAt(down.position)
-
-            if (rotationId != null) {
+            if (groupRotationHandleAt(down.position)) {
                 val selection = selectedNodeIds()
 
-                val shapes = nodes()
-                    .filter { it.id in selection }
-                    .filterIsInstance<EditorShape>()
+                val selectedNodes = nodes().filter { node ->
+                    node.id in selection
+                }
 
-                if (
-                    rotationId in selection &&
-                    shapes.isNotEmpty() &&
-                    shapes.size == selection.size
-                ) {
-                    handleRotationGesture(
+                if (selectedNodes.isNotEmpty()) {
+                    handleNodeRotationGesture(
                         down = down,
-                        shapes = shapes,
+                        nodes = selectedNodes,
                         screenToWorld = screenToWorld,
+                        selectionBounds = selectionBounds,
+                        textBounds = { text ->
+                            selectionBounds(text)
+                        },
                         onPreview = onPreview,
                         onCommit = onCommit,
                     )
@@ -73,6 +73,53 @@ suspend fun PointerInputScope.detectNodeInteraction(
                     return@awaitEachGesture
                 }
             }
+
+            val rotationId = rotationHandleAt(down.position)
+
+            if (rotationId != null) {
+                val selection = selectedNodeIds()
+
+                val selectedNodes = nodes().filter { node ->
+                    node.id in selection
+                }
+
+                if (rotationId in selection) {
+                    val shapes = selectedNodes.filterIsInstance<EditorShape>()
+
+                    when {
+                        selectedNodes.size == 1 &&
+                                selectedNodes.single() is EditorText -> {
+                            handleNodeRotationGesture(
+                                down = down,
+                                nodes = selectedNodes,
+                                screenToWorld = screenToWorld,
+                                selectionBounds = selectionBounds,
+                                textBounds = { text ->
+                                    selectionBounds(text)
+                                },
+                                onPreview = onPreview,
+                                onCommit = onCommit,
+                            )
+
+                            return@awaitEachGesture
+                        }
+
+                        shapes.isNotEmpty() &&
+                                shapes.size == selectedNodes.size -> {
+                            handleRotationGesture(
+                                down = down,
+                                shapes = shapes,
+                                screenToWorld = screenToWorld,
+                                onPreview = onPreview,
+                                onCommit = onCommit,
+                            )
+
+                            return@awaitEachGesture
+                        }
+                    }
+                }
+            }
+
 
             val resizeHandle = resizeHandleAt(down.position)
 

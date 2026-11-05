@@ -24,10 +24,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import org.stickynodes.editor.draw.camera.EditorCamera
 import org.stickynodes.editor.draw.geometry.contains
+import org.stickynodes.editor.draw.geometry.groupRotationHandlePosition
 import org.stickynodes.editor.draw.geometry.isRotationHandleHit
 import org.stickynodes.editor.draw.geometry.layoutStyle
+import org.stickynodes.editor.draw.geometry.measuredBounds
 import org.stickynodes.editor.draw.geometry.measuredSelectionBounds
 import org.stickynodes.editor.draw.geometry.resizeHandleAt
+import org.stickynodes.editor.draw.geometry.rotationHandlePosition
 import org.stickynodes.editor.draw.gesture.detectCanvasPan
 import org.stickynodes.editor.draw.gesture.detectCanvasZoom
 import org.stickynodes.editor.draw.gesture.detectNodeInteraction
@@ -44,6 +47,7 @@ import org.stickynodes.editor.draw.model.EditorText
 import org.stickynodes.editor.draw.render.drawNode
 import org.stickynodes.editor.draw.render.drawSelection
 import org.stickynodes.editor.draw.render.drawShapeSelection
+import org.stickynodes.editor.draw.render.drawTextSelection
 import org.stickynodes.editor.draw.style.FillStyle
 import org.stickynodes.editor.draw.style.NodeStyle
 import org.stickynodes.editor.draw.style.StrokeStyle
@@ -258,24 +262,56 @@ fun EditorCanvas(
                                     val selected = currentNodes.filter {
                                         it.id in currentSelectedNodeIds
                                     }
-                                    val shapes = selected.filterIsInstance<EditorShape>()
 
-                                    if (
-                                        selected.isEmpty() ||
-                                        shapes.size != selected.size
-                                    ) {
-                                        null
-                                    } else if (
-                                        shapes.isRotationHandleHit(
-                                            pointer = screenPoint,
-                                            camera = currentCamera,
-                                            offset = with(density) { 28.dp.toPx() },
-                                            radius = with(density) { 12.dp.toPx() },
-                                        )
-                                    ) {
-                                        shapes.first().id
-                                    } else {
-                                        null
+                                    val text = selected.singleOrNull() as? EditorText
+
+                                    when {
+                                        text != null -> {
+                                            val bounds = text.measuredBounds(
+                                                textMeasurer = textMeasurer,
+                                                textStyle = { node ->
+                                                    node.layoutStyle(density)
+                                                },
+                                            )
+
+                                            val position = text.rotationHandlePosition(
+                                                bounds = bounds,
+                                                camera = currentCamera,
+                                                padding = with(density) { 8.dp.toPx() },
+                                                offset = with(density) { 28.dp.toPx() },
+                                            )
+
+                                            val radius = with(density) { 12.dp.toPx() }
+
+                                            if (
+                                                (screenPoint - position).getDistanceSquared() <=
+                                                radius * radius
+                                            ) {
+                                                text.id
+                                            } else {
+                                                null
+                                            }
+                                        }
+
+                                        selected.isNotEmpty() &&
+                                                selected.all { it is EditorShape } -> {
+                                            val shapes = selected.filterIsInstance<EditorShape>()
+
+                                            if (
+                                                shapes.isRotationHandleHit(
+                                                    pointer = screenPoint,
+                                                    camera = currentCamera,
+                                                    offset = with(density) { 28.dp.toPx() },
+                                                    radius = with(density) { 12.dp.toPx() },
+                                                )
+                                            ) {
+                                                shapes.first().id
+                                            } else {
+                                                null
+                                            }
+                                        }
+
+                                        else -> null
                                     }
                                 }
                             },
@@ -291,6 +327,25 @@ fun EditorCanvas(
                                 )
                             },
                             onHitSelection = currentOnHitSelection,
+                            groupRotationHandleAt = { screenPoint ->
+                                if (currentSelectedMembers.none { it is EditorGroup }) false
+                                else {
+                                    val position = currentNodes.groupRotationHandlePosition(
+                                        selectedNodeIds = currentSelectedNodeIds,
+                                        camera = currentCamera,
+                                        textMeasurer = textMeasurer,
+                                        textStyle = { text -> text.layoutStyle(density)},
+                                        padding = with(density) { 8.dp.toPx() },
+                                        offset = with(density) { 28.dp.toPx() },
+                                    )
+
+                                    val radius = with(density) { 12.dp.toPx() }
+
+                                    position != null &&
+                                            (screenPoint - position).getDistanceSquared() <=
+                                            radius * radius
+                                }
+                            },
                         )
                     }
 
@@ -370,12 +425,19 @@ fun EditorCanvas(
                             selected.all { it is EditorShape }
 
                 if (!allSelectedAreShapes) {
-                    for (node in selected) {
-                        drawSelection(
-                            node = previewById[node.id] ?: node,
-                            color = selectionColor,
-                            textMeasurer = textMeasurer,
-                        )
+                    val singleTextSelected =
+                        selectedGroups.isEmpty() &&
+                                selected.size == 1 &&
+                                selected.single() is EditorText
+
+                    if (!singleTextSelected) {
+                        for (node in selected) {
+                            drawSelection(
+                                node = previewById[node.id] ?: node,
+                                color = selectionColor,
+                                textMeasurer = textMeasurer,
+                            )
+                        }
                     }
                 }
 
@@ -401,6 +463,23 @@ fun EditorCanvas(
         if (selectedTool == EditorTool.SELECT) {
             val selected = nodes.filter {
                 it.id in selectedNodeIds
+            }
+
+            if (selectedGroups.isEmpty()) {
+                val text = selected.singleOrNull() as? EditorText
+
+                if (text != null) {
+                    val displayedText = interactionPreview
+                        .firstOrNull { it.id == text.id } as? EditorText
+                        ?: text
+
+                    drawTextSelection(
+                        text = displayedText,
+                        camera = camera,
+                        color = selectionColor,
+                        textMeasurer = textMeasurer,
+                    )
+                }
             }
 
             if (
@@ -469,6 +548,47 @@ fun EditorCanvas(
                         ),
                     ),
                 )
+            }
+
+            if (selectedGroups.isNotEmpty()) {
+                val previewById = interactionPreview.associateBy { it.id }
+
+                val displayedNodes = nodes.map { node ->
+                    previewById[node.id] ?: node
+                }
+
+                val position = displayedNodes.groupRotationHandlePosition(
+                    selectedNodeIds = selectedNodeIds,
+                    camera = camera,
+                    textMeasurer = textMeasurer,
+                    textStyle = { text -> text.layoutStyle(density) },
+                    padding = 8.dp.toPx(),
+                    offset = 28.dp.toPx(),
+                )
+
+                if (position != null) {
+                    val radius = 7.dp.toPx()
+
+                    drawLine(
+                        color = selectionColor,
+                        start = position + Offset(0f, 28.dp.toPx()),
+                        end = position,
+                        strokeWidth = 1.5.dp.toPx()
+                    )
+
+                    drawCircle(
+                        color = Color.White,
+                        radius = radius,
+                        center = position,
+                    )
+
+                    drawCircle(
+                        color = selectionColor,
+                        radius = radius,
+                        center = position,
+                        style = Stroke(width = 1.5.dp.toPx()),
+                    )
+                }
             }
         }
     }
