@@ -34,7 +34,7 @@ suspend fun PointerInputScope.detectNodeInteraction(
     selectionBounds: (EditorNode) -> Rect,
     onHitSelection: ((Uuid, Boolean) -> Set<Uuid>)? = null,
     groupRotationHandleAt: (Offset) -> Boolean = { false },
-    textRotationHandleAt: (Offset) -> Boolean = { false },
+    groupResizeHandleAt: (Offset) -> ResizeHandle? = { null },
 ) {
     var lastClickNodeId: Uuid? = null
     var lastClickPosition = Offset.Unspecified
@@ -49,6 +49,36 @@ suspend fun PointerInputScope.detectNodeInteraction(
     try {
         awaitEachGesture {
             val down = awaitFirstDown()
+
+            // Group resize takes priority over rotation and node interactions.
+            val groupResizeHandle = groupResizeHandleAt(down.position)
+
+            if (groupResizeHandle != null) {
+                val selection = selectedNodeIds()
+
+                val selectedNodes = nodes().filter { node ->
+                    node.id in selection
+                }
+
+                val shapes = selectedNodes.filterIsInstance<EditorShape>()
+
+                if (
+                    selectedNodes.isNotEmpty() &&
+                    shapes.size == selectedNodes.size
+                ) {
+                    handleGroupResizeGesture(
+                        down = down,
+                        handle = groupResizeHandle,
+                        shapes = shapes,
+                        screenDeltaToWorld = screenDeltaToWorld,
+                        onPreview = onPreview,
+                        onCommit = onCommit,
+                    )
+
+                    resetClickTracking()
+                    return@awaitEachGesture
+                }
+            }
 
             if (groupRotationHandleAt(down.position)) {
                 val selection = selectedNodeIds()
@@ -84,7 +114,8 @@ suspend fun PointerInputScope.detectNodeInteraction(
                 }
 
                 if (rotationId in selection) {
-                    val shapes = selectedNodes.filterIsInstance<EditorShape>()
+                    val shapes =
+                        selectedNodes.filterIsInstance<EditorShape>()
 
                     when {
                         selectedNodes.size == 1 &&
@@ -119,7 +150,6 @@ suspend fun PointerInputScope.detectNodeInteraction(
                     }
                 }
             }
-
 
             val resizeHandle = resizeHandleAt(down.position)
 

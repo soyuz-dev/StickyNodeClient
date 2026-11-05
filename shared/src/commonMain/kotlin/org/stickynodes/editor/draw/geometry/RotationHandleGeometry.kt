@@ -11,27 +11,26 @@ import org.stickynodes.editor.draw.model.EditorShape
 import org.stickynodes.editor.draw.model.EditorText
 import kotlin.uuid.Uuid
 
-
 private fun Rect.rotationHandlePosition(
     rotation: Float,
     camera: EditorCamera,
     offset: Float,
 ): Offset {
-    val center = camera.worldToScreen(center)
+    val screenCenter = camera.worldToScreen(center)
 
-    val topCenter = camera.worldToScreen(
-        Offset(this.center.x, top)
+    val screenTop = camera.worldToScreen(
+        Offset(center.x, top),
     ).rotatedAround(
-        center = center,
+        center = screenCenter,
         angle = rotation,
     )
 
-    val direction = topCenter - center
+    val direction = screenTop - screenCenter
     val distance = direction.getDistance()
 
-    if (distance <= 0f) return topCenter
+    if (distance <= 0f) return screenTop
 
-    return topCenter + direction / distance * offset
+    return screenTop + direction / distance * offset
 }
 
 fun EditorShape.rotationHandlePosition(
@@ -54,7 +53,46 @@ fun EditorText.rotationHandlePosition(
     offset = padding + offset,
 )
 
+/**
+ * Calculates a rotation handle extending outward from the
+ * north edge of an oriented selection rectangle.
+ *
+ * The rectangle is expressed in the group's local coordinates.
+ * Padding and offset are expressed in screen pixels.
+ */
+fun Rect.orientedRotationHandlePosition(
+    rotation: Float,
+    camera: EditorCamera,
+    padding: Float,
+    offset: Float,
+): Offset {
+    require(rotation.isFinite()) {
+        "Rotation must be finite"
+    }
+    require(offset.isFinite() && offset >= 0f) {
+        "Offset must be finite and non-negative"
+    }
 
+    val north = orientedResizeHandleScreenPositions(
+        rotation = rotation,
+        camera = camera,
+        padding = padding,
+    ).getValue(ResizeHandle.N)
+
+    val outward = Offset(0f, -1f).rotatedAround(
+        center = Offset.Zero,
+        angle = rotation,
+    )
+
+    return north + outward * offset
+}
+
+/**
+ * Returns the screen-space rotation handle for the selected nodes.
+ *
+ * Aligned shapes use an oriented bounding rectangle.
+ * Mixed rotations, text, and paths use axis-aligned bounds.
+ */
 fun List<EditorNode>.groupRotationHandlePosition(
     selectedNodeIds: Set<Uuid>,
     camera: EditorCamera,
@@ -62,24 +100,41 @@ fun List<EditorNode>.groupRotationHandlePosition(
     textStyle: (EditorText) -> TextStyle,
     padding: Float,
     offset: Float,
+    useOrientedBounds: Boolean = true,
 ): Offset? {
-    val bounds = asSequence()
-        .filter { it.id in selectedNodeIds }
-        .map {
-            it.measuredSelectionBounds(
-                textMeasurer = textMeasurer,
-                textStyle = textStyle,
-            )
+    val selected = filter { it.id in selectedNodeIds }
+    if (selected.isEmpty()) return null
+
+    val shapes = selected.filterIsInstance<EditorShape>()
+
+    if (useOrientedBounds && shapes.size == selected.size) {
+        val rotation = shapes.commonRotationOrNull()
+
+        if (rotation != null) {
+            val bounds = shapes.orientedGroupBoundsOrNull {
+                (it as EditorShape).bounds
+            }
+
+            if (bounds != null) {
+                return bounds.orientedRotationHandlePosition(
+                    rotation = rotation,
+                    camera = camera,
+                    padding = padding,
+                    offset = offset,
+                )
+            }
         }
-        .toList()
-        .enclosingBounds()
-        ?: return null
+    }
+
+    val bounds = selected.map {
+        it.measuredSelectionBounds(
+            textMeasurer = textMeasurer,
+            textStyle = textStyle,
+        )
+    }.enclosingBounds() ?: return null
 
     val screenTop = camera.worldToScreen(
-        Offset(
-            x = bounds.center.x,
-            y = bounds.top,
-        )
+        Offset(bounds.center.x, bounds.top),
     )
 
     return screenTop - Offset(

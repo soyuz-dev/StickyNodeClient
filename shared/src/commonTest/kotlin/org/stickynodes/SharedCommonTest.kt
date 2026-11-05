@@ -4751,4 +4751,27 @@ class SharedCommonTest {
         assertEquals(188f, east.x, 0.001f)
         assertEquals(10f, east.y, 0.001f)
     }
+
+    @Test
+    fun `oriented rotation handle extends from north resize handle`() {
+        val bounds = Rect(0f, 0f, 100f, 50f)
+        val angle = (PI / 2).toFloat()
+        val camera = EditorCamera()
+
+        val north = bounds.orientedResizeHandleScreenPositions(
+            rotation = angle,
+            camera = camera,
+            padding = 8f,
+        ).getValue(ResizeHandle.N)
+
+        val position = bounds.orientedRotationHandlePosition(
+            rotation = angle,
+            camera = camera,
+            padding = 8f,
+            offset = 28f,
+        )
+
+        assertEquals(north.x + 28f, position.x, 0.001f)
+        assertEquals(north.y, position.y, 0.001f)
+    }
 }

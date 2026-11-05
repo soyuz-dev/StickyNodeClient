@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -23,12 +24,15 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import org.stickynodes.editor.draw.camera.EditorCamera
+import org.stickynodes.editor.draw.geometry.commonRotationOrNull
 import org.stickynodes.editor.draw.geometry.contains
 import org.stickynodes.editor.draw.geometry.groupRotationHandlePosition
 import org.stickynodes.editor.draw.geometry.isRotationHandleHit
 import org.stickynodes.editor.draw.geometry.layoutStyle
 import org.stickynodes.editor.draw.geometry.measuredBounds
 import org.stickynodes.editor.draw.geometry.measuredSelectionBounds
+import org.stickynodes.editor.draw.geometry.orientedGroupBoundsOrNull
+import org.stickynodes.editor.draw.geometry.orientedResizeHandleScreenPositions
 import org.stickynodes.editor.draw.geometry.resizeHandleAt
 import org.stickynodes.editor.draw.geometry.rotationHandlePosition
 import org.stickynodes.editor.draw.gesture.detectCanvasPan
@@ -53,6 +57,9 @@ import org.stickynodes.editor.draw.style.NodeStyle
 import org.stickynodes.editor.draw.style.StrokeStyle
 import org.stickynodes.editor.tools.EditorTool
 import kotlin.uuid.Uuid
+import androidx.compose.ui.graphics.Path
+import org.stickynodes.editor.draw.geometry.ResizeHandle
+import org.stickynodes.editor.draw.geometry.orientedResizeHandleAt
 
 @Composable
 fun EditorCanvas(
@@ -327,6 +334,58 @@ fun EditorCanvas(
                                 )
                             },
                             onHitSelection = currentOnHitSelection,
+
+                            groupResizeHandleAt = { screenPoint ->
+                                val group = currentSelectedMembers
+                                    .singleOrNull() as? EditorGroup
+
+                                if (group == null) {
+                                    null
+                                } else {
+                                    val groupNodes = group.flattenedNodes()
+
+                                    val currentById = currentNodes.associateBy { it.id }
+
+                                    val displayedNodes = groupNodes.map { node ->
+                                        currentById[node.id] ?: node
+                                    }
+
+                                    val shapes = displayedNodes
+                                        .filterIsInstance<EditorShape>()
+
+                                    if (
+                                        displayedNodes.isEmpty() ||
+                                        shapes.size != displayedNodes.size ||
+                                        displayedNodes.any {
+                                            it.id !in currentSelectedNodeIds
+                                        }
+                                    ) {
+                                        null
+                                    } else {
+                                        val rotation = shapes.commonRotationOrNull()
+
+                                        val bounds = if (rotation != null) {
+                                            shapes.orientedGroupBoundsOrNull {
+                                                (it as EditorShape).bounds
+                                            }
+                                        } else {
+                                            null
+                                        }
+
+                                        if (rotation == null || bounds == null) {
+                                            null
+                                        } else {
+                                            bounds.orientedResizeHandleAt(
+                                                pointer = screenPoint,
+                                                rotation = rotation,
+                                                camera = currentCamera,
+                                                padding = with(density) { 8.dp.toPx() },
+                                                radius = with(density) { 10.dp.toPx() },
+                                            )
+                                        }
+                                    }
+                                }
+                            },
                             groupRotationHandleAt = { screenPoint ->
                                 if (currentSelectedMembers.none { it is EditorGroup }) false
                                 else {
@@ -337,6 +396,9 @@ fun EditorCanvas(
                                         textStyle = { text -> text.layoutStyle(density)},
                                         padding = with(density) { 8.dp.toPx() },
                                         offset = with(density) { 28.dp.toPx() },
+                                        useOrientedBounds =
+                                            currentSelectedMembers.size == 1 &&
+                                                    currentSelectedMembers.single() is EditorGroup,
                                     )
 
                                     val radius = with(density) { 12.dp.toPx() }
@@ -523,12 +585,79 @@ fun EditorCanvas(
                         )
                     } ?: continue
 
+
+                val isAncestor = group in ancestorGroups
+
                 val screenBounds = Rect(
                     camera.worldToScreen(bounds.topLeft),
                     camera.worldToScreen(bounds.bottomRight),
                 ).inflate(8.dp.toPx())
 
-                val isAncestor = group in ancestorGroups
+                if (
+                    !isAncestor &&
+                    selectedGroups.size == 1 &&
+                    selectedMembers.size == 1
+                ) {
+                    val displayedGroupNodes = group.flattenedNodes().map { node ->
+                        previewById[node.id] ?: node
+                    }
+
+                    val shapes = displayedGroupNodes.filterIsInstance<EditorShape>()
+
+
+                    if (
+                        displayedGroupNodes.isNotEmpty() &&
+                        shapes.size == displayedGroupNodes.size
+                    ) {
+                        val rotation = shapes.commonRotationOrNull()
+
+                        val localBounds = if (rotation != null) {
+                            shapes.orientedGroupBoundsOrNull {
+                                (it as EditorShape).bounds
+                            }
+                        } else {
+                            null
+                        }
+
+                        if (rotation != null && localBounds != null) {
+                            val positions = localBounds
+                                .orientedResizeHandleScreenPositions(
+                                    rotation = rotation,
+                                    camera = camera,
+                                    padding = 8.dp.toPx(),
+                                )
+
+                            val nw = positions.getValue(ResizeHandle.NW)
+                            val ne = positions.getValue(ResizeHandle.NE)
+                            val se = positions.getValue(ResizeHandle.SE)
+                            val sw = positions.getValue(ResizeHandle.SW)
+
+                            val outline = Path().apply {
+                                moveTo(nw.x, nw.y)
+                                lineTo(ne.x, ne.y)
+                                lineTo(se.x, se.y)
+                                lineTo(sw.x, sw.y)
+                                close()
+                            }
+
+                            drawPath(
+                                path = outline,
+                                color = selectionColor,
+                                style = Stroke(
+                                    width = 2.dp.toPx(),
+                                    pathEffect = PathEffect.dashPathEffect(
+                                        floatArrayOf(
+                                            9.dp.toPx(),
+                                            5.dp.toPx(),
+                                        ),
+                                    ),
+                                ),
+                            )
+
+                            continue
+                        }
+                    }
+                }
 
                 drawRoundRect(
                     color = selectionColor.copy(
@@ -557,23 +686,89 @@ fun EditorCanvas(
                     previewById[node.id] ?: node
                 }
 
-                val position = displayedNodes.groupRotationHandlePosition(
-                    selectedNodeIds = selectedNodeIds,
-                    camera = camera,
-                    textMeasurer = textMeasurer,
-                    textStyle = { text -> text.layoutStyle(density) },
-                    padding = 8.dp.toPx(),
-                    offset = 28.dp.toPx(),
-                )
 
-                if (position != null) {
+                val selectedNodes = displayedNodes.filter { node ->
+                    node.id in selectedNodeIds
+                }
+
+                val selectedShapes = selectedNodes.filterIsInstance<EditorShape>()
+
+                if (
+                    selectedNodes.isNotEmpty() &&
+                    selectedShapes.size == selectedNodes.size
+                ) {
+                    val rotation = selectedShapes.commonRotationOrNull()
+
+                    if (rotation != null) {
+                        val bounds = selectedShapes.orientedGroupBoundsOrNull {
+                            (it as EditorShape).bounds
+                        }
+
+                        if (bounds != null) {
+                            val handleSize = 10.dp.toPx()
+                            val outlineWidth = 1.5.dp.toPx()
+
+                            val positions =
+                                bounds.orientedResizeHandleScreenPositions(
+                                    rotation = rotation,
+                                    camera = camera,
+                                    padding = 8.dp.toPx(),
+                                )
+
+                            for (position in positions.values) {
+                                val topLeft = position - Offset(
+                                    handleSize / 2f,
+                                    handleSize / 2f,
+                                )
+
+                                drawRoundRect(
+                                    color = Color.White,
+                                    topLeft = topLeft,
+                                    size = Size(handleSize, handleSize),
+                                    cornerRadius = CornerRadius(3.dp.toPx()),
+                                )
+
+                                drawRoundRect(
+                                    color = selectionColor,
+                                    topLeft = topLeft,
+                                    size = Size(handleSize, handleSize),
+                                    cornerRadius = CornerRadius(3.dp.toPx()),
+                                    style = Stroke(width = outlineWidth),
+                                )
+                            }
+                        }
+                    }
+                }
+
+                val useOrientedBounds =
+                    selectedMembers.size == 1 &&
+                            selectedMembers.single() is EditorGroup
+
+                val padding = 8.dp.toPx()
+                val handleOffset = 28.dp.toPx()
+
+                fun handlePosition(offset: Float) =
+                    displayedNodes.groupRotationHandlePosition(
+                        selectedNodeIds = selectedNodeIds,
+                        camera = camera,
+                        textMeasurer = textMeasurer,
+                        textStyle = { text -> text.layoutStyle(density) },
+                        padding = padding,
+                        offset = offset,
+                        useOrientedBounds = useOrientedBounds,
+                    )
+
+                val stemStart = handlePosition(0f)
+                val position = handlePosition(handleOffset)
+
+                if (stemStart != null && position != null) {
                     val radius = 7.dp.toPx()
 
                     drawLine(
                         color = selectionColor,
-                        start = position + Offset(0f, 28.dp.toPx()),
+                        start = stemStart,
                         end = position,
-                        strokeWidth = 1.5.dp.toPx()
+                        strokeWidth = 1.5.dp.toPx(),
                     )
 
                     drawCircle(
@@ -589,6 +784,7 @@ fun EditorCanvas(
                         style = Stroke(width = 1.5.dp.toPx()),
                     )
                 }
+
             }
         }
     }
