@@ -60,6 +60,7 @@ import kotlin.uuid.Uuid
 import androidx.compose.ui.graphics.Path
 import org.stickynodes.editor.draw.geometry.ResizeHandle
 import org.stickynodes.editor.draw.geometry.orientedResizeHandleAt
+import org.stickynodes.editor.draw.geometry.orientedShapeSelectionOrNull
 
 @Composable
 fun EditorCanvas(
@@ -336,41 +337,22 @@ fun EditorCanvas(
                             onHitSelection = currentOnHitSelection,
 
                             groupResizeHandleAt = { screenPoint ->
-                                if (currentSelectedMembers.none { it is EditorGroup }) {
+                                if (currentSelectedMembers.none { it is EditorGroup})
                                     null
-                                } else {
+                                else {
                                     val selectedNodes = currentNodes.filter { node ->
-                                        node.id in currentSelectedNodeIds
+                                        node.id in selectedNodeIds
                                     }
-                                    val shapes = selectedNodes.filterIsInstance<EditorShape>()
 
-                                    if (
-                                        selectedNodes.isEmpty() ||
-                                        shapes.size != selectedNodes.size
-                                    ) {
-                                        null
-                                    } else {
-                                        val rotation = shapes.commonRotationOrNull()
-                                        val bounds = if (rotation != null) {
-                                            shapes.orientedGroupBoundsOrNull {
-                                                (it as EditorShape).bounds
-                                            }
-                                        } else {
-                                            null
-                                        }
+                                    val selection = selectedNodes.orientedShapeSelectionOrNull()
 
-                                        if (rotation == null || bounds == null) {
-                                            null
-                                        } else {
-                                            bounds.orientedResizeHandleAt(
-                                                pointer = screenPoint,
-                                                rotation = rotation,
-                                                camera = currentCamera,
-                                                padding = with(density) { 8.dp.toPx() },
-                                                radius = with(density) { 10.dp.toPx() },
-                                            )
-                                        }
-                                    }
+                                    selection?.bounds?.orientedResizeHandleAt(
+                                        pointer = screenPoint,
+                                        rotation = selection.rotation,
+                                        camera = currentCamera,
+                                        padding = with(density) {8.dp.toPx()},
+                                        radius = with(density) {10.dp.toPx()}
+                                    )
                                 }
                             },
                             groupRotationHandleAt = { screenPoint ->
@@ -588,60 +570,45 @@ fun EditorCanvas(
                         previewById[node.id] ?: node
                     }
 
-                    val shapes = displayedGroupNodes.filterIsInstance<EditorShape>()
+                    val selection = displayedGroupNodes
+                        .orientedShapeSelectionOrNull()
 
-
-                    if (
-                        displayedGroupNodes.isNotEmpty() &&
-                        shapes.size == displayedGroupNodes.size
-                    ) {
-                        val rotation = shapes.commonRotationOrNull()
-
-                        val localBounds = if (rotation != null) {
-                            shapes.orientedGroupBoundsOrNull {
-                                (it as EditorShape).bounds
-                            }
-                        } else {
-                            null
-                        }
-
-                        if (rotation != null && localBounds != null) {
-                            val positions = localBounds
-                                .orientedResizeHandleScreenPositions(
-                                    rotation = rotation,
-                                    camera = camera,
-                                    padding = 8.dp.toPx(),
-                                )
-
-                            val nw = positions.getValue(ResizeHandle.NW)
-                            val ne = positions.getValue(ResizeHandle.NE)
-                            val se = positions.getValue(ResizeHandle.SE)
-                            val sw = positions.getValue(ResizeHandle.SW)
-
-                            val outline = Path().apply {
-                                moveTo(nw.x, nw.y)
-                                lineTo(ne.x, ne.y)
-                                lineTo(se.x, se.y)
-                                lineTo(sw.x, sw.y)
-                                close()
-                            }
-
-                            drawPath(
-                                path = outline,
-                                color = selectionColor,
-                                style = Stroke(
-                                    width = 2.dp.toPx(),
-                                    pathEffect = PathEffect.dashPathEffect(
-                                        floatArrayOf(
-                                            9.dp.toPx(),
-                                            5.dp.toPx(),
-                                        ),
-                                    ),
-                                ),
+                    if (selection != null) {
+                        val positions = selection.bounds
+                            .orientedResizeHandleScreenPositions(
+                                rotation = selection.rotation,
+                                camera = camera,
+                                padding = 8.dp.toPx(),
                             )
 
-                            continue
+                        val nw = positions.getValue(ResizeHandle.NW)
+                        val ne = positions.getValue(ResizeHandle.NE)
+                        val se = positions.getValue(ResizeHandle.SE)
+                        val sw = positions.getValue(ResizeHandle.SW)
+
+                        val outline = Path().apply {
+                            moveTo(nw.x, nw.y)
+                            lineTo(ne.x, ne.y)
+                            lineTo(se.x, se.y)
+                            lineTo(sw.x, sw.y)
+                            close()
                         }
+
+                        drawPath(
+                            path = outline,
+                            color = selectionColor,
+                            style = Stroke(
+                                width = 2.dp.toPx(),
+                                pathEffect = PathEffect.dashPathEffect(
+                                    floatArrayOf(
+                                        9.dp.toPx(),
+                                        5.dp.toPx(),
+                                    ),
+                                ),
+                            ),
+                        )
+
+                        continue
                     }
                 }
 
@@ -677,81 +644,69 @@ fun EditorCanvas(
                     node.id in selectedNodeIds
                 }
 
-                val selectedShapes = selectedNodes.filterIsInstance<EditorShape>()
 
-                if (
-                    selectedNodes.isNotEmpty() &&
-                    selectedShapes.size == selectedNodes.size
-                ) {
-                    val rotation = selectedShapes.commonRotationOrNull()
+                val selection = selectedNodes.orientedShapeSelectionOrNull()
 
-                    if (rotation != null) {
-                        val bounds = selectedShapes.orientedGroupBoundsOrNull {
-                            (it as EditorShape).bounds
+                if (selection != null) {
+                    val handleSize = 10.dp.toPx()
+                    val outlineWidth = 1.5.dp.toPx()
+
+                    val positions = selection.bounds
+                        .orientedResizeHandleScreenPositions(
+                            rotation = selection.rotation,
+                            camera = camera,
+                            padding = 8.dp.toPx(),
+                        )
+
+                    if (selectedMembers.size > 1) {
+                        val nw = positions.getValue(ResizeHandle.NW)
+                        val ne = positions.getValue(ResizeHandle.NE)
+                        val se = positions.getValue(ResizeHandle.SE)
+                        val sw = positions.getValue(ResizeHandle.SW)
+
+                        val outline = Path().apply {
+                            moveTo(nw.x, nw.y)
+                            lineTo(ne.x, ne.y)
+                            lineTo(se.x, se.y)
+                            lineTo(sw.x, sw.y)
+                            close()
                         }
 
-                        if (bounds != null) {
-                            val handleSize = 10.dp.toPx()
-                            val outlineWidth = 1.5.dp.toPx()
-
-                            val positions =
-                                bounds.orientedResizeHandleScreenPositions(
-                                    rotation = rotation,
-                                    camera = camera,
-                                    padding = 8.dp.toPx(),
-                                )
-
-                            if (selectedMembers.size > 1) {
-                                val nw = positions.getValue(ResizeHandle.NW)
-                                val ne = positions.getValue(ResizeHandle.NE)
-                                val se = positions.getValue(ResizeHandle.SE)
-                                val sw = positions.getValue(ResizeHandle.SW)
-
-                                val outline = Path().apply {
-                                    moveTo(nw.x, nw.y)
-                                    lineTo(ne.x, ne.y)
-                                    lineTo(se.x, se.y)
-                                    lineTo(sw.x, sw.y)
-                                    close()
-                                }
-
-                                drawPath(
-                                    path = outline,
-                                    color = selectionColor,
-                                    style = Stroke(
-                                        width = 2.dp.toPx(),
-                                        pathEffect = PathEffect.dashPathEffect(
-                                            floatArrayOf(
-                                                9.dp.toPx(),
-                                                5.dp.toPx(),
-                                            ),
-                                        ),
+                        drawPath(
+                            path = outline,
+                            color = selectionColor,
+                            style = Stroke(
+                                width = 2.dp.toPx(),
+                                pathEffect = PathEffect.dashPathEffect(
+                                    floatArrayOf(
+                                        9.dp.toPx(),
+                                        5.dp.toPx(),
                                     ),
-                                )
-                            }
+                                ),
+                            ),
+                        )
+                    }
 
-                            for (position in positions.values) {
-                                val topLeft = position - Offset(
-                                    handleSize / 2f,
-                                    handleSize / 2f,
-                                )
+                    for (position in positions.values) {
+                        val topLeft = position - Offset(
+                            handleSize / 2f,
+                            handleSize / 2f,
+                        )
 
-                                drawRoundRect(
-                                    color = Color.White,
-                                    topLeft = topLeft,
-                                    size = Size(handleSize, handleSize),
-                                    cornerRadius = CornerRadius(3.dp.toPx()),
-                                )
+                        drawRoundRect(
+                            color = Color.White,
+                            topLeft = topLeft,
+                            size = Size(handleSize, handleSize),
+                            cornerRadius = CornerRadius(3.dp.toPx()),
+                        )
 
-                                drawRoundRect(
-                                    color = selectionColor,
-                                    topLeft = topLeft,
-                                    size = Size(handleSize, handleSize),
-                                    cornerRadius = CornerRadius(3.dp.toPx()),
-                                    style = Stroke(width = outlineWidth),
-                                )
-                            }
-                        }
+                        drawRoundRect(
+                            color = selectionColor,
+                            topLeft = topLeft,
+                            size = Size(handleSize, handleSize),
+                            cornerRadius = CornerRadius(3.dp.toPx()),
+                            style = Stroke(width = outlineWidth),
+                        )
                     }
                 }
 

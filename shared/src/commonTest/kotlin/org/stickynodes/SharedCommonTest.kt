@@ -5433,4 +5433,84 @@ class SharedCommonTest {
             ).isEmpty()
         )
     }
+
+
+    @Test
+    fun `oriented selection returns bounds for aligned shapes`() {
+        val first = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 30f,
+            height = 20f,
+        )
+
+        val second = EditorEllipse(
+            x = 60f,
+            y = 40f,
+            width = 20f,
+            height = 30f,
+        )
+
+        val selection = listOf<EditorNode>(first, second)
+            .orientedShapeSelectionOrNull()
+
+        assertNotNull(selection)
+        assertEquals(0f, selection.rotation, 0.001f)
+        assertEquals(10f, selection.bounds.left, 0.001f)
+        assertEquals(20f, selection.bounds.top, 0.001f)
+        assertEquals(80f, selection.bounds.right, 0.001f)
+        assertEquals(70f, selection.bounds.bottom, 0.001f)
+    }
+
+    @Test
+    fun `oriented selection supports common nonzero rotation`() {
+        val first = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 30f,
+            height = 20f,
+            rotation = 0.5f,
+        )
+
+        val second = EditorEllipse(
+            x = 60f,
+            y = 40f,
+            width = 20f,
+            height = 30f,
+            rotation = 0.5f,
+        )
+
+        val selection = listOf<EditorNode>(first, second)
+            .orientedShapeSelectionOrNull()
+
+        assertNotNull(selection)
+        assertEquals(0.5f, selection.rotation, 0.001f)
+
+        val expectedBounds =
+            listOf<EditorNode>(first, second)
+                .orientedGroupBoundsOrNull {
+                    (it as EditorShape).bounds
+                }
+
+        assertEquals(expectedBounds, selection.bounds)
+    }
+
+    @Test
+    fun `oriented selection rejects incompatible rotations`() {
+        val first = EditorRectangle(x=10f, y=10f, rotation = 0f, width = 10f, height = 10f)
+        val second = EditorEllipse(x=10f, y=10f, rotation = 0.5f, width = 10f, height = 10f)
+
+        val selection = listOf<EditorNode>(first, second)
+            .orientedShapeSelectionOrNull()
+
+        assertNull(selection)
+    }
+
+    @Test
+    fun `oriented selection rejects empty selections`() {
+        val selection = listOf<EditorNode>()
+            .orientedShapeSelectionOrNull()
+
+        assertNull(selection)
+    }
 }
