@@ -3,10 +3,13 @@ package org.stickynodes
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.IntSize
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import org.stickynodes.data.DocumentCodec
 import org.stickynodes.data.mapper.toDocument
 import org.stickynodes.data.mapper.toDto
+import org.stickynodes.data.model.DocumentDto
+import org.stickynodes.data.model.GroupDto
 import org.stickynodes.data.model.StyleDto
 import org.stickynodes.data.model.TextDto
 import org.stickynodes.editor.draw.camera.EditorCamera
@@ -4773,5 +4776,661 @@ class SharedCommonTest {
 
         assertEquals(north.x + 28f, position.x, 0.001f)
         assertEquals(north.y, position.y, 0.001f)
+    }
+
+
+    @Test
+    fun `group resize commits as a single undoable operation`() {
+        val first = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 20f,
+            height = 10f,
+        )
+        val second = EditorEllipse(
+            x = 40f,
+            y = 0f,
+            width = 20f,
+            height = 10f,
+        )
+        val group = EditorGroup(members = listOf(first, second))
+        val original = EditorDocument(members = listOf(group))
+        val state = EditorDocumentState(original)
+
+        state.selectMember(group.id)
+
+        val shapes = state.selectedNodes.filterIsInstance<EditorShape>()
+        val transform = shapes.constrainedOrientedResizeTransform(
+            handle = ResizeHandle.SE,
+            worldDelta = Offset(60f, 10f),
+        )!!
+
+        val resized = shapes.resizedWith(transform)
+        state.updateNodes(resized)
+
+        val updated = state.document
+
+        assertNotEquals(original, updated)
+        assertEquals(setOf(group.id), state.selectedMemberIds)
+        assertEquals(group.id, (updated.members.single() as EditorGroup).id)
+        assertEquals(listOf(first.id, second.id), updated.nodes.map { it.id })
+
+        state.undo()
+
+        assertEquals(original, state.document)
+        assertTrue(state.canRedo)
+
+        state.redo()
+
+        assertEquals(updated, state.document)
+        assertEquals(setOf(group.id), state.selectedMemberIds)
+    }
+
+    @Test
+    fun `nested group resize preserves hierarchy and sibling nodes`() {
+        val first = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 20f,
+            height = 10f,
+        )
+        val second = EditorRectangle(
+            x = 40f,
+            y = 0f,
+            width = 20f,
+            height = 10f,
+        )
+        val sibling = EditorEllipse(
+            x = 100f,
+            y = 50f,
+            width = 30f,
+            height = 20f,
+        )
+
+        val inner = EditorGroup(members = listOf(first, second))
+        val outer = EditorGroup(members = listOf(inner, sibling))
+        val original = EditorDocument(members = listOf(outer))
+        val state = EditorDocumentState(original)
+
+        state.selectMember(inner.id)
+
+        val shapes = state.selectedNodes.filterIsInstance<EditorShape>()
+        val transform = shapes.constrainedOrientedResizeTransform(
+            handle = ResizeHandle.E,
+            worldDelta = Offset(30f, 0f),
+        )!!
+
+        state.updateNodes(shapes.resizedWith(transform))
+
+        val updatedOuter = state.document.members.single() as EditorGroup
+        val updatedInner = updatedOuter.members.first() as EditorGroup
+
+        assertEquals(outer.id, updatedOuter.id)
+        assertEquals(inner.id, updatedInner.id)
+        assertEquals(listOf(first.id, second.id), updatedInner.flattenedNodes().map { it.id })
+        assertEquals(sibling, updatedOuter.members.last())
+
+        assertNotEquals(first, updatedInner.flattenedNodes().first())
+        assertEquals(setOf(inner.id), state.selectedMemberIds)
+
+        state.undo()
+        assertEquals(original, state.document)
+
+        state.redo()
+        assertEquals(updatedOuter, state.document.members.single())
+    }
+
+    @Test
+    fun `unchanged group resize does not create history entry`() {
+        val first = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 20f,
+            height = 10f,
+        )
+        val second = EditorRectangle(
+            x = 40f,
+            y = 0f,
+            width = 20f,
+            height = 10f,
+        )
+
+        val group = EditorGroup(members = listOf(first, second))
+        val original = EditorDocument(members = listOf(group))
+        val state = EditorDocumentState(original)
+
+        state.selectMember(group.id)
+
+        val shapes = state.selectedNodes.filterIsInstance<EditorShape>()
+        val transform = shapes.constrainedOrientedResizeTransform(
+            handle = ResizeHandle.SE,
+            worldDelta = Offset.Zero,
+        )!!
+
+        state.updateNodes(shapes.resizedWith(transform))
+
+        assertEquals(original, state.document)
+        assertFalse(state.canUndo)
+        assertFalse(state.canRedo)
+    }
+
+
+    @Test
+    fun `nested groups survive serialization round trip`() {
+        val rectangle = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 50f,
+        )
+
+        val ellipse = EditorEllipse(
+            x = 150f,
+            y = 20f,
+            width = 50f,
+            height = 50f,
+        )
+
+        val inner = EditorGroup(
+            members = listOf(rectangle),
+        )
+
+        val outer = EditorGroup(
+            members = listOf(inner, ellipse),
+        )
+
+        val original = EditorDocument(
+            members = listOf(outer),
+        )
+
+        val encoded = DocumentCodec.encode(original)
+        val decoded = DocumentCodec.decode(encoded)
+
+        assertEquals(original, decoded)
+
+        val decodedOuter = decoded.members.single() as EditorGroup
+        val decodedInner = decodedOuter.members.first() as EditorGroup
+
+        assertEquals(outer.id, decodedOuter.id)
+        assertEquals(inner.id, decodedInner.id)
+        assertEquals(rectangle, decodedInner.members.single())
+        assertEquals(ellipse, decodedOuter.members.last())
+    }
+
+
+    @Test
+    fun `version one flat document remains readable`() {
+        val original = EditorDocument(
+            members = listOf(
+                EditorRectangle(
+                    id = Uuid.parse(
+                        "123e4567-e89b-12d3-a456-426614174000"
+                    ),
+                    x = 10f,
+                    y = 20f,
+                    width = 100f,
+                    height = 50f,
+                    style = NodeStyle(
+                        fill = FillStyle.None,
+                        stroke = null,
+                    ),
+                )
+            )
+        )
+
+        val legacyJson = """
+        {
+          "version": 1,
+          "nodes": [
+            {
+              "type": "rectangle",
+              "id": "123e4567-e89b-12d3-a456-426614174000",
+              "x": 10.0,
+              "y": 20.0,
+              "width": 100.0,
+              "height": 50.0,
+              "rotation": 0.0,
+              "style": {
+                "fillColor": null,
+                "stroke": null
+              }
+            }
+          ]
+        }
+    """.trimIndent()
+
+        val decoded = DocumentCodec.decode(legacyJson)
+
+        assertEquals(original, decoded)
+    }
+
+
+    @Test
+    fun `document rejects duplicate node IDs across nested groups`() {
+        val rectangle = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 20f,
+            height = 10f,
+        )
+
+        val duplicate = rectangle.copy(
+            x = 100f,
+        )
+
+        val document = EditorDocument(
+            members = listOf(
+                EditorGroup(
+                    members = listOf(rectangle),
+                ),
+                EditorGroup(
+                    members = listOf(duplicate),
+                ),
+            ),
+        )
+
+        val encoded = DocumentCodec.encode(document)
+
+        assertFailsWith<IllegalArgumentException> {
+            DocumentCodec.decode(encoded)
+        }
+    }
+
+    @Test
+    fun `document rejects duplicate group and node IDs`() {
+        val rectangle = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 20f,
+            height = 10f,
+        )
+
+        val group = EditorGroup(
+            id = rectangle.id,
+            members = listOf(rectangle),
+        )
+
+        val document = EditorDocument(
+            members = listOf(group),
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            DocumentCodec.decode(
+                DocumentCodec.encode(document)
+            )
+        }
+    }
+
+    @Test
+    fun `document accepts unique IDs throughout nested hierarchy`() {
+        val first = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 20f,
+            height = 10f,
+        )
+
+        val second = EditorEllipse(
+            x = 40f,
+            y = 0f,
+            width = 20f,
+            height = 10f,
+        )
+
+        val inner = EditorGroup(
+            members = listOf(first),
+        )
+
+        val outer = EditorGroup(
+            members = listOf(inner, second),
+        )
+
+        val original = EditorDocument(
+            members = listOf(outer),
+        )
+
+        val decoded = DocumentCodec.decode(
+            DocumentCodec.encode(original)
+        )
+
+        assertEquals(original, decoded)
+    }
+
+
+    @Test
+    fun `unsupported document versions are rejected`() {
+        val unsupported = DocumentDto(
+            version = 99,
+            members = listOf(),
+        )
+
+        val exception = assertFailsWith<IllegalArgumentException> {
+            unsupported.toDocument()
+        }
+
+        assertTrue(
+            exception.message?.contains("Unsupported document version") == true
+        )
+    }
+
+    @Test
+    fun `malformed group UUID is rejected`() {
+        val document = DocumentDto(
+            version = 2,
+            members = listOf(
+                GroupDto(
+                    id = "not-a-valid-uuid",
+                    members = listOf(),
+                )
+            ),
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            document.toDocument()
+        }
+    }
+
+    @Test
+    fun `malformed nested node UUID is rejected`() {
+        val rectangle = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 50f,
+        )
+
+        val document = EditorDocument(
+            members = listOf(
+                EditorGroup(
+                    members = listOf(rectangle),
+                )
+            )
+        )
+
+        val encoded = DocumentCodec.encode(document)
+
+        val corrupted = encoded.replace(
+            rectangle.id.toString(),
+            "invalid-node-id",
+        )
+
+        assertNotEquals(encoded, corrupted)
+
+        assertFailsWith<IllegalArgumentException> {
+            DocumentCodec.decode(corrupted)
+        }
+    }
+
+    @Test
+    fun `invalid group member structure is rejected`() {
+        val malformedJson = """
+        {
+          "version": 2,
+          "nodes": [
+            {
+              "type": "group",
+              "id": "123e4567-e89b-12d3-a456-426614174000",
+              "members": 42
+            }
+          ]
+        }
+    """.trimIndent()
+
+        assertFailsWith<SerializationException> {
+            DocumentCodec.decode(malformedJson)
+        }
+    }
+
+
+    @Test
+    fun `aligning groups preserves their internal arrangements`() {
+        val first = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 20f,
+            height = 10f,
+        )
+        val second = EditorEllipse(
+            x = 50f,
+            y = 40f,
+            width = 10f,
+            height = 10f,
+        )
+        val third = EditorRectangle(
+            x = 100f,
+            y = 60f,
+            width = 20f,
+            height = 10f,
+        )
+
+        val firstGroup = EditorGroup(
+            members = listOf(first, second),
+        )
+        val secondGroup = EditorGroup(
+            members = listOf(third),
+        )
+
+        val updated = listOf(firstGroup, secondGroup)
+            .alignedMemberNodes(
+                alignment = NodeAlignment.LEFT,
+                selectionBounds = { it.selectionBounds },
+            )
+
+        val updatedFirst = updated[0]
+        val updatedSecond = updated[1]
+        val updatedThird = updated[2]
+
+        assertEquals(10f, updatedFirst.x, 0.001f)
+        assertEquals(50f, updatedSecond.x, 0.001f)
+        assertEquals(10f, updatedThird.x, 0.001f)
+
+        // Internal relative spacing must be preserved.
+        assertEquals(
+            second.x - first.x,
+            updatedSecond.x - updatedFirst.x,
+            0.001f,
+        )
+    }
+
+    @Test
+    fun `aligning group and node treats each as one unit`() {
+        val first = EditorRectangle(
+            x = 20f,
+            y = 10f,
+            width = 20f,
+            height = 10f,
+        )
+        val second = EditorEllipse(
+            x = 60f,
+            y = 30f,
+            width = 20f,
+            height = 10f,
+        )
+        val standalone = EditorRectangle(
+            x = 120f,
+            y = 50f,
+            width = 20f,
+            height = 10f,
+        )
+
+        val group = EditorGroup(
+            members = listOf(first, second),
+        )
+
+        val updated = listOf(group, standalone)
+            .alignedMemberNodes(
+                alignment = NodeAlignment.LEFT,
+                selectionBounds = { it.selectionBounds },
+            )
+
+        assertEquals(20f, updated[0].x, 0.001f)
+        assertEquals(60f, updated[1].x, 0.001f)
+        assertEquals(20f, updated[2].x, 0.001f)
+    }
+
+    @Test
+    fun `aligning a single group does not alter its descendants`() {
+        val first = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 20f,
+            height = 10f,
+        )
+        val second = EditorRectangle(
+            x = 50f,
+            y = 40f,
+            width = 20f,
+            height = 10f,
+        )
+
+        val group = EditorGroup(
+            members = listOf(first, second),
+        )
+
+        val updated = listOf(group).alignedMemberNodes(
+            alignment = NodeAlignment.LEFT,
+            selectionBounds = { it.selectionBounds },
+        )
+
+        assertTrue(updated.isEmpty())
+    }
+
+
+    @Test
+    fun `horizontal distribution treats groups as single units`() {
+        val first = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 20f,
+            height = 10f,
+        )
+        val second = EditorRectangle(
+            x = 30f,
+            y = 0f,
+            width = 10f,
+            height = 10f,
+        )
+        val middle = EditorRectangle(
+            x = 80f,
+            y = 0f,
+            width = 20f,
+            height = 10f,
+        )
+        val last = EditorRectangle(
+            x = 200f,
+            y = 0f,
+            width = 50f,
+            height = 10f,
+        )
+
+        val group = EditorGroup(
+            members = listOf(first, second),
+        )
+
+        val updated = listOf(group, middle, last)
+            .distributedMemberNodes(
+                distribution = NodeDistribution.HORIZONTAL,
+                selectionBounds = { it.selectionBounds },
+            ).associateBy { it.id }
+
+        // Total span: 250
+        // Widths: 40 + 20 + 50 = 110
+        // Two gaps of 70 each.
+        assertEquals(0f, updated.getValue(first.id).x, 0.001f)
+        assertEquals(30f, updated.getValue(second.id).x, 0.001f)
+        assertEquals(110f, updated.getValue(middle.id).x, 0.001f)
+        assertEquals(200f, updated.getValue(last.id).x, 0.001f)
+
+        assertEquals(
+            second.x - first.x,
+            updated.getValue(second.id).x -
+                    updated.getValue(first.id).x,
+            0.001f,
+        )
+    }
+
+    @Test
+    fun `vertical distribution preserves nested group arrangement`() {
+        val first = EditorRectangle(
+            x = 10f,
+            y = 0f,
+            width = 20f,
+            height = 20f,
+        )
+        val second = EditorEllipse(
+            x = 30f,
+            y = 30f,
+            width = 10f,
+            height = 10f,
+        )
+        val middle = EditorRectangle(
+            x = 50f,
+            y = 70f,
+            width = 20f,
+            height = 20f,
+        )
+        val last = EditorRectangle(
+            x = 80f,
+            y = 200f,
+            width = 20f,
+            height = 40f,
+        )
+
+        val inner = EditorGroup(members = listOf(first, second))
+        val outer = EditorGroup(members = listOf(inner))
+
+        val updated = listOf(outer, middle, last)
+            .distributedMemberNodes(
+                distribution = NodeDistribution.VERTICAL,
+                selectionBounds = { it.selectionBounds },
+            ).associateBy { it.id }
+
+        // Span: 240
+        // Heights: 40 + 20 + 40 = 100
+        // Gap: 70
+        assertEquals(0f, updated.getValue(first.id).y, 0.001f)
+        assertEquals(30f, updated.getValue(second.id).y, 0.001f)
+        assertEquals(110f, updated.getValue(middle.id).y, 0.001f)
+        assertEquals(200f, updated.getValue(last.id).y, 0.001f)
+
+        assertEquals(
+            second.y - first.y,
+            updated.getValue(second.id).y -
+                    updated.getValue(first.id).y,
+            0.001f,
+        )
+    }
+
+    @Test
+    fun `distribution requires three selected logical members`() {
+        val group = EditorGroup(
+            members = listOf(
+                EditorRectangle(
+                    x = 0f,
+                    y = 0f,
+                    width = 10f,
+                    height = 10f,
+                ),
+                EditorRectangle(
+                    x = 30f,
+                    y = 0f,
+                    width = 10f,
+                    height = 10f,
+                ),
+                EditorRectangle(
+                    x = 60f,
+                    y = 0f,
+                    width = 10f,
+                    height = 10f,
+                ),
+            ),
+        )
+
+        assertTrue(
+            listOf(group).distributedMemberNodes(
+                distribution = NodeDistribution.HORIZONTAL,
+                selectionBounds = { it.selectionBounds },
+            ).isEmpty()
+        )
     }
 }

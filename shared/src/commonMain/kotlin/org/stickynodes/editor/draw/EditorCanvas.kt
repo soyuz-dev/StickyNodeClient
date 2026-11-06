@@ -336,34 +336,21 @@ fun EditorCanvas(
                             onHitSelection = currentOnHitSelection,
 
                             groupResizeHandleAt = { screenPoint ->
-                                val group = currentSelectedMembers
-                                    .singleOrNull() as? EditorGroup
-
-                                if (group == null) {
+                                if (currentSelectedMembers.none { it is EditorGroup }) {
                                     null
                                 } else {
-                                    val groupNodes = group.flattenedNodes()
-
-                                    val currentById = currentNodes.associateBy { it.id }
-
-                                    val displayedNodes = groupNodes.map { node ->
-                                        currentById[node.id] ?: node
+                                    val selectedNodes = currentNodes.filter { node ->
+                                        node.id in currentSelectedNodeIds
                                     }
-
-                                    val shapes = displayedNodes
-                                        .filterIsInstance<EditorShape>()
+                                    val shapes = selectedNodes.filterIsInstance<EditorShape>()
 
                                     if (
-                                        displayedNodes.isEmpty() ||
-                                        shapes.size != displayedNodes.size ||
-                                        displayedNodes.any {
-                                            it.id !in currentSelectedNodeIds
-                                        }
+                                        selectedNodes.isEmpty() ||
+                                        shapes.size != selectedNodes.size
                                     ) {
                                         null
                                     } else {
                                         val rotation = shapes.commonRotationOrNull()
-
                                         val bounds = if (rotation != null) {
                                             shapes.orientedGroupBoundsOrNull {
                                                 (it as EditorShape).bounds
@@ -397,8 +384,7 @@ fun EditorCanvas(
                                         padding = with(density) { 8.dp.toPx() },
                                         offset = with(density) { 28.dp.toPx() },
                                         useOrientedBounds =
-                                            currentSelectedMembers.size == 1 &&
-                                                    currentSelectedMembers.single() is EditorGroup,
+                                            currentSelectedMembers.any { it is EditorGroup },
                                     )
 
                                     val radius = with(density) { 12.dp.toPx() }
@@ -715,6 +701,35 @@ fun EditorCanvas(
                                     padding = 8.dp.toPx(),
                                 )
 
+                            if (selectedMembers.size > 1) {
+                                val nw = positions.getValue(ResizeHandle.NW)
+                                val ne = positions.getValue(ResizeHandle.NE)
+                                val se = positions.getValue(ResizeHandle.SE)
+                                val sw = positions.getValue(ResizeHandle.SW)
+
+                                val outline = Path().apply {
+                                    moveTo(nw.x, nw.y)
+                                    lineTo(ne.x, ne.y)
+                                    lineTo(se.x, se.y)
+                                    lineTo(sw.x, sw.y)
+                                    close()
+                                }
+
+                                drawPath(
+                                    path = outline,
+                                    color = selectionColor,
+                                    style = Stroke(
+                                        width = 2.dp.toPx(),
+                                        pathEffect = PathEffect.dashPathEffect(
+                                            floatArrayOf(
+                                                9.dp.toPx(),
+                                                5.dp.toPx(),
+                                            ),
+                                        ),
+                                    ),
+                                )
+                            }
+
                             for (position in positions.values) {
                                 val topLeft = position - Offset(
                                     handleSize / 2f,
@@ -740,9 +755,7 @@ fun EditorCanvas(
                     }
                 }
 
-                val useOrientedBounds =
-                    selectedMembers.size == 1 &&
-                            selectedMembers.single() is EditorGroup
+                val useOrientedBounds = selectedGroups.isNotEmpty()
 
                 val padding = 8.dp.toPx()
                 val handleOffset = 28.dp.toPx()

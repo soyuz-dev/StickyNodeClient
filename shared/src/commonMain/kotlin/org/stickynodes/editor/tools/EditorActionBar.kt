@@ -139,7 +139,7 @@ fun EditorActionBar(
 
             ActionBarButton(
                 icon = "select_all",
-                tooltip = "Select visible nodes",
+                tooltip = "Select visible members",
                 onClick = onSelectVisible
             )
         }

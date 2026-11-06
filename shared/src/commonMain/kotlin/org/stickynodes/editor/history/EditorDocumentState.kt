@@ -81,10 +81,10 @@ class EditorDocumentState(
         get() = history.canRedo
 
     val canAlignSelection: Boolean
-        get() = selectedNodes.size >= 2
+        get() = selectedMembers.size >= 2
 
     val canDistributeSelection: Boolean
-        get() = selectedNodes.size >= 3
+        get() = selectedMembers.size >= 3
 
     val canMatchShapeSizes: Boolean
         get() = selectedNodes.count { it is EditorShape } >= 2
@@ -118,19 +118,19 @@ class EditorDocumentState(
     private var nudgePreviewNodes by
     mutableStateOf<List<EditorNode>?>(null)
 
+
     fun alignSelectedNodes(
         alignment: NodeAlignment,
         selectionBounds: (EditorNode) -> Rect,
     ) {
         if (!canAlignSelection) return
 
-        val alignedNodes = nodes.alignNodes(
-            selectedIds = selectedNodeIds,
+        val alignedNodes = selectedMembers.alignedMemberNodes(
             alignment = alignment,
             selectionBounds = selectionBounds,
         )
 
-        if (alignedNodes != nodes) commitNodes(alignedNodes)
+        commitNodes(alignedNodes)
     }
 
     fun distributeSelectedNodes(
@@ -139,13 +139,12 @@ class EditorDocumentState(
     ) {
         if (!canDistributeSelection) return
 
-        val distributedNodes = nodes.distributeNodes(
-            selectedIds = selectedNodeIds,
+        val distributedNodes = selectedMembers.distributedMemberNodes(
             distribution = distribution,
-            selectionBounds = selectionBounds,
+            selectionBounds = selectionBounds
         )
 
-        if (distributedNodes != nodes) commitNodes(distributedNodes)
+        commitNodes(distributedNodes)
     }
 
     fun matchSelectedShapeSizes(sizing: NodeSizing) {

@@ -88,7 +88,7 @@ fun Rect.orientedRotationHandlePosition(
 }
 
 /**
- * Returns the screen-space rotation handle for the selected nodes.
+ * Returns the screen-space rotation handle for the selected members.
  *
  * Aligned shapes use an oriented bounding rectangle.
  * Mixed rotations, text, and paths use axis-aligned bounds.

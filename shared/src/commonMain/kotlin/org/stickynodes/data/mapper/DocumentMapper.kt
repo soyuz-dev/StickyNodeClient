@@ -1,8 +1,11 @@
+
 package org.stickynodes.data.mapper
 
 import androidx.compose.ui.geometry.Offset
 import org.stickynodes.data.model.DocumentDto
 import org.stickynodes.data.model.EllipseDto
+import org.stickynodes.data.model.GroupDto
+import org.stickynodes.data.model.MemberDto
 import org.stickynodes.data.model.NodeDto
 import org.stickynodes.data.model.PathDto
 import org.stickynodes.data.model.PointDto
@@ -11,6 +14,8 @@ import org.stickynodes.data.model.StrokeDto
 import org.stickynodes.data.model.StyleDto
 import org.stickynodes.data.model.TextDto
 import org.stickynodes.editor.draw.model.EditorEllipse
+import org.stickynodes.editor.draw.model.EditorGroup
+import org.stickynodes.editor.draw.model.EditorGroupMember
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorPath
 import org.stickynodes.editor.draw.model.EditorRectangle
@@ -24,16 +29,56 @@ import org.stickynodes.editor.history.EditorDocument
 import kotlin.uuid.Uuid
 
 fun EditorDocument.toDto(): DocumentDto = DocumentDto(
-    nodes = nodes.map { it.toDto() }
+    version = 2,
+    members = members.map { it.toDto() },
 )
 
 fun DocumentDto.toDocument(): EditorDocument {
-    require(version == 1) {
+    require(version == 1 || version == 2) {
         "Unsupported document version: $version"
     }
 
-    return EditorDocument(
-        members = nodes.map { it.toNode() },
+    val document = EditorDocument(
+        members = members.map { it.toMember() },
+    )
+
+    document.validateMemberIds()
+
+    return document
+}
+
+
+private fun EditorDocument.validateMemberIds() {
+    val encountered = mutableSetOf<Uuid>()
+
+    fun validate(member: EditorGroupMember) {
+        require(encountered.add(member.id)) {
+            "Duplicate member ID: ${member.id}"
+        }
+
+        if (member is EditorGroup) {
+            member.members.forEach(::validate)
+        }
+    }
+
+    members.forEach(::validate)
+}
+
+private fun EditorGroupMember.toDto(): MemberDto = when (this) {
+    is EditorNode -> toDto()
+
+    is EditorGroup -> GroupDto(
+        id = id.toString(),
+        members = members.map { it.toDto() },
+    )
+}
+
+private fun MemberDto.toMember(): EditorGroupMember = when (this) {
+    is NodeDto -> toNode()
+
+    is GroupDto -> EditorGroup(
+        id = Uuid.parse(id),
+        members = members.map { it.toMember() },
     )
 }
 
@@ -75,10 +120,9 @@ private fun EditorNode.toDto(): NodeDto = when (this) {
         style = style.toDto(),
         text = text,
         fontSize = fontSize,
-        rotation = rotation
+        rotation = rotation,
     )
 }
-
 
 private fun NodeDto.toNode(): EditorNode = when (this) {
     is RectangleDto -> EditorRectangle(
@@ -118,7 +162,7 @@ private fun NodeDto.toNode(): EditorNode = when (this) {
         style = style.toStyle(),
         text = text,
         fontSize = fontSize,
-        rotation = rotation
+        rotation = rotation,
     )
 }
 
