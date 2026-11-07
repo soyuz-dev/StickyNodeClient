@@ -335,24 +335,44 @@ fun EditorCanvas(
                                 )
                             },
                             onHitSelection = currentOnHitSelection,
-
                             groupResizeHandleAt = { screenPoint ->
-                                if (currentSelectedMembers.none { it is EditorGroup})
+                                if (currentSelectedMembers.none { it is EditorGroup }) {
                                     null
-                                else {
+                                } else {
                                     val selectedNodes = currentNodes.filter { node ->
-                                        node.id in selectedNodeIds
+                                        node.id in currentSelectedNodeIds
                                     }
 
-                                    val selection = selectedNodes.orientedShapeSelectionOrNull()
+                                    val shapes = selectedNodes.filterIsInstance<EditorShape>()
 
-                                    selection?.bounds?.orientedResizeHandleAt(
-                                        pointer = screenPoint,
-                                        rotation = selection.rotation,
-                                        camera = currentCamera,
-                                        padding = with(density) {8.dp.toPx()},
-                                        radius = with(density) {10.dp.toPx()}
-                                    )
+                                    if (
+                                        selectedNodes.isEmpty() ||
+                                        shapes.size != selectedNodes.size
+                                    ) {
+                                        null
+                                    } else {
+                                        val rotation = shapes.commonRotationOrNull()
+
+                                        val bounds = if (rotation != null) {
+                                            shapes.orientedGroupBoundsOrNull {
+                                                (it as EditorShape).bounds
+                                            }
+                                        } else {
+                                            null
+                                        }
+
+                                        if (rotation == null || bounds == null) {
+                                            null
+                                        } else {
+                                            bounds.orientedResizeHandleAt(
+                                                pointer = screenPoint,
+                                                rotation = rotation,
+                                                camera = currentCamera,
+                                                padding = with(density) { 8.dp.toPx() },
+                                                radius = with(density) { 10.dp.toPx() },
+                                            )
+                                        }
+                                    }
                                 }
                             },
                             groupRotationHandleAt = { screenPoint ->
