@@ -1,5 +1,6 @@
 package org.stickynodes.editor.draw
 
+import androidx.compose.animation.core.snap
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
@@ -59,6 +60,7 @@ import org.stickynodes.editor.tools.EditorTool
 import kotlin.uuid.Uuid
 import androidx.compose.ui.graphics.Path
 import org.stickynodes.editor.draw.geometry.ResizeHandle
+import org.stickynodes.editor.draw.geometry.SnapResult
 import org.stickynodes.editor.draw.geometry.orientedResizeHandleAt
 import org.stickynodes.editor.draw.geometry.orientedShapeSelectionOrNull
 
@@ -98,6 +100,10 @@ fun EditorCanvas(
 
     var marquee by remember {
         mutableStateOf<Rect?>(null)
+    }
+
+    var snapResult by remember {
+        mutableStateOf<SnapResult?>(null)
     }
 
     val selectionColor = Color(0xFF4492FF)
@@ -396,6 +402,7 @@ fun EditorCanvas(
                                             radius * radius
                                 }
                             },
+                            onSnapChanged = { snapResult = it }
                         )
                     }
 
@@ -506,6 +513,38 @@ fun EditorCanvas(
                             width = 1.5.dp.toPx() / camera.zoom,
                         ),
                     )
+                }
+
+                if (selectedTool == EditorTool.SELECT) {
+                    snapResult?.let { snap ->
+                        val guideColor = Color(0xFFDD4FAF)
+                        val guideWidth = 1.25.dp.toPx() / camera.zoom
+
+                        val visibleLeft = camera.position.x
+                        val visibleTop = camera.position.y
+                        val visibleRight =
+                            visibleLeft + size.width / camera.zoom
+                        val visibleBottom =
+                            visibleTop + size.height / camera.zoom
+
+                        snap.verticalGuide?.let { x ->
+                            drawLine(
+                                color = guideColor,
+                                start = Offset(x, visibleTop),
+                                end = Offset(x, visibleBottom),
+                                strokeWidth = guideWidth,
+                            )
+                        }
+
+                        snap.horizontalGuide?.let { y ->
+                            drawLine(
+                                color = guideColor,
+                                start = Offset(visibleLeft, y),
+                                end = Offset(visibleRight, y),
+                                strokeWidth = guideWidth,
+                            )
+                        }
+                    }
                 }
             }
         }

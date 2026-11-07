@@ -10,6 +10,9 @@ import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.isShiftPressed
 import org.stickynodes.editor.draw.geometry.ResizeHandle
+import org.stickynodes.editor.draw.geometry.SnapResult
+import org.stickynodes.editor.draw.geometry.snapTranslation
+import org.stickynodes.editor.draw.geometry.enclosingBounds
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorShape
 import org.stickynodes.editor.draw.model.EditorText
@@ -35,6 +38,7 @@ suspend fun PointerInputScope.detectNodeInteraction(
     onHitSelection: ((Uuid, Boolean) -> Set<Uuid>)? = null,
     groupRotationHandleAt: (Offset) -> Boolean = { false },
     groupResizeHandleAt: (Offset) -> ResizeHandle? = { null },
+    onSnapChanged: (SnapResult?) -> Unit = {},
 ) {
     var lastClickNodeId: Uuid? = null
     var lastClickPosition = Offset.Unspecified
@@ -236,12 +240,43 @@ suspend fun PointerInputScope.detectNodeInteraction(
                 node.id in startingSelection
             }
 
+// Capture the geometry at the beginning of the drag,
+// rather than recalculating it on every pointer event.
+            val movingBounds = originalNodes
+                .map(selectionBounds)
+                .enclosingBounds()
+
+            val targetBounds = nodes()
+                .filterNot { node ->
+                    node.id in startingSelection
+                }
+                .map(selectionBounds)
+
+// Keep snapping sensitivity approximately constant
+// regardless of the canvas zoom level.
+            val snapThreshold = 8f / zoom()
+
             val dragStarted = handleNodeDrag(
                 down = down,
                 nodes = originalNodes,
                 screenDeltaToWorld = screenDeltaToWorld,
                 onPreview = onPreview,
                 onCommit = onCommit,
+                adjustDelta = { proposedDelta ->
+                    if(
+                        movingBounds == null ||
+                        targetBounds.isEmpty()
+                    ) SnapResult(delta = proposedDelta)
+                    else {
+                        snapTranslation(
+                            movingBounds = movingBounds,
+                            targetBounds = targetBounds,
+                            proposedDelta = proposedDelta,
+                            threshold = snapThreshold,
+                        )
+                    }
+                },
+                onSnapChanged = onSnapChanged
             )
 
             if (dragStarted) {
@@ -286,6 +321,7 @@ suspend fun PointerInputScope.detectNodeInteraction(
             }
         }
     } finally {
+        onSnapChanged(null)
         onPreview(emptyList())
         onMarquee(null)
     }
