@@ -5513,4 +5513,703 @@ class SharedCommonTest {
 
         assertNull(selection)
     }
+
+
+    @Test
+    fun `member bounds include nested descendants`() {
+        val first = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 30f,
+            height = 40f,
+        )
+
+        val second = EditorEllipse(
+            x = 100f,
+            y = 80f,
+            width = 20f,
+            height = 30f,
+        )
+
+        val inner = EditorGroup(members = listOf(first))
+        val outer = EditorGroup(members = listOf(inner, second))
+
+        val bounds = outer.selectionBoundsOrNull {
+            it.selectionBounds
+        }
+
+        assertEquals(
+            Rect(
+                left = 10f,
+                top = 20f,
+                right = 120f,
+                bottom = 110f,
+            ),
+            bounds,
+        )
+    }
+
+    @Test
+    fun `empty group has no selection bounds`() {
+        val group = EditorGroup(members = listOf())
+
+        assertNull(
+            group.selectionBoundsOrNull {
+                it.selectionBounds
+            }
+        )
+    }
+
+    @Test
+    fun `single node member bounds equal node bounds`() {
+        val rectangle = EditorRectangle(
+            x = 20f,
+            y = 30f,
+            width = 40f,
+            height = 50f,
+        )
+
+        assertEquals(
+            rectangle.selectionBounds,
+            rectangle.selectionBoundsOrNull {
+                it.selectionBounds
+            },
+        )
+    }
+
+
+    @Test
+    fun `translating a nested group moves all descendants`() {
+        val first = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 30f,
+            height = 40f,
+        )
+
+        val second = EditorEllipse(
+            x = 50f,
+            y = 60f,
+            width = 20f,
+            height = 30f,
+        )
+
+        val inner = EditorGroup(members = listOf(first))
+        val outer = EditorGroup(members = listOf(inner, second))
+
+        val translated = outer.translatedNodesBy(
+            Offset(15f, -10f)
+        ).associateBy { it.id }
+
+        assertEquals(25f, translated.getValue(first.id).x, 0.001f)
+        assertEquals(10f, translated.getValue(first.id).y, 0.001f)
+
+        assertEquals(65f, translated.getValue(second.id).x, 0.001f)
+        assertEquals(50f, translated.getValue(second.id).y, 0.001f)
+    }
+
+    @Test
+    fun `zero translation preserves descendant nodes`() {
+        val first = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 10f,
+            height = 10f,
+        )
+        val second = EditorEllipse(
+            x = 30f,
+            y = 40f,
+            width = 10f,
+            height = 10f,
+        )
+
+        val group = EditorGroup(
+            members = listOf(first, second),
+        )
+
+        val translated = group.translatedNodesBy(Offset.Zero)
+
+        assertEquals(listOf(first, second), translated)
+    }
+
+    @Test
+    fun `member translation preserves relative positions and identities`() {
+        val first = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 10f,
+            height = 10f,
+        )
+        val second = EditorRectangle(
+            x = 60f,
+            y = 80f,
+            width = 10f,
+            height = 10f,
+        )
+
+        val group = EditorGroup(
+            members = listOf(first, second),
+        )
+
+        val translated = group.translatedNodesBy(
+            Offset(25f, 15f)
+        )
+
+        assertEquals(
+            second.x - first.x,
+            translated[1].x - translated[0].x,
+            0.001f,
+        )
+
+        assertEquals(
+            second.y - first.y,
+            translated[1].y - translated[0].y,
+            0.001f,
+        )
+
+        assertEquals(first.id, translated[0].id)
+        assertEquals(second.id, translated[1].id)
+    }
+
+
+    @Test
+    fun `duplicating nested member preserves parent group`() {
+        val first = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 30f,
+            height = 40f,
+        )
+
+        val second = EditorEllipse(
+            x = 60f,
+            y = 70f,
+            width = 20f,
+            height = 20f,
+        )
+
+        val group = EditorGroup(
+            members = listOf(first, second),
+        )
+
+        val state = EditorDocumentState(
+            initialDocument = EditorDocument(
+                members = listOf(group),
+            ),
+        )
+
+        state.selectMember(first.id)
+        state.duplicateSelectedMembers()
+
+        // The duplicate must remain inside its original group.
+        assertEquals(1, state.document.members.size)
+
+        val updatedGroup =
+            state.document.members.single() as EditorGroup
+
+        assertEquals(group.id, updatedGroup.id)
+        assertEquals(3, updatedGroup.members.size)
+
+        val duplicate = updatedGroup.members[1] as EditorRectangle
+
+        assertNotEquals(first.id, duplicate.id)
+        assertEquals(30f, duplicate.x, 0.001f)
+        assertEquals(40f, duplicate.y, 0.001f)
+
+        assertEquals(first, updatedGroup.members[0])
+        assertEquals(second, updatedGroup.members[2])
+
+        assertEquals(setOf(duplicate.id), state.selectedMemberIds)
+
+        state.undo()
+
+        assertEquals(
+            EditorDocument(members = listOf(group)),
+            state.document,
+        )
+    }
+
+
+    @Test
+    fun `duplicating multiple nested siblings preserves their order`() {
+        val first = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 10f,
+            height = 10f,
+        )
+        val second = EditorEllipse(
+            x = 50f,
+            y = 60f,
+            width = 10f,
+            height = 10f,
+        )
+        val third = EditorRectangle(
+            x = 100f,
+            y = 120f,
+            width = 10f,
+            height = 10f,
+        )
+
+        val inner = EditorGroup(
+            members = listOf(first, second, third),
+        )
+        val outer = EditorGroup(
+            members = listOf(inner),
+        )
+
+        val state = EditorDocumentState(
+            initialDocument = EditorDocument(
+                members = listOf(outer),
+            ),
+        )
+
+        state.selectMembers(setOf(first.id, third.id))
+        state.duplicateSelectedMembers()
+
+        val updatedOuter =
+            state.document.members.single() as EditorGroup
+
+        val updatedInner =
+            updatedOuter.members.single() as EditorGroup
+
+        assertEquals(5, updatedInner.members.size)
+
+        assertEquals(first, updatedInner.members[0])
+        assertEquals(second, updatedInner.members[2])
+        assertEquals(third, updatedInner.members[3])
+
+        val firstCopy = updatedInner.members[1] as EditorRectangle
+        val thirdCopy = updatedInner.members[4] as EditorRectangle
+
+        assertNotEquals(first.id, firstCopy.id)
+        assertNotEquals(third.id, thirdCopy.id)
+
+        assertEquals(30f, firstCopy.x, 0.001f)
+        assertEquals(40f, firstCopy.y, 0.001f)
+
+        assertEquals(120f, thirdCopy.x, 0.001f)
+        assertEquals(140f, thirdCopy.y, 0.001f)
+
+        assertEquals(
+            setOf(firstCopy.id, thirdCopy.id),
+            state.selectedMemberIds,
+        )
+
+        state.undo()
+
+        assertEquals(
+            EditorDocument(members = listOf(outer)),
+            state.document,
+        )
+    }
+
+
+    @Test
+    fun `copying nested member and pasting preserves source hierarchy`() {
+        val first = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 10f,
+            height = 10f,
+        )
+        val second = EditorEllipse(
+            x = 50f,
+            y = 60f,
+            width = 10f,
+            height = 10f,
+        )
+
+        val group = EditorGroup(
+            members = listOf(first, second),
+        )
+
+        val state = EditorDocumentState(
+            initialDocument = EditorDocument(
+                members = listOf(group),
+            ),
+        )
+
+        state.selectMember(first.id)
+        state.copySelectedMembers()
+        state.pasteMembers()
+
+        // Paste goes to the document root.
+        assertEquals(2, state.document.members.size)
+
+        // The original group is completely unchanged.
+        assertEquals(group, state.document.members[0])
+
+        val pasted = state.document.members[1] as EditorRectangle
+
+        assertNotEquals(first.id, pasted.id)
+        assertEquals(first.x + 20f, pasted.x, 0.001f)
+        assertEquals(first.y + 20f, pasted.y, 0.001f)
+
+        assertEquals(setOf(pasted.id), state.selectedMemberIds)
+
+        state.undo()
+
+        assertEquals(
+            EditorDocument(members = listOf(group)),
+            state.document,
+        )
+    }
+
+    @Test
+    fun `pasting nested group preserves hierarchy and regenerates IDs`() {
+        val rectangle = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 10f,
+            height = 10f,
+        )
+
+        val ellipse = EditorEllipse(
+            x = 50f,
+            y = 60f,
+            width = 10f,
+            height = 10f,
+        )
+
+        val inner = EditorGroup(
+            members = listOf(rectangle, ellipse),
+        )
+
+        val outer = EditorGroup(
+            members = listOf(inner),
+        )
+
+        val state = EditorDocumentState(
+            initialDocument = EditorDocument(
+                members = listOf(outer),
+            ),
+        )
+
+        state.selectMember(inner.id)
+        state.copySelectedMembers()
+        state.pasteMembers()
+
+        assertEquals(2, state.document.members.size)
+        assertEquals(outer, state.document.members[0])
+
+        val pasted = state.document.members[1] as EditorGroup
+
+        assertNotEquals(inner.id, pasted.id)
+
+        val pastedRectangle = pasted.members[0] as EditorRectangle
+        val pastedEllipse = pasted.members[1] as EditorEllipse
+
+        assertNotEquals(rectangle.id, pastedRectangle.id)
+        assertNotEquals(ellipse.id, pastedEllipse.id)
+
+        assertEquals(30f, pastedRectangle.x, 0.001f)
+        assertEquals(40f, pastedRectangle.y, 0.001f)
+        assertEquals(70f, pastedEllipse.x, 0.001f)
+        assertEquals(80f, pastedEllipse.y, 0.001f)
+
+        assertEquals(setOf(pasted.id), state.selectedMemberIds)
+    }
+
+    @Test
+    fun `repeated pastes use incremental offsets and fresh IDs`() {
+        val original = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 10f,
+            height = 10f,
+        )
+
+        val state = EditorDocumentState(
+            initialDocument = EditorDocument(
+                members = listOf(original),
+            ),
+        )
+
+        state.selectMember(original.id)
+        state.copySelectedMembers()
+
+        state.pasteMembers()
+        state.pasteMembers()
+        state.pasteMembers()
+
+        assertEquals(4, state.document.members.size)
+
+        val copies = state.document.members
+            .drop(1)
+            .map { it as EditorRectangle }
+
+        assertEquals(
+            listOf(30f, 50f, 70f),
+            copies.map { it.x },
+        )
+
+        assertEquals(
+            listOf(40f, 60f, 80f),
+            copies.map { it.y },
+        )
+
+        assertEquals(3, copies.map { it.id }.toSet().size)
+        assertTrue(copies.none { it.id == original.id })
+
+        state.undo()
+
+        assertEquals(3, state.document.members.size)
+    }
+
+
+    @Test
+    fun `selecting nodes from different groups selects their root groups`() {
+        val first = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 10f,
+            height = 10f,
+        )
+        val second = EditorEllipse(
+            x = 10f,
+            y = 20f,
+            width = 10f,
+            height = 10f,
+        )
+
+        val firstGroup = EditorGroup(members = listOf(first))
+        val secondGroup = EditorGroup(members = listOf(second))
+
+        val state = EditorDocumentState(
+            initialDocument = EditorDocument(
+                members = listOf(firstGroup, secondGroup),
+            ),
+        )
+
+        state.selectMembers(setOf(first.id, second.id))
+
+        assertEquals(
+            setOf(firstGroup.id, secondGroup.id),
+            state.selectedMemberIds,
+        )
+
+        assertEquals(
+            setOf(first.id, second.id),
+            state.selectedNodeIds,
+        )
+    }
+
+    @Test
+    fun `selecting nested siblings preserves their selection depth`() {
+        val first = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 10f,
+            height = 10f,
+        )
+        val second = EditorEllipse(
+            x = 10f,
+            y = 20f,
+            width = 10f,
+            height = 10f,
+        )
+
+        val inner = EditorGroup(
+            members = listOf(first, second),
+        )
+        val outer = EditorGroup(
+            members = listOf(inner),
+        )
+
+        val state = EditorDocumentState(
+            initialDocument = EditorDocument(
+                members = listOf(outer),
+            ),
+        )
+
+        state.selectMembers(setOf(first.id, second.id))
+
+        assertEquals(
+            setOf(first.id, second.id),
+            state.selectedMemberIds,
+        )
+    }
+
+
+    @Test
+    fun `grouping cross hierarchy selection preserves original groups`() {
+        val first = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 10f,
+            height = 10f
+        )
+        val second = EditorEllipse(
+            x = 10f,
+            y = 20f,
+            width = 10f,
+            height = 10f,
+        )
+
+        val firstGroup = EditorGroup(members = listOf(first))
+        val secondGroup = EditorGroup(members = listOf(second))
+
+        val original = EditorDocument(
+            members = listOf(firstGroup, secondGroup),
+        )
+
+        val state = EditorDocumentState(
+            initialDocument = original,
+        )
+
+        state.selectMembers(setOf(first.id, second.id))
+
+        assertTrue(state.groupSelectedMembers())
+
+        val combined = state.document.members.single() as EditorGroup
+
+        assertEquals(
+            listOf(firstGroup, secondGroup),
+            combined.members,
+        )
+
+        assertEquals(
+            setOf(combined.id),
+            state.selectedMemberIds,
+        )
+
+        state.undo()
+
+        assertEquals(original, state.document)
+    }
+
+    @Test
+    fun `nudging a selected nested group preserves hierarchy`() {
+        val first = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 10f,
+            height = 10f,
+        )
+        val second = EditorEllipse(
+            x = 50f,
+            y = 60f,
+            width = 10f,
+            height = 10f,
+        )
+
+        val inner = EditorGroup(members = listOf(first))
+        val outer = EditorGroup(members = listOf(inner, second))
+
+        val original = EditorDocument(
+            members = listOf(outer),
+        )
+
+        val state = EditorDocumentState(original)
+
+        state.selectMember(outer.id)
+        state.beginNudge()
+        state.updateNudge(Offset(15f, -10f))
+
+        assertEquals(original, state.document)
+
+        state.finishNudge()
+
+        val updatedOuter = state.document.members.single() as EditorGroup
+        val updatedInner = updatedOuter.members[0] as EditorGroup
+
+        assertEquals(outer.id, updatedOuter.id)
+        assertEquals(inner.id, updatedInner.id)
+
+        val movedFirst = updatedInner.members.single() as EditorRectangle
+        val movedSecond = updatedOuter.members[1] as EditorEllipse
+
+        assertEquals(25f, movedFirst.x, 0.001f)
+        assertEquals(10f, movedFirst.y, 0.001f)
+        assertEquals(65f, movedSecond.x, 0.001f)
+        assertEquals(50f, movedSecond.y, 0.001f)
+
+        state.undo()
+        assertEquals(original, state.document)
+
+        state.redo()
+        assertEquals(updatedOuter, state.document.members.single())
+    }
+
+    @Test
+    fun `changing selection cancels an active nudge`() {
+        val first = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 10f,
+            height = 10f,
+        )
+        val second = EditorRectangle(
+            x = 100f,
+            y = 200f,
+            width = 10f,
+            height = 10f,
+        )
+
+        val original = EditorDocument(
+            members = listOf(first, second),
+        )
+
+        val state = EditorDocumentState(original)
+
+        state.selectMember(first.id)
+        state.beginNudge()
+        state.updateNudge(Offset(50f, 30f))
+
+        assertNotEquals(state.nodes, state.displayNodes)
+
+        state.selectMember(second.id)
+
+        assertEquals(original, state.document)
+        assertEquals(state.nodes, state.displayNodes)
+        assertEquals(setOf(second.id), state.selectedMemberIds)
+
+        // A late key-release must not commit the previous preview.
+        state.finishNudge()
+
+        assertEquals(original, state.document)
+        assertFalse(state.canUndo)
+    }
+
+    @Test
+    fun `opening document cancels pending nudge`() {
+        val first = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 10f,
+            height = 10f,
+        )
+
+        val state = EditorDocumentState(
+            EditorDocument(members = listOf(first)),
+        )
+
+        state.selectMember(first.id)
+        state.beginNudge()
+        state.updateNudge(Offset(100f, 100f))
+
+        val replacement = EditorRectangle(
+            x = 500f,
+            y = 600f,
+            width = 10f,
+            height = 10f,
+        )
+
+        val replacementDocument = EditorDocument(
+            members = listOf(replacement),
+        )
+
+        state.open(replacementDocument)
+
+        assertEquals(replacementDocument, state.document)
+        assertEquals(state.nodes, state.displayNodes)
+        assertTrue(state.selectedMemberIds.isEmpty())
+
+        // Simulate a late key-release from the old document.
+        state.finishNudge()
+
+        assertEquals(replacementDocument, state.document)
+        assertFalse(state.canUndo)
+    }
 }

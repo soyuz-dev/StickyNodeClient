@@ -12,11 +12,7 @@ fun List<EditorGroupMember>.alignedMemberNodes(
     if (size < 2) return listOf()
 
     val entries = map { member ->
-        val nodes = member.flattenedNodes()
-
-        val bounds = nodes
-            .map(selectionBounds)
-            .enclosingBounds()
+        val bounds = member.selectionBoundsOrNull(selectionBounds)
             ?: return listOf()
 
         member to bounds
@@ -55,13 +51,7 @@ fun List<EditorGroupMember>.alignedMemberNodes(
                 Offset(0f, bottom - bounds.bottom)
         }
 
-        for (node in member.flattenedNodes()) {
-            updated += if (delta == Offset.Zero) {
-                node
-            } else {
-                node.translatedBy(delta)
-            }
-        }
+        updated.addAll(member.translatedNodesBy(delta))
     }
 
     return updated

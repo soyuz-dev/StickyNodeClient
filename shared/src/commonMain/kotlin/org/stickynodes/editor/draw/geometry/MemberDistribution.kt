@@ -15,9 +15,7 @@ fun List<EditorGroupMember>.distributedMemberNodes(
     val horizontal = distribution == NodeDistribution.HORIZONTAL
 
     val ordered = map { member ->
-        val bounds = member.flattenedNodes()
-            .map(selectionBounds)
-            .enclosingBounds()
+        val bounds = member.selectionBoundsOrNull(selectionBounds)
             ?: return listOf()
 
         member to bounds
@@ -64,13 +62,7 @@ fun List<EditorGroupMember>.distributedMemberNodes(
             Offset(0f, delta)
         }
 
-        for (node in member.flattenedNodes()) {
-            updated += if (translation == Offset.Zero) {
-                node
-            } else {
-                node.translatedBy(translation)
-            }
-        }
+        updated.addAll(member.translatedNodesBy(translation))
 
         cursor += if (horizontal) {
             bounds.width + gap

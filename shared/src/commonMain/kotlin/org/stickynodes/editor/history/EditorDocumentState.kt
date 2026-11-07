@@ -118,7 +118,6 @@ class EditorDocumentState(
     private var nudgePreviewNodes by
     mutableStateOf<List<EditorNode>?>(null)
 
-
     fun alignSelectedNodes(
         alignment: NodeAlignment,
         selectionBounds: (EditorNode) -> Rect,
@@ -443,24 +442,20 @@ class EditorDocumentState(
         selectMembers(selectedMemberIds)
     }
 
+
     fun duplicateSelectedMembers(
         offset: Offset = Offset(20f, 20f),
     ) {
         if (selectedMemberIds.isEmpty()) return
 
-        val originals = document.members.selectedSiblings(
-            selectedMemberIds
+        val result = document.members.duplicateSelectedSiblings(
+            selectedIds = selectedMemberIds,
+            offset = offset,
         ) ?: return
 
-        val duplicates = originals.map { member ->
-            member.duplicateMember(offset)
-        }
+        commitMembers(result.members)
 
-        commitMembers(document.members + duplicates)
-
-        selectMembers(
-            duplicates.mapTo(mutableSetOf()) { it.id }
-        )
+        selectMembers(result.duplicateIds)
     }
 
     fun duplicateSelectedNodes(
@@ -587,227 +582,6 @@ class EditorDocumentState(
     fun sendSelectionToBack() {
         commitMembers(reorderedMembers(ReorderOperation.BACK))
     }
-}
-
-private enum class ReorderOperation {
-    FORWARD,
-    BACKWARD,
-    FRONT,
-    BACK,
-}
-
-private data class GroupingResult(
-    val members: List<EditorGroupMember>,
-    val groupId: Uuid,
-)
-
-private fun List<EditorGroupMember>.removeMembers(
-    selectedIds: Set<Uuid>,
-): List<EditorGroupMember> {
-    val result = mutableListOf<EditorGroupMember>()
-
-    for (member in this) {
-        if (member.id in selectedIds) continue
-
-        when (member) {
-            is EditorNode -> result.add(member)
-
-            is EditorGroup -> {
-                val remaining = member.members.removeMembers(
-                    selectedIds
-                )
-
-                if (remaining.isNotEmpty()) {
-                    result.add(
-                        if (remaining == member.members) member
-                        else member.copy(members = remaining)
-                    )
-                }
-            }
-        }
-    }
-
-    return result
-}
-
-private fun List<EditorGroupMember>.selectedSiblings(
-    selectedIds: Set<Uuid>,
-): List<EditorGroupMember>? {
-    if (selectedIds.isEmpty()) return null
-
-    val selected = filter { it.id in selectedIds }
-
-    if (selected.size == selectedIds.size) {
-        return selected
-    }
-
-    for (member in this) {
-        if (member !is EditorGroup) continue
-
-        val children = member.members.selectedSiblings(
-            selectedIds
-        )
-
-        if (children != null) return children
-    }
-
-    return null
-}
-
-private fun EditorGroupMember.duplicateMember(
-    offset: Offset,
-): EditorGroupMember = when (this) {
-    is EditorNode -> duplicatedBy(offset)
-
-    is EditorGroup -> EditorGroup(
-        members = members.map { member ->
-            member.duplicateMember(offset)
-        }
-    )
-}
-
-private fun List<EditorGroupMember>.reorderMembers(
-    selectedIds: Set<Uuid>,
-    operation: ReorderOperation,
-): List<EditorGroupMember> {
-    val reordered = map { member ->
-        if (member !is EditorGroup) {
-            member
-        } else {
-            val children = member.members.reorderMembers(
-                selectedIds,
-                operation,
-            )
-
-            if (children == member.members) member
-            else member.copy(members = children)
-        }
-    }.toMutableList()
-
-    fun isSelected(member: EditorGroupMember): Boolean =
-        member.id in selectedIds
-
-    when (operation) {
-        ReorderOperation.FRONT -> {
-            val selected = reordered.filter(::isSelected)
-            reordered.removeAll(selected)
-            reordered.addAll(selected)
-        }
-
-        ReorderOperation.BACK -> {
-            val selected = reordered.filter(::isSelected)
-            reordered.removeAll(selected)
-            reordered.addAll(0, selected)
-        }
-
-        ReorderOperation.FORWARD -> {
-            for (index in reordered.lastIndex - 1 downTo 0) {
-                if (
-                    isSelected(reordered[index]) &&
-                    !isSelected(reordered[index + 1])
-                ) {
-                    val current = reordered[index]
-                    reordered[index] = reordered[index + 1]
-                    reordered[index + 1] = current
-                }
-            }
-        }
-
-        ReorderOperation.BACKWARD -> {
-            for (index in 1..reordered.lastIndex) {
-                if (
-                    isSelected(reordered[index]) &&
-                    !isSelected(reordered[index - 1])
-                ) {
-                    val current = reordered[index]
-                    reordered[index] = reordered[index - 1]
-                    reordered[index - 1] = current
-                }
-            }
-        }
-    }
-
-    return reordered
-}
-
-private fun List<EditorGroupMember>.groupMembers(
-    selectedIds: Set<Uuid>,
-): GroupingResult? {
-    val selectedIndices = indices.filter { index ->
-        this[index].id in selectedIds
-    }
-
-    if (
-        selectedIndices.size == selectedIds.size &&
-        selectedIndices.size >= 2
-    ) {
-        val group = EditorGroup(
-            members = selectedIndices.map { this[it] }
-        )
-
-        val insertIndex = selectedIndices.last()
-
-        val updated = buildList {
-            for (index in this@groupMembers.indices) {
-                if (index == insertIndex) add(group)
-
-                if (index !in selectedIndices) {
-                    add(this@groupMembers[index])
-                }
-            }
-        }
-
-        return GroupingResult(updated, group.id)
-    }
-
-    for ((index, member) in withIndex()) {
-        if (member !is EditorGroup) continue
-
-        val result = member.members.groupMembers(
-            selectedIds
-        ) ?: continue
-
-        val updated = mapIndexed { i, current ->
-            if (i == index) {
-                member.copy(members = result.members)
-            } else {
-                current
-            }
-        }
-
-        return GroupingResult(updated, result.groupId)
-    }
-
-    return null
-}
-
-private fun List<EditorGroupMember>.ungroup(
-    id: Uuid,
-): List<EditorGroupMember>? {
-    for ((index, member) in withIndex()) {
-        if (member !is EditorGroup) continue
-
-        if (member.id == id) {
-            return buildList {
-                addAll(this@ungroup.take(index))
-                addAll(member.members)
-                addAll(this@ungroup.drop(index + 1))
-            }
-        }
-
-        val updatedChildren = member.members.ungroup(id)
-            ?: continue
-
-        return mapIndexed { i, current ->
-            if (i == index) {
-                member.copy(members = updatedChildren)
-            } else {
-                current
-            }
-        }
-    }
-
-    return null
 }
 
 @Composable
