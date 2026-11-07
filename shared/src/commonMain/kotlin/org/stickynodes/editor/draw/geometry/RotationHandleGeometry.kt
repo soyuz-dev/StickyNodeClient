@@ -57,7 +57,7 @@ fun EditorText.rotationHandlePosition(
  * Calculates a rotation handle extending outward from the
  * north edge of an oriented selection rectangle.
  *
- * The rectangle is expressed in the group's local coordinates.
+ * The rectangle is expressed in local coordinates.
  * Padding and offset are expressed in screen pixels.
  */
 fun Rect.orientedRotationHandlePosition(
@@ -88,10 +88,10 @@ fun Rect.orientedRotationHandlePosition(
 }
 
 /**
- * Returns the screen-space rotation handle for the selected members.
+ * Returns the screen-space rotation handle for the selected nodes.
  *
  * Aligned shapes use an oriented bounding rectangle.
- * Mixed rotations, text, and paths use axis-aligned bounds.
+ * Other selections fall back to axis-aligned visual bounds.
  */
 fun List<EditorNode>.groupRotationHandlePosition(
     selectedNodeIds: Set<Uuid>,
@@ -105,29 +105,21 @@ fun List<EditorNode>.groupRotationHandlePosition(
     val selected = filter { it.id in selectedNodeIds }
     if (selected.isEmpty()) return null
 
-    val shapes = selected.filterIsInstance<EditorShape>()
+    if (useOrientedBounds) {
+        val oriented = selected.orientedShapeSelectionOrNull()
 
-    if (useOrientedBounds && shapes.size == selected.size) {
-        val rotation = shapes.commonRotationOrNull()
-
-        if (rotation != null) {
-            val bounds = shapes.orientedGroupBoundsOrNull {
-                (it as EditorShape).bounds
-            }
-
-            if (bounds != null) {
-                return bounds.orientedRotationHandlePosition(
-                    rotation = rotation,
-                    camera = camera,
-                    padding = padding,
-                    offset = offset,
-                )
-            }
+        if (oriented != null) {
+            return oriented.bounds.orientedRotationHandlePosition(
+                rotation = oriented.rotation,
+                camera = camera,
+                padding = padding,
+                offset = offset,
+            )
         }
     }
 
-    val bounds = selected.map {
-        it.measuredSelectionBounds(
+    val bounds = selected.map { node ->
+        node.measuredSelectionBounds(
             textMeasurer = textMeasurer,
             textStyle = textStyle,
         )
