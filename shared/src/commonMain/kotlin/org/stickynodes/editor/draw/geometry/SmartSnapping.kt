@@ -5,17 +5,24 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import kotlin.math.abs
 
+data class SnapGuideSpan(
+    val start: Float,
+    val end: Float,
+)
+
 data class SnapResult(
     val delta: Offset,
     val verticalGuide: Float? = null,
     val horizontalGuide: Float? = null,
+    val verticalSpan: SnapGuideSpan? = null,
+    val horizontalSpan: SnapGuideSpan? = null,
 )
 
 /**
- * Adjusts a proposed drag displacement so the moving bounds
- * align with nearby target bounds.
+ * Adjusts a proposed translation to align the moving
+ * bounds with nearby target bounds.
  *
- * All coordinates and thresholds are in world space.
+ * Coordinates and threshold are in world space.
  */
 fun snapTranslation(
     movingBounds: Rect,
@@ -50,6 +57,9 @@ fun snapTranslation(
     var verticalGuide: Float? = null
     var horizontalGuide: Float? = null
 
+    var verticalTarget: Rect? = null
+    var horizontalTarget: Rect? = null
+
     for (target in targetBounds) {
         val targetX = listOf(
             target.left,
@@ -68,15 +78,17 @@ fun snapTranslation(
                 val difference = candidate - moving
                 val distance = abs(difference)
 
-                if (distance <= bestXDistance) {
-                    if (
-                        verticalGuide == null ||
-                        distance < bestXDistance
-                    ) {
-                        bestXDistance = distance
-                        correctionX = difference
-                        verticalGuide = candidate
-                    }
+                if (
+                    distance <= bestXDistance &&
+                    (
+                            verticalGuide == null ||
+                                    distance < bestXDistance
+                            )
+                ) {
+                    bestXDistance = distance
+                    correctionX = difference
+                    verticalGuide = candidate
+                    verticalTarget = target
                 }
             }
         }
@@ -86,18 +98,38 @@ fun snapTranslation(
                 val difference = candidate - moving
                 val distance = abs(difference)
 
-                if (distance <= bestYDistance) {
-                    if (
-                        horizontalGuide == null ||
-                        distance < bestYDistance
-                    ) {
-                        bestYDistance = distance
-                        correctionY = difference
-                        horizontalGuide = candidate
-                    }
+                if (
+                    distance <= bestYDistance &&
+                    (
+                            horizontalGuide == null ||
+                                    distance < bestYDistance
+                            )
+                ) {
+                    bestYDistance = distance
+                    correctionY = difference
+                    horizontalGuide = candidate
+                    horizontalTarget = target
                 }
             }
         }
+    }
+
+    val snapped = moved.translate(
+        Offset(correctionX, correctionY)
+    )
+
+    val verticalSpan = verticalTarget?.let { target ->
+        SnapGuideSpan(
+            start = minOf(snapped.top, target.top),
+            end = maxOf(snapped.bottom, target.bottom),
+        )
+    }
+
+    val horizontalSpan = horizontalTarget?.let { target ->
+        SnapGuideSpan(
+            start = minOf(snapped.left, target.left),
+            end = maxOf(snapped.right, target.right),
+        )
     }
 
     return SnapResult(
@@ -107,5 +139,7 @@ fun snapTranslation(
         ),
         verticalGuide = verticalGuide,
         horizontalGuide = horizontalGuide,
+        verticalSpan = verticalSpan,
+        horizontalSpan = horizontalSpan,
     )
 }

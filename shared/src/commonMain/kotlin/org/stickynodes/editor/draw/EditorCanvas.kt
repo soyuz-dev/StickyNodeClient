@@ -520,29 +520,26 @@ fun EditorCanvas(
                         val guideColor = Color(0xFFDD4FAF)
                         val guideWidth = 1.25.dp.toPx() / camera.zoom
 
-                        val visibleLeft = camera.position.x
-                        val visibleTop = camera.position.y
-                        val visibleRight =
-                            visibleLeft + size.width / camera.zoom
-                        val visibleBottom =
-                            visibleTop + size.height / camera.zoom
-
                         snap.verticalGuide?.let { x ->
-                            drawLine(
-                                color = guideColor,
-                                start = Offset(x, visibleTop),
-                                end = Offset(x, visibleBottom),
-                                strokeWidth = guideWidth,
-                            )
+                            snap.verticalSpan?.let { span ->
+                                drawLine(
+                                    color = guideColor,
+                                    start = Offset(x, span.start),
+                                    end = Offset(x, span.end),
+                                    strokeWidth = guideWidth,
+                                )
+                            }
                         }
 
                         snap.horizontalGuide?.let { y ->
-                            drawLine(
-                                color = guideColor,
-                                start = Offset(visibleLeft, y),
-                                end = Offset(visibleRight, y),
-                                strokeWidth = guideWidth,
-                            )
+                            snap.horizontalSpan?.let { span ->
+                                drawLine(
+                                    color = guideColor,
+                                    start = Offset(span.start, y),
+                                    end = Offset(span.end, y),
+                                    strokeWidth = guideWidth,
+                                )
+                            }
                         }
                     }
                 }
