@@ -22,6 +22,7 @@ import org.stickynodes.editor.draw.model.*
 import org.stickynodes.editor.draw.style.*
 import org.stickynodes.editor.history.*
 import org.stickynodes.editor.*
+import org.stickynodes.editor.draw.geometry.connector.routeConnector
 import org.stickynodes.editor.draw.geometry.path.PathSampler
 import org.stickynodes.editor.draw.geometry.path.bezierSegments
 import org.stickynodes.editor.draw.geometry.path.containsStroke
@@ -74,6 +75,7 @@ import org.stickynodes.editor.history.sendToBack
 import org.stickynodes.editor.draw.geometry.transform.translatedNodesBy
 import org.stickynodes.editor.tools.toTransformString
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -6446,4 +6448,64 @@ class SharedCommonTest {
             event.editorShortcut(),
         )
     }
+
+
+        @Test
+        fun `horizontal connection produces a straight route`() {
+            val start = Offset(0f, 0f)
+            val end = Offset(100f, 0f)
+
+            assertEquals(
+                listOf(start, end),
+                routeConnector(start, end).points,
+            )
+        }
+
+        @Test
+        fun `diagonal at 45 degrees produces a straight route`() {
+            val start = Offset(0f, 0f)
+            val end = Offset(100f, 100f)
+
+            assertEquals(
+                listOf(start, end),
+                routeConnector(start, end).points,
+            )
+        }
+
+        @Test
+        fun `non aligned endpoints produce a corner`() {
+            val start = Offset(0f, 0f)
+            val end = Offset(100f, 25f)
+
+            val route = routeConnector(start, end)
+
+            assertEquals(3, route.points.size)
+            assertEquals(start, route.points.first())
+            assertEquals(end, route.points.last())
+
+            val corner = route.points[1]
+
+            assertTrue(abs(corner.y) < 0.001f)
+            assertTrue(abs((end.x - corner.x) - (end.y - corner.y)) < 0.001f)
+        }
+
+        @Test
+        fun `coincident endpoints produce a degenerate straight route`() {
+            val point = Offset(42f, 17f)
+
+            assertEquals(
+                listOf(point, point),
+                routeConnector(point, point).points,
+            )
+        }
+
+        @Test
+        fun `non finite endpoints are rejected`() {
+            assertFailsWith<IllegalArgumentException> {
+                routeConnector(
+                    Offset(Float.NaN, 0f),
+                    Offset(100f, 100f),
+                )
+            }
+        }
 }
