@@ -21,6 +21,7 @@ import org.stickynodes.editor.draw.geometry.transform.combinedBounds
 import org.stickynodes.editor.draw.geometry.transform.positionedAt
 import org.stickynodes.editor.draw.geometry.transform.resizedTogether
 import org.stickynodes.editor.draw.geometry.transform.rotatedTogether
+import org.stickynodes.editor.draw.geometry.transform.translatedBy
 import org.stickynodes.editor.draw.model.*
 import org.stickynodes.editor.draw.style.NodeStyle
 import kotlin.uuid.Uuid

@@ -2,7 +2,7 @@ package org.stickynodes.editor.draw.geometry.selection
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import org.stickynodes.editor.draw.geometry.translatedBy
+import org.stickynodes.editor.draw.geometry.transform.translatedBy
 import org.stickynodes.editor.draw.model.EditorNode
 import kotlin.uuid.Uuid
 

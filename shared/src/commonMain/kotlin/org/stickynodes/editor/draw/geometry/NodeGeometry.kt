@@ -141,29 +141,6 @@ fun EditorNode.contains(
     else -> contains(point, zoom)
 }
 
-fun EditorNode.translatedBy(delta: Offset): EditorNode =
-    when (this) {
-        is EditorRectangle -> copy(
-            x = x + delta.x,
-            y = y + delta.y,
-        )
-
-        is EditorEllipse -> copy(
-            x = x + delta.x,
-            y = y + delta.y,
-        )
-
-        is EditorPath -> copy(
-            x = x + delta.x,
-            y = y + delta.y,
-        )
-
-        is EditorText -> copy(
-            x = x + delta.x,
-            y = y + delta.y,
-        )
-    }
-
 fun EditorNode.withStyle(style: NodeStyle): EditorNode =
     when (this) {
         is EditorRectangle -> copy(style = style)

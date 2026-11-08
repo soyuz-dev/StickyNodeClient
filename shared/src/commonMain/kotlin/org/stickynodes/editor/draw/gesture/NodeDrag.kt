@@ -7,7 +7,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerInputChange
 import org.stickynodes.editor.draw.geometry.snapping.SnapResult
-import org.stickynodes.editor.draw.geometry.translatedBy
+import org.stickynodes.editor.draw.geometry.transform.translatedBy
 import org.stickynodes.editor.draw.model.EditorNode
 
 internal suspend fun AwaitPointerEventScope.handleNodeDrag(

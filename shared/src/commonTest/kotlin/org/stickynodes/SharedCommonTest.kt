@@ -64,6 +64,7 @@ import org.stickynodes.editor.draw.geometry.transform.rotatedAround
 import org.stickynodes.editor.draw.geometry.transform.rotatedNodesTogether
 import org.stickynodes.editor.draw.geometry.transform.rotatedTo
 import org.stickynodes.editor.draw.geometry.transform.rotationHandleScreenPosition
+import org.stickynodes.editor.draw.geometry.transform.translatedBy
 import org.stickynodes.editor.history.sendBackward
 import org.stickynodes.editor.history.sendToBack
 import org.stickynodes.editor.draw.geometry.transform.translatedNodesBy

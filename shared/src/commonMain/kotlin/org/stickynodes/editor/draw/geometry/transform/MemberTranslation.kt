@@ -1,7 +1,6 @@
 package org.stickynodes.editor.draw.geometry.transform
 
 import androidx.compose.ui.geometry.Offset
-import org.stickynodes.editor.draw.geometry.translatedBy
 import org.stickynodes.editor.draw.model.EditorGroupMember
 import org.stickynodes.editor.draw.model.EditorNode
 
