@@ -61,6 +61,7 @@ import kotlin.uuid.Uuid
 import androidx.compose.ui.graphics.Path
 import org.stickynodes.editor.draw.geometry.ResizeHandle
 import org.stickynodes.editor.draw.geometry.SnapResult
+import org.stickynodes.editor.draw.geometry.SpacingPlacement
 import org.stickynodes.editor.draw.geometry.orientedResizeHandleAt
 import org.stickynodes.editor.draw.geometry.orientedShapeSelectionOrNull
 
@@ -539,6 +540,99 @@ fun EditorCanvas(
                                     end = Offset(span.end, y),
                                     strokeWidth = guideWidth,
                                 )
+                            }
+                        }
+
+
+// Equal-spacing indicators.
+                        snap.snappedBounds?.let { moving ->
+
+                            fun gapY(a: Rect, b: Rect): Float {
+                                val top = maxOf(a.top, b.top)
+                                val bottom = minOf(a.bottom, b.bottom)
+
+                                return if (top <= bottom) {
+                                    (top + bottom) / 2f
+                                } else {
+                                    (a.center.y + b.center.y) / 2f
+                                }
+                            }
+
+                            fun gapX(a: Rect, b: Rect): Float {
+                                val left = maxOf(a.left, b.left)
+                                val right = minOf(a.right, b.right)
+
+                                return if (left <= right) {
+                                    (left + right) / 2f
+                                } else {
+                                    (a.center.x + b.center.x) / 2f
+                                }
+                            }
+
+                            snap.horizontalSpacing?.let { spacing ->
+                                val first = spacing.firstTarget
+                                val second = spacing.secondTarget
+
+                                val gaps = when (spacing.placement) {
+                                    SpacingPlacement.BEFORE -> listOf(
+                                        Triple(moving.right, first.left, moving to first),
+                                        Triple(first.right, second.left, first to second),
+                                    )
+
+                                    SpacingPlacement.BETWEEN -> listOf(
+                                        Triple(first.right, moving.left, first to moving),
+                                        Triple(moving.right, second.left, moving to second),
+                                    )
+
+                                    SpacingPlacement.AFTER -> listOf(
+                                        Triple(first.right, second.left, first to second),
+                                        Triple(second.right, moving.left, second to moving),
+                                    )
+                                }
+
+                                for ((start, end, pair) in gaps) {
+                                    val y = gapY(pair.first, pair.second)
+
+                                    drawLine(
+                                        color = guideColor,
+                                        start = Offset(start, y),
+                                        end = Offset(end, y),
+                                        strokeWidth = guideWidth,
+                                    )
+                                }
+                            }
+
+                            snap.verticalSpacing?.let { spacing ->
+                                val first = spacing.firstTarget
+                                val second = spacing.secondTarget
+
+                                val gaps = when (spacing.placement) {
+                                    SpacingPlacement.BEFORE -> listOf(
+                                        Triple(moving.bottom, first.top, moving to first),
+                                        Triple(first.bottom, second.top, first to second),
+                                    )
+
+                                    SpacingPlacement.BETWEEN -> listOf(
+                                        Triple(first.bottom, moving.top, first to moving),
+                                        Triple(moving.bottom, second.top, moving to second),
+                                    )
+
+                                    SpacingPlacement.AFTER -> listOf(
+                                        Triple(first.bottom, second.top, first to second),
+                                        Triple(second.bottom, moving.top, second to moving),
+                                    )
+                                }
+
+                                for ((start, end, pair) in gaps) {
+                                    val x = gapX(pair.first, pair.second)
+
+                                    drawLine(
+                                        color = guideColor,
+                                        start = Offset(x, start),
+                                        end = Offset(x, end),
+                                        strokeWidth = guideWidth,
+                                    )
+                                }
                             }
                         }
                     }

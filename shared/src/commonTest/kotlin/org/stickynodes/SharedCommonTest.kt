@@ -6212,4 +6212,167 @@ class SharedCommonTest {
         assertEquals(replacementDocument, state.document)
         assertFalse(state.canUndo)
     }
+
+
+    @Test
+    fun `equal spacing finds midpoint between two targets`() {
+        val moving = Rect(100f, 0f, 130f, 30f)
+
+        val targets = listOf(
+            Rect(0f, 0f, 50f, 30f),
+            Rect(150f, 0f, 200f, 30f),
+        )
+
+        val snap = findEqualSpacingSnap(
+            movingBounds = moving,
+            targetBounds = targets,
+            proposedDelta = Offset(-14f, 0f),
+            threshold = 5f,
+            axis = SpacingAxis.HORIZONTAL,
+        )
+
+        assertNotNull(snap)
+        assertEquals(-1f, snap.correction, 0.001f)
+        assertEquals(35f, snap.gap, 0.001f)
+    }
+
+
+    @Test
+    fun `horizontal equal spacing ignores vertically unrelated targets`() {
+        val moving = Rect(100f, 300f, 130f, 330f)
+
+        val targets = listOf(
+            Rect(0f, 0f, 50f, 30f),
+            Rect(150f, 0f, 200f, 30f),
+        )
+
+        val result = findEqualSpacingSnap(
+            movingBounds = moving,
+            targetBounds = targets,
+            proposedDelta = Offset(-14f, 0f),
+            threshold = 5f,
+            axis = SpacingAxis.HORIZONTAL,
+        )
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `vertical equal spacing finds midpoint with overlapping targets`() {
+        val moving = Rect(10f, 100f, 40f, 130f)
+
+        val targets = listOf(
+            Rect(0f, 0f, 50f, 50f),
+            Rect(0f, 150f, 50f, 200f),
+        )
+
+        val result = findEqualSpacingSnap(
+            movingBounds = moving,
+            targetBounds = targets,
+            proposedDelta = Offset(0f, -14f),
+            threshold = 5f,
+            axis = SpacingAxis.VERTICAL,
+        )
+
+        assertNotNull(result)
+        assertEquals(-1f, result.correction, 0.001f)
+        assertEquals(35f, result.gap, 0.001f)
+    }
+
+
+    @Test
+    fun `smart snapping selects equal horizontal spacing`() {
+        val moving = Rect(100f, 0f, 130f, 30f)
+
+        val targets = listOf(
+            Rect(0f, 0f, 50f, 30f),
+            Rect(150f, 0f, 200f, 30f),
+        )
+
+        val result = snapTranslation(
+            movingBounds = moving,
+            targetBounds = targets,
+            proposedDelta = Offset(-14f, 0f),
+            threshold = 5f,
+        )
+
+        println("Snap result: $result")
+        println("Horizontal spacing: ${result.horizontalSpacing}")
+
+        assertNotNull(result.horizontalSpacing)
+        assertEquals(-15f, result.delta.x, 0.001f)
+        assertEquals(35f, result.horizontalSpacing.gap, 0.001f)
+        assertNotNull(result.snappedBounds)
+        assertEquals(85f, result.snappedBounds.left, 0.001f)
+    }
+
+
+    @Test
+    fun `equal spacing snaps before both targets`() {
+        val moving = Rect(42f, 0f, 62f, 20f)
+
+        val targets = listOf(
+            Rect(100f, 0f, 130f, 20f),
+            Rect(170f, 0f, 200f, 20f),
+        )
+
+        val result = findEqualSpacingSnap(
+            movingBounds = moving,
+            targetBounds = targets,
+            proposedDelta = Offset.Zero,
+            threshold = 5f,
+            axis = SpacingAxis.HORIZONTAL,
+        )
+
+        assertNotNull(result)
+        assertEquals(SpacingPlacement.BEFORE, result.placement)
+        assertEquals(-2f, result.correction, 0.001f)
+        assertEquals(40f, result.gap, 0.001f)
+    }
+
+    @Test
+    fun `equal spacing snaps between both targets`() {
+        val moving = Rect(141f, 0f, 161f, 20f)
+
+        val targets = listOf(
+            Rect(100f, 0f, 130f, 20f),
+            Rect(170f, 0f, 200f, 20f),
+        )
+
+        val result = findEqualSpacingSnap(
+            movingBounds = moving,
+            targetBounds = targets,
+            proposedDelta = Offset.Zero,
+            threshold = 5f,
+            axis = SpacingAxis.HORIZONTAL,
+        )
+
+        assertNotNull(result)
+        assertEquals(SpacingPlacement.BETWEEN, result.placement)
+        assertEquals(-1f, result.correction, 0.001f)
+        assertEquals(10f, result.gap, 0.001f)
+    }
+
+    @Test
+    fun `equal spacing snaps after both targets`() {
+        val moving = Rect(238f, 0f, 258f, 20f)
+
+        val targets = listOf(
+            Rect(100f, 0f, 130f, 20f),
+            Rect(170f, 0f, 200f, 20f),
+        )
+
+        val result = findEqualSpacingSnap(
+            movingBounds = moving,
+            targetBounds = targets,
+            proposedDelta = Offset.Zero,
+            threshold = 5f,
+            axis = SpacingAxis.HORIZONTAL,
+        )
+
+        assertNotNull(result)
+        assertEquals(SpacingPlacement.AFTER, result.placement)
+        assertEquals(2f, result.correction, 0.001f)
+        assertEquals(40f, result.gap, 0.001f)
+    }
 }

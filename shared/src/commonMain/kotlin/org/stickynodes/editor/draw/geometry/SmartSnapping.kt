@@ -3,6 +3,7 @@ package org.stickynodes.editor.draw.geometry
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.isFinite
 import kotlin.math.abs
 
 data class SnapGuideSpan(
@@ -16,14 +17,11 @@ data class SnapResult(
     val horizontalGuide: Float? = null,
     val verticalSpan: SnapGuideSpan? = null,
     val horizontalSpan: SnapGuideSpan? = null,
+    val horizontalSpacing: EqualSpacingSnap? = null,
+    val verticalSpacing: EqualSpacingSnap? = null,
+    val snappedBounds: Rect? = null,
 )
 
-/**
- * Adjusts a proposed translation to align the moving
- * bounds with nearby target bounds.
- *
- * Coordinates and threshold are in world space.
- */
 fun snapTranslation(
     movingBounds: Rect,
     targetBounds: List<Rect>,
@@ -31,8 +29,7 @@ fun snapTranslation(
     threshold: Float,
 ): SnapResult {
     require(threshold.isFinite() && threshold >= 0f)
-    require(proposedDelta.x.isFinite())
-    require(proposedDelta.y.isFinite())
+    require(proposedDelta.isFinite)
 
     val moved = movingBounds.translate(proposedDelta)
 
@@ -60,6 +57,7 @@ fun snapTranslation(
     var verticalTarget: Rect? = null
     var horizontalTarget: Rect? = null
 
+    // First consider ordinary edge and center alignment.
     for (target in targetBounds) {
         val targetX = listOf(
             target.left,
@@ -114,6 +112,56 @@ fun snapTranslation(
         }
     }
 
+    // Equal spacing competes with alignment on each axis.
+    val horizontalCandidate = findEqualSpacingSnap(
+        movingBounds = movingBounds,
+        targetBounds = targetBounds,
+        proposedDelta = proposedDelta,
+        threshold = threshold,
+        axis = SpacingAxis.HORIZONTAL,
+    )
+
+    val verticalCandidate = findEqualSpacingSnap(
+        movingBounds = movingBounds,
+        targetBounds = targetBounds,
+        proposedDelta = proposedDelta,
+        threshold = threshold,
+        axis = SpacingAxis.VERTICAL,
+    )
+
+    var horizontalSpacing: EqualSpacingSnap? = null
+    var verticalSpacing: EqualSpacingSnap? = null
+
+    if (
+        horizontalCandidate != null &&
+        (
+                verticalGuide == null ||
+                        abs(horizontalCandidate.correction) < bestXDistance
+                )
+    ) {
+        correctionX = horizontalCandidate.correction
+        horizontalSpacing = horizontalCandidate
+
+        // Alignment and spacing are mutually exclusive
+        // on the same axis.
+        verticalGuide = null
+        verticalTarget = null
+    }
+
+    if (
+        verticalCandidate != null &&
+        (
+                horizontalGuide == null ||
+                        abs(verticalCandidate.correction) < bestYDistance
+                )
+    ) {
+        correctionY = verticalCandidate.correction
+        verticalSpacing = verticalCandidate
+
+        horizontalGuide = null
+        horizontalTarget = null
+    }
+
     val snapped = moved.translate(
         Offset(correctionX, correctionY)
     )
@@ -141,5 +189,8 @@ fun snapTranslation(
         horizontalGuide = horizontalGuide,
         verticalSpan = verticalSpan,
         horizontalSpan = horizontalSpan,
+        horizontalSpacing = horizontalSpacing,
+        verticalSpacing = verticalSpacing,
+        snappedBounds = snapped,
     )
 }
