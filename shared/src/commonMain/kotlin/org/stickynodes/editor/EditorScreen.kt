@@ -338,6 +338,11 @@ fun EditorScreen(
             EditorShortcut.FitToSelection -> fitToSelection()
 
             EditorShortcut.FitToContent -> fitToContent()
+
+            EditorShortcut.ResetZoom -> {
+                cameraState.resetZoom()
+                true
+            }
         }
 
     // The existing editing tool determines which

@@ -105,7 +105,7 @@ fun EditorActionBar(
                 ),
                 tooltip = {
                     PlainTooltip {
-                        Text("Reset zoom to 100%")
+                        Text("Reset zoom to 100% (Ctrl + 1)")
                     }
                 },
                 state = rememberTooltipState(),
