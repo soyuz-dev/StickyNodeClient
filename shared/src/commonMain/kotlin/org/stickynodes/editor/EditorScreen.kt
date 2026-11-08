@@ -26,7 +26,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -53,12 +52,12 @@ import org.stickynodes.editor.draw.EditorCanvas
 import org.stickynodes.editor.draw.EditorTextOverlay
 import org.stickynodes.editor.draw.camera.rememberEditorCameraState
 import org.stickynodes.editor.draw.geometry.enclosingBounds
-import org.stickynodes.editor.draw.geometry.layoutStyle
+import org.stickynodes.editor.draw.geometry.text.layoutStyle
 import org.stickynodes.editor.draw.geometry.measuredSelectionBounds
-import org.stickynodes.editor.draw.geometry.resizedTo
-import org.stickynodes.editor.draw.geometry.rotatedTo
-import org.stickynodes.editor.draw.geometry.visibleNodeIds
-import org.stickynodes.editor.draw.geometry.visibleWorldBounds
+import org.stickynodes.editor.draw.geometry.transform.resizedTo
+import org.stickynodes.editor.draw.geometry.transform.rotatedTo
+import org.stickynodes.editor.draw.geometry.selection.visibleNodeIds
+import org.stickynodes.editor.draw.geometry.selection.visibleWorldBounds
 import org.stickynodes.editor.draw.model.*
 import org.stickynodes.editor.draw.style.*
 import org.stickynodes.editor.history.rememberEditorDocumentState

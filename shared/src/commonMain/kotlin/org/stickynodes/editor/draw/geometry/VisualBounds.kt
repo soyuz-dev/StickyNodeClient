@@ -3,6 +3,7 @@ package org.stickynodes.editor.draw.geometry
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import org.stickynodes.editor.draw.geometry.transform.rotatedAround
 import org.stickynodes.editor.draw.model.EditorShape
 
 fun Rect.rotatedVisualBounds(rotation: Float): Rect {

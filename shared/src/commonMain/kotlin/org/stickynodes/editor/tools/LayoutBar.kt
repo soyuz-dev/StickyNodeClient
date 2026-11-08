@@ -15,9 +15,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import org.stickynodes.editor.draw.geometry.NodeAlignment
-import org.stickynodes.editor.draw.geometry.NodeDistribution
-import org.stickynodes.editor.draw.geometry.NodeSizing
+import org.stickynodes.editor.draw.geometry.selection.NodeAlignment
+import org.stickynodes.editor.draw.geometry.selection.NodeDistribution
+import org.stickynodes.editor.draw.geometry.selection.NodeSizing
 import org.stickynodes.editor.tools.components.ActionBarButton
 
 @Composable

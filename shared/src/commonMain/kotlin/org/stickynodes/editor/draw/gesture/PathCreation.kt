@@ -4,7 +4,7 @@ package org.stickynodes.editor.draw.gesture
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerInputScope
-import org.stickynodes.editor.draw.geometry.PathSampler
+import org.stickynodes.editor.draw.geometry.path.PathSampler
 import org.stickynodes.editor.draw.model.EditorPath
 import org.stickynodes.editor.draw.style.NodeStyle
 import kotlin.uuid.Uuid

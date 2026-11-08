@@ -1,6 +1,5 @@
 package org.stickynodes.editor.draw
 
-import androidx.compose.animation.core.snap
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
@@ -25,17 +24,17 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import org.stickynodes.editor.draw.camera.EditorCamera
-import org.stickynodes.editor.draw.geometry.commonRotationOrNull
+import org.stickynodes.editor.draw.geometry.selection.commonRotationOrNull
 import org.stickynodes.editor.draw.geometry.contains
-import org.stickynodes.editor.draw.geometry.groupRotationHandlePosition
-import org.stickynodes.editor.draw.geometry.isRotationHandleHit
-import org.stickynodes.editor.draw.geometry.layoutStyle
+import org.stickynodes.editor.draw.geometry.transform.groupRotationHandlePosition
+import org.stickynodes.editor.draw.geometry.transform.isRotationHandleHit
+import org.stickynodes.editor.draw.geometry.text.layoutStyle
 import org.stickynodes.editor.draw.geometry.measuredBounds
 import org.stickynodes.editor.draw.geometry.measuredSelectionBounds
-import org.stickynodes.editor.draw.geometry.orientedGroupBoundsOrNull
-import org.stickynodes.editor.draw.geometry.orientedResizeHandleScreenPositions
-import org.stickynodes.editor.draw.geometry.resizeHandleAt
-import org.stickynodes.editor.draw.geometry.rotationHandlePosition
+import org.stickynodes.editor.draw.geometry.selection.orientedGroupBoundsOrNull
+import org.stickynodes.editor.draw.geometry.transform.orientedResizeHandleScreenPositions
+import org.stickynodes.editor.draw.geometry.transform.resizeHandleAt
+import org.stickynodes.editor.draw.geometry.transform.rotationHandlePosition
 import org.stickynodes.editor.draw.gesture.detectCanvasPan
 import org.stickynodes.editor.draw.gesture.detectCanvasZoom
 import org.stickynodes.editor.draw.gesture.detectNodeInteraction
@@ -59,11 +58,11 @@ import org.stickynodes.editor.draw.style.StrokeStyle
 import org.stickynodes.editor.tools.EditorTool
 import kotlin.uuid.Uuid
 import androidx.compose.ui.graphics.Path
-import org.stickynodes.editor.draw.geometry.ResizeHandle
-import org.stickynodes.editor.draw.geometry.SnapResult
-import org.stickynodes.editor.draw.geometry.SpacingPlacement
-import org.stickynodes.editor.draw.geometry.orientedResizeHandleAt
-import org.stickynodes.editor.draw.geometry.orientedShapeSelectionOrNull
+import org.stickynodes.editor.draw.geometry.transform.ResizeHandle
+import org.stickynodes.editor.draw.geometry.snapping.SnapResult
+import org.stickynodes.editor.draw.geometry.snapping.SpacingPlacement
+import org.stickynodes.editor.draw.geometry.transform.orientedResizeHandleAt
+import org.stickynodes.editor.draw.geometry.selection.orientedShapeSelectionOrNull
 
 @Composable
 fun EditorCanvas(

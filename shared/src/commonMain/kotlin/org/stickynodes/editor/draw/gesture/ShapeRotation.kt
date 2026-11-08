@@ -10,10 +10,10 @@ import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.isShiftPressed
 import org.stickynodes.editor.draw.geometry.combinedVisualBounds
 import org.stickynodes.editor.draw.geometry.enclosingBounds
-import org.stickynodes.editor.draw.geometry.rotatedNodesTogether
-import org.stickynodes.editor.draw.geometry.rotatedTogether
-import org.stickynodes.editor.draw.geometry.rotationAngle
-import org.stickynodes.editor.draw.geometry.snapRotation
+import org.stickynodes.editor.draw.geometry.transform.rotatedNodesTogether
+import org.stickynodes.editor.draw.geometry.transform.rotatedTogether
+import org.stickynodes.editor.draw.geometry.transform.rotationAngle
+import org.stickynodes.editor.draw.geometry.transform.snapRotation
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorShape
 import org.stickynodes.editor.draw.model.EditorText

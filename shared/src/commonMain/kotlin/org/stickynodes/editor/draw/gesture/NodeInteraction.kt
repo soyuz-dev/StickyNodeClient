@@ -9,9 +9,9 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.isShiftPressed
-import org.stickynodes.editor.draw.geometry.ResizeHandle
-import org.stickynodes.editor.draw.geometry.SnapResult
-import org.stickynodes.editor.draw.geometry.snapTranslation
+import org.stickynodes.editor.draw.geometry.transform.ResizeHandle
+import org.stickynodes.editor.draw.geometry.snapping.SnapResult
+import org.stickynodes.editor.draw.geometry.snapping.snapTranslation
 import org.stickynodes.editor.draw.geometry.enclosingBounds
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorShape

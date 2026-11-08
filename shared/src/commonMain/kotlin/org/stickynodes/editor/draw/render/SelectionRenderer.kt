@@ -13,11 +13,11 @@ import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.unit.dp
 import org.stickynodes.editor.draw.camera.EditorCamera
 import org.stickynodes.editor.draw.geometry.combinedVisualBounds
-import org.stickynodes.editor.draw.geometry.layoutStyle
+import org.stickynodes.editor.draw.geometry.text.layoutStyle
 import org.stickynodes.editor.draw.geometry.measuredBounds
-import org.stickynodes.editor.draw.geometry.resizeHandleScreenPositions
-import org.stickynodes.editor.draw.geometry.rotationHandlePosition
-import org.stickynodes.editor.draw.geometry.rotationHandleScreenPosition
+import org.stickynodes.editor.draw.geometry.transform.resizeHandleScreenPositions
+import org.stickynodes.editor.draw.geometry.transform.rotationHandlePosition
+import org.stickynodes.editor.draw.geometry.transform.rotationHandleScreenPosition
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorShape
 import org.stickynodes.editor.draw.model.EditorText

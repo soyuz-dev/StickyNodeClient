@@ -11,9 +11,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.drawText
-import org.stickynodes.editor.draw.geometry.layoutStyle
-import org.stickynodes.editor.draw.geometry.measureBounds
-import org.stickynodes.editor.draw.geometry.smoothPath
+import org.stickynodes.editor.draw.geometry.text.layoutStyle
+import org.stickynodes.editor.draw.geometry.text.measureBounds
+import org.stickynodes.editor.draw.geometry.path.smoothPath
 import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorPath

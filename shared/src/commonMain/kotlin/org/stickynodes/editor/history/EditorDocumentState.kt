@@ -10,6 +10,17 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import org.stickynodes.editor.draw.geometry.*
+import org.stickynodes.editor.draw.geometry.selection.NodeAlignment
+import org.stickynodes.editor.draw.geometry.selection.NodeDistribution
+import org.stickynodes.editor.draw.geometry.selection.NodeSizing
+import org.stickynodes.editor.draw.geometry.selection.alignedMemberNodes
+import org.stickynodes.editor.draw.geometry.selection.distributedMemberNodes
+import org.stickynodes.editor.draw.geometry.selection.matchShapeSizes
+import org.stickynodes.editor.draw.geometry.transform.ResizeHandle
+import org.stickynodes.editor.draw.geometry.transform.combinedBounds
+import org.stickynodes.editor.draw.geometry.transform.positionedAt
+import org.stickynodes.editor.draw.geometry.transform.resizedTogether
+import org.stickynodes.editor.draw.geometry.transform.rotatedTogether
 import org.stickynodes.editor.draw.model.*
 import org.stickynodes.editor.draw.style.NodeStyle
 import kotlin.uuid.Uuid

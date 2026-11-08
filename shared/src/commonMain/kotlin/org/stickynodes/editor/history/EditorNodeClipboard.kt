@@ -2,7 +2,7 @@
 package org.stickynodes.editor.history
 
 import androidx.compose.ui.geometry.Offset
-import org.stickynodes.editor.draw.geometry.duplicatedBy
+import org.stickynodes.editor.draw.geometry.transform.duplicatedBy
 import org.stickynodes.editor.draw.model.EditorGroup
 import org.stickynodes.editor.draw.model.EditorGroupMember
 import org.stickynodes.editor.draw.model.EditorNode

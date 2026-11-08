@@ -6,9 +6,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.isShiftPressed
-import org.stickynodes.editor.draw.geometry.ResizeHandle
-import org.stickynodes.editor.draw.geometry.resizedRotatedBy
-import org.stickynodes.editor.draw.geometry.resizedTogether
+import org.stickynodes.editor.draw.geometry.transform.ResizeHandle
+import org.stickynodes.editor.draw.geometry.transform.resizedRotatedBy
+import org.stickynodes.editor.draw.geometry.transform.resizedTogether
 import org.stickynodes.editor.draw.model.EditorShape
 
 internal suspend fun AwaitPointerEventScope.handleResizeGesture(

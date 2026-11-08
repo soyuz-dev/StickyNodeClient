@@ -4,6 +4,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
+import org.stickynodes.editor.draw.geometry.path.bezierSegments
+import org.stickynodes.editor.draw.geometry.path.containsStroke
+import org.stickynodes.editor.draw.geometry.text.measureBounds
+import org.stickynodes.editor.draw.geometry.transform.rotatedAround
 import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorPath
