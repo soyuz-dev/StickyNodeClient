@@ -24,6 +24,7 @@ import org.stickynodes.editor.draw.geometry.transform.rotatedTogether
 import org.stickynodes.editor.draw.geometry.transform.translatedBy
 import org.stickynodes.editor.draw.model.*
 import org.stickynodes.editor.draw.style.NodeStyle
+import org.stickynodes.editor.draw.style.withStyle
 import kotlin.uuid.Uuid
 
 class EditorDocumentState(
