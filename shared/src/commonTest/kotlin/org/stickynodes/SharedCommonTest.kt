@@ -1,7 +1,11 @@
 package org.stickynodes
 
+import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.unit.IntSize
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -6424,5 +6428,22 @@ class SharedCommonTest {
         assertEquals(SpacingPlacement.AFTER, result.placement)
         assertEquals(2f, result.correction, 0.001f)
         assertEquals(40f, result.gap, 0.001f)
+    }
+
+
+    @OptIn(InternalComposeUiApi::class)
+    @Test
+    fun `Ctrl Shift F fits selection`() {
+        val event = KeyEvent(
+            key = Key.F,
+            type = KeyEventType.KeyDown,
+            isCtrlPressed = true,
+            isShiftPressed = true,
+        )
+
+        assertEquals(
+            EditorShortcut.FitToSelection,
+            event.editorShortcut(),
+        )
     }
 }

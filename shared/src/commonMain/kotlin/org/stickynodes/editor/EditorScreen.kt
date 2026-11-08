@@ -180,6 +180,48 @@ fun EditorScreen(
         selectedTool = tool
     }
 
+    fun fitToSelection(): Boolean {
+        val selectedNodes = documentState.selectedNodes
+
+        if (selectedNodes.isEmpty()) return false
+
+        cameraState.fitToNodes(
+            nodes = selectedNodes,
+            padding = with(density) { 64.dp.toPx() },
+            selectionBounds = { node ->
+                node.measuredSelectionBounds(
+                    textMeasurer = textMeasurer,
+                    textStyle = { text ->
+                        text.layoutStyle(density)
+                    }
+                )
+            }
+        )
+
+        return true
+    }
+
+    fun fitToContent(): Boolean {
+        val nodes = documentState.nodes
+
+        if (nodes.isEmpty()) return false
+
+        cameraState.fitToNodes(
+            nodes = nodes,
+            padding = with(density) { 64.dp.toPx() },
+            selectionBounds = { node ->
+                node.measuredSelectionBounds(
+                    textMeasurer = textMeasurer,
+                    textStyle = { text ->
+                        text.layoutStyle(density)
+                    }
+                )
+            }
+        )
+
+        return true
+    }
+
     fun executeShortcut(shortcut: EditorShortcut): Boolean =
         when (shortcut) {
             EditorShortcut.Save -> {
@@ -292,6 +334,10 @@ fun EditorScreen(
             EditorShortcut.UngroupSelection -> {
                 documentState.ungroupSelectedMembers()
             }
+
+            EditorShortcut.FitToSelection -> fitToSelection()
+
+            EditorShortcut.FitToContent -> fitToContent()
         }
 
     // The existing editing tool determines which
@@ -660,20 +706,7 @@ fun EditorScreen(
                 onZoomReset = cameraState::resetZoom,
                 onZoomIn = cameraState::zoomIn,
                 onZoomOut = cameraState::zoomOut,
-                onFitToContent = {
-                    cameraState.fitToNodes(
-                        nodes = documentState.nodes,
-                        padding = with(density) { 64.dp.toPx() },
-                        selectionBounds = { node ->
-                            node.measuredSelectionBounds(
-                                textMeasurer = textMeasurer,
-                                textStyle = { text ->
-                                    text.layoutStyle(density)
-                                }
-                            )
-                        }
-                    )
-                },
+                onFitToContent = { fitToContent() },
                 onOpen = ::open,
                 onSave = ::save,
                 onSelectVisible = {
@@ -697,7 +730,9 @@ fun EditorScreen(
 
                         documentState.selectNodes(visibleIds)
                     }
-                }
+                },
+                canFitToSelection = documentState.selectedNodes.isNotEmpty(),
+                onFitToSelection = { fitToSelection() }
             )
         }
 
@@ -746,13 +781,12 @@ fun EditorScreen(
                     targetOffsetY = { -it / 3 }
                 ),
             ) {
-                val style = activeStyle
 
                 when (styleToolbarType) {
                     StyleToolbarType.SHAPE -> {
-                        if (style != null) {
+                        if (activeStyle != null) {
                             ShapeStyleToolbar(
-                                style = style,
+                                style = activeStyle,
                                 onStyleChanged = onStyleChanged,
                                 onStylePreview = ::previewStyle,
                                 onStyleChangeFinished =
@@ -763,9 +797,9 @@ fun EditorScreen(
                     }
 
                     StyleToolbarType.FREEHAND -> {
-                        if (style != null) {
+                        if (activeStyle != null) {
                             FreehandStyleToolbar(
-                                style = style,
+                                style = activeStyle,
                                 onStyleChanged = onStyleChanged,
                                 onStylePreview = ::previewStyle,
                                 onStyleChangeFinished =
@@ -776,9 +810,9 @@ fun EditorScreen(
                     }
 
                     StyleToolbarType.TEXT -> {
-                        if (style != null) {
+                        if (activeStyle != null) {
                             TextStyleToolbar(
-                                style = style,
+                                style = activeStyle,
                                 fontSize = activeFontSize,
                                 onStyleChanged = onStyleChanged,
                                 onFontSizeChanged = onFontSizeChanged,

@@ -33,6 +33,8 @@ sealed interface EditorShortcut {
     ) : EditorShortcut
 
     data class Nudge(val delta: Offset) : EditorShortcut
+    data object FitToSelection : EditorShortcut
+    data object FitToContent : EditorShortcut
 }
 
 fun KeyEvent.editorShortcut(): EditorShortcut? {
@@ -57,6 +59,8 @@ fun KeyEvent.editorShortcut(): EditorShortcut? {
             shift && key == Key.G -> EditorShortcut.UngroupSelection
             key == Key.Y || (shift && key == Key.Z) ->
                 EditorShortcut.Redo
+            shift && key == Key.F -> EditorShortcut.FitToSelection
+            shift && key == Key.H -> EditorShortcut.FitToContent
 
             else -> null
         }

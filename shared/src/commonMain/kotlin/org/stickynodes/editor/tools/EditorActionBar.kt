@@ -46,6 +46,8 @@ fun EditorActionBar(
     onOpen: () -> Unit,
     onSave: () -> Unit,
     onSelectVisible: () -> Unit,
+    canFitToSelection: Boolean,
+    onFitToSelection: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -133,8 +135,15 @@ fun EditorActionBar(
 
             ActionBarButton(
                 icon = "fit_screen",
-                tooltip = "Fit to content",
+                tooltip = "Fit to content (Ctrl + Shift + H)",
                 onClick = onFitToContent,
+            )
+
+            ActionBarButton(
+                icon = "center_focus_strong",
+                tooltip = "Fit to selection (Ctrl + Shift + F)",
+                onClick = onFitToSelection,
+                enabled = canFitToSelection,
             )
 
             ActionBarButton(
@@ -180,7 +189,9 @@ private fun EditorActionBarPreview() {
             onFitToContent = {},
             onOpen = {},
             onSave = {},
-            onSelectVisible = {}
+            onSelectVisible = {},
+            canFitToSelection = true,
+            onFitToSelection = {},
         )
     }
 }
