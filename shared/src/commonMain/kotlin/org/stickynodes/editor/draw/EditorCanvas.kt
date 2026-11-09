@@ -58,6 +58,7 @@ import org.stickynodes.editor.draw.style.StrokeStyle
 import org.stickynodes.editor.tools.EditorTool
 import kotlin.uuid.Uuid
 import androidx.compose.ui.graphics.Path
+import org.stickynodes.editor.draw.geometry.connector.connectorEndpointAt
 import org.stickynodes.editor.draw.geometry.connector.routeConnector
 import org.stickynodes.editor.draw.geometry.connector.toPath
 import org.stickynodes.editor.draw.geometry.transform.ResizeHandle
@@ -65,6 +66,9 @@ import org.stickynodes.editor.draw.geometry.snapping.SnapResult
 import org.stickynodes.editor.draw.geometry.snapping.SpacingPlacement
 import org.stickynodes.editor.draw.geometry.transform.orientedResizeHandleAt
 import org.stickynodes.editor.draw.geometry.selection.orientedShapeSelectionOrNull
+import org.stickynodes.editor.draw.gesture.detectConnectorCreation
+import org.stickynodes.editor.draw.model.EditorConnector
+import org.stickynodes.editor.draw.render.drawConnector
 
 @Composable
 fun EditorCanvas(
@@ -88,12 +92,18 @@ fun EditorCanvas(
     onHitSelection: ((Uuid, Boolean) -> Set<Uuid>)? = null,
     selectedMembers: List<EditorGroupMember> = listOf(),
     ancestorGroups: List<EditorGroup> = listOf(),
+    connectors: List<EditorConnector> = listOf(),
+    onConnectorCreated: (EditorConnector) -> Unit = {},
 ) {
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
 
     var previewNode by remember {
         mutableStateOf<EditorNode?>(null)
+    }
+
+    var previewConnector by remember {
+        mutableStateOf<EditorConnector?>(null)
     }
 
     var interactionPreview by remember {
@@ -131,6 +141,7 @@ fun EditorCanvas(
     val currentOnTextPlacement by rememberUpdatedState(onTextPlacement)
     val currentOnTextEdit by rememberUpdatedState(onTextEdit)
     val currentOnHitSelection by rememberUpdatedState(onHitSelection)
+    val currentOnConnectorCreated by rememberUpdatedState(onConnectorCreated)
 
     Canvas(
         modifier = modifier
@@ -197,6 +208,45 @@ fun EditorCanvas(
                             onCommit = {
                                 currentOnNodeCreated(it)
                             },
+                        )
+                    }
+
+                    EditorTool.CONNECTOR -> {
+                        detectConnectorCreation(
+                            endpointAt = { screenPoint ->
+                                val worldPoint = currentCamera.screenToWorld(
+                                    screenPoint
+                                )
+
+                                connectorEndpointAt(
+                                    position = worldPoint,
+                                    nodes = currentNodes,
+                                    hitTest = { node, point ->
+                                        node.contains(
+                                            point = point,
+                                            textMeasurer = textMeasurer,
+                                            textStyle = { text ->
+                                                text.layoutStyle(density)
+                                            },
+                                            zoom = currentCamera.zoom
+                                        )
+                                    },
+                                    bounds = { node ->
+                                        node.measuredSelectionBounds(
+                                            textMeasurer = textMeasurer,
+                                            textStyle = { text ->
+                                                text.layoutStyle(density)
+                                            }
+                                        )
+                                    },
+                                )
+                            },
+                            onPreview = {
+                                previewConnector = it
+                            },
+                            onCommit = {
+                                currentOnConnectorCreated(it)
+                            }
                         )
                     }
 
@@ -441,6 +491,36 @@ fun EditorCanvas(
             ) {
                 val previewById = interactionPreview.associateBy {
                     it.id
+                }
+
+                val nodesById = nodes.associateBy { it.id }
+
+                fun nodePosition(id: Uuid): Offset? {
+                    val node = nodesById[id] ?: return null
+                    val displayedNode = previewById[id] ?: node
+
+                    return displayedNode.measuredSelectionBounds(
+                        textMeasurer = textMeasurer,
+                        textStyle = { text ->
+                            text.layoutStyle(density)
+                        },
+                    ).center
+                }
+
+                for (connector in connectors) {
+                    drawConnector(
+                        connector = connector,
+                        nodePosition = ::nodePosition,
+                        zoom = camera.zoom
+                    )
+                }
+
+                previewConnector?.let { connector ->
+                    drawConnector(
+                        connector = connector,
+                        nodePosition = ::nodePosition,
+                        zoom = camera.zoom,
+                    )
                 }
 
                 for (node in nodes) {

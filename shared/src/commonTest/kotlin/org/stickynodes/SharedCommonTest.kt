@@ -23,6 +23,7 @@ import org.stickynodes.editor.draw.style.*
 import org.stickynodes.editor.history.*
 import org.stickynodes.editor.*
 import org.stickynodes.editor.draw.geometry.connector.ConnectorRoute
+import org.stickynodes.editor.draw.geometry.connector.connectorEndpointAt
 import org.stickynodes.editor.draw.geometry.connector.roundedCorner
 import org.stickynodes.editor.draw.geometry.connector.route
 import org.stickynodes.editor.draw.geometry.connector.routeConnector
@@ -6871,5 +6872,207 @@ class SharedCommonTest {
 
         assertFalse(state.canUndo)
         assertEquals(listOf(connector), state.connectors)
+    }
+
+
+    @Test
+    fun `connectors survive document serialization`() {
+        val firstId = Uuid.random()
+        val secondId = Uuid.random()
+
+        val connectors = listOf(
+            EditorConnector(
+                start = ConnectorEndpoint.Free(
+                    Offset(10f, 20f),
+                ),
+                end = ConnectorEndpoint.Free(
+                    Offset(100f, 200f),
+                ),
+            ),
+            EditorConnector(
+                start = ConnectorEndpoint.Attached(
+                    nodeId = firstId,
+                    fallbackPosition = Offset(30f, 40f),
+                ),
+                end = ConnectorEndpoint.Attached(
+                    nodeId = secondId,
+                    fallbackPosition = Offset(300f, 400f),
+                ),
+            ),
+        )
+
+        val document = EditorDocument(
+            connectors = connectors,
+        )
+
+        val restored = DocumentCodec.decode(
+            DocumentCodec.encode(document)
+        )
+
+        assertEquals(document, restored)
+    }
+
+    @Test
+    fun `mixed connector endpoints survive serialization`() {
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Attached(
+                nodeId = Uuid.random(),
+                fallbackPosition = Offset(50f, 60f),
+            ),
+            end = ConnectorEndpoint.Free(
+                Offset(200f, 100f),
+            ),
+        )
+
+        val restored = DocumentCodec.decode(
+            DocumentCodec.encode(
+                EditorDocument(connectors = listOf(connector))
+            )
+        )
+
+        assertEquals(connector, restored.connectors.single())
+    }
+
+    @Test
+    fun `legacy documents default to no connectors`() {
+        for (version in 1..2) {
+            val legacy = DocumentDto(
+                version = version,
+                members = listOf(),
+            )
+
+            val restored = legacy.toDocument()
+
+            assertTrue(restored.connectors.isEmpty())
+        }
+    }
+
+    @Test
+    fun `new documents serialize as version three`() {
+        val dto = EditorDocument().toDto()
+
+        assertEquals(3, dto.version)
+        assertTrue(dto.connectors.isEmpty())
+    }
+
+    @Test
+    fun `duplicate connector IDs are rejected during decoding`() {
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Free(Offset.Zero),
+            end = ConnectorEndpoint.Free(Offset(100f, 0f)),
+        )
+
+        val document = EditorDocument(
+            connectors = listOf(connector, connector),
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            DocumentCodec.decode(
+                DocumentCodec.encode(document)
+            )
+        }
+    }
+
+    @Test
+    fun `dangling connector attachment survives serialization`() {
+        val missingNodeId = Uuid.random()
+        val fallback = Offset(75f, 125f)
+
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Attached(
+                nodeId = missingNodeId,
+                fallbackPosition = fallback,
+            ),
+            end = ConnectorEndpoint.Free(Offset(200f, 0f)),
+        )
+
+        val restored = DocumentCodec.decode(
+            DocumentCodec.encode(
+                EditorDocument(connectors = listOf(connector))
+            )
+        )
+
+        val endpoint = restored.connectors.single().start
+
+        assertEquals(
+            fallback,
+            endpoint.resolve { null },
+        )
+    }
+
+
+    @Test
+    fun `connector endpoint remains free on empty canvas`() {
+        val position = Offset(100f, 200f)
+
+        val endpoint = connectorEndpointAt(
+            position = position,
+            nodes = listOf(),
+            hitTest = { _, _ -> false },
+            bounds = { error("No bounds needed") },
+        )
+
+        assertEquals(
+            ConnectorEndpoint.Free(position),
+            endpoint,
+        )
+    }
+
+    @Test
+    fun `connector endpoint attaches to matching node`() {
+        val rectangle = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 60f,
+        )
+
+        val endpoint = connectorEndpointAt(
+            position = Offset(30f, 40f),
+            nodes = listOf(rectangle),
+            hitTest = { node, point ->
+                node.bounds.contains(point)
+            },
+            bounds = { it.bounds },
+        )
+
+        assertEquals(
+            ConnectorEndpoint.Attached(
+                nodeId = rectangle.id,
+                fallbackPosition = Offset(60f, 50f),
+            ),
+            endpoint,
+        )
+    }
+
+    @Test
+    fun `connector attachment prefers topmost node`() {
+        val bottom = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 100f,
+            height = 100f,
+        )
+
+        val top = EditorRectangle(
+            x = 20f,
+            y = 20f,
+            width = 100f,
+            height = 100f,
+        )
+
+        val endpoint = connectorEndpointAt(
+            position = Offset(50f, 50f),
+            nodes = listOf(bottom, top),
+            hitTest = { node, point ->
+                node.bounds.contains(point)
+            },
+            bounds = { it.bounds },
+        )
+
+        assertEquals(
+            top.id,
+            (endpoint as ConnectorEndpoint.Attached).nodeId,
+        )
     }
 }

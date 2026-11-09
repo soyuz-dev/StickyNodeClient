@@ -83,6 +83,7 @@ fun KeyEvent.editorShortcut(): EditorShortcut? {
                 Key.R -> EditorTool.RECTANGLE
                 Key.T -> EditorTool.TEXT
                 Key.W -> EditorTool.PAN
+                Key.C -> EditorTool.CONNECTOR
                 else -> null
             }
 

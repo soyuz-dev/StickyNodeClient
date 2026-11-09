@@ -101,7 +101,7 @@ fun EditorToolbarPreview() {
 
 }
 
-@Preview(showBackground = true)
+@Preview()
 @Composable
 fun HorizontalToolbarPreview() {
     var selectedTool by remember {

@@ -11,4 +11,6 @@ enum class EditorTool(
     ELLIPSE("Ellipse", "E", "circle"),
     PEN("Pen", "D", "edit"),
     TEXT("Text", "T", "text_fields"),
+
+    CONNECTOR("Connector", "C", "polyline"),
 }

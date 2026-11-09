@@ -358,6 +358,7 @@ fun EditorScreen(
             EditorTool.TEXT -> StyleToolbarType.TEXT
             EditorTool.SELECT -> selectedNode?.styleToolbarType()
             EditorTool.PAN -> null
+            EditorTool.CONNECTOR -> null
         }
 
     val editableNode =
@@ -661,7 +662,9 @@ fun EditorScreen(
             onTextEdit = { node ->
                 textEditSession = node.toEditSession()
                 textDraft = node.text
-            }
+            },
+            connectors = documentState.connectors,
+            onConnectorCreated = documentState::addConnector
         )
 
         textEditSession?.let { session ->

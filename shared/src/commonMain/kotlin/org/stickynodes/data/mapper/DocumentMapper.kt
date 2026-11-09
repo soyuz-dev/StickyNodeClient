@@ -2,6 +2,8 @@
 package org.stickynodes.data.mapper
 
 import androidx.compose.ui.geometry.Offset
+import org.stickynodes.data.model.ConnectorDto
+import org.stickynodes.data.model.ConnectorEndpointDto
 import org.stickynodes.data.model.DocumentDto
 import org.stickynodes.data.model.EllipseDto
 import org.stickynodes.data.model.GroupDto
@@ -13,6 +15,8 @@ import org.stickynodes.data.model.RectangleDto
 import org.stickynodes.data.model.StrokeDto
 import org.stickynodes.data.model.StyleDto
 import org.stickynodes.data.model.TextDto
+import org.stickynodes.editor.draw.model.ConnectorEndpoint
+import org.stickynodes.editor.draw.model.EditorConnector
 import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorGroup
 import org.stickynodes.editor.draw.model.EditorGroupMember
@@ -29,17 +33,19 @@ import org.stickynodes.editor.history.EditorDocument
 import kotlin.uuid.Uuid
 
 fun EditorDocument.toDto(): DocumentDto = DocumentDto(
-    version = 2,
+    version = 3,
     members = members.map { it.toDto() },
+    connectors = connectors.map { it.toDto() }
 )
 
 fun DocumentDto.toDocument(): EditorDocument {
-    require(version == 1 || version == 2) {
+    require(version in 1..3) {
         "Unsupported document version: $version"
     }
 
     val document = EditorDocument(
         members = members.map { it.toMember() },
+        connectors = connectors.map { it.toConnector() }
     )
 
     document.validateMemberIds()
@@ -62,6 +68,12 @@ private fun EditorDocument.validateMemberIds() {
     }
 
     members.forEach(::validate)
+
+    connectors.forEach { connector ->
+        require(encountered.add(connector.id)) {
+            "Duplicate connector ID: ${connector.id}"
+        }
+    }
 }
 
 private fun EditorGroupMember.toDto(): MemberDto = when (this) {
@@ -211,3 +223,57 @@ private fun StyleDto.toStyle(): NodeStyle = NodeStyle(
         )
     },
 )
+
+private fun EditorConnector.toDto(): ConnectorDto =
+    ConnectorDto(
+        id = id.toString(),
+        start = start.toDto(),
+        end = end.toDto(),
+    )
+
+private fun ConnectorDto.toConnector(): EditorConnector =
+    EditorConnector(
+        id = Uuid.parse(id),
+        start = start.toEndpoint(),
+        end = end.toEndpoint(),
+    )
+
+private fun ConnectorEndpoint.toDto(): ConnectorEndpointDto =
+    when (this) {
+        is ConnectorEndpoint.Free ->
+            ConnectorEndpointDto.Free(
+                position = PointDto(
+                    position.x,
+                    position.y
+                )
+            )
+
+        is ConnectorEndpoint.Attached ->
+            ConnectorEndpointDto.Attached(
+                nodeId = nodeId.toString(),
+                fallbackPosition = PointDto(
+                    fallbackPosition.x,
+                    fallbackPosition.y
+                )
+            )
+    }
+
+private fun ConnectorEndpointDto.toEndpoint(): ConnectorEndpoint =
+    when (this) {
+        is ConnectorEndpointDto.Free ->
+            ConnectorEndpoint.Free(
+                position = Offset(
+                    position.x,
+                    position.y
+                )
+            )
+
+        is ConnectorEndpointDto.Attached ->
+            ConnectorEndpoint.Attached(
+                nodeId = Uuid.parse(nodeId),
+                fallbackPosition = Offset(
+                    fallbackPosition.x,
+                    fallbackPosition.y
+                )
+            )
+    }
