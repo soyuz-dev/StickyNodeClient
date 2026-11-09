@@ -24,6 +24,7 @@ import org.stickynodes.editor.history.*
 import org.stickynodes.editor.*
 import org.stickynodes.editor.draw.geometry.connector.ConnectorRoute
 import org.stickynodes.editor.draw.geometry.connector.roundedCorner
+import org.stickynodes.editor.draw.geometry.connector.route
 import org.stickynodes.editor.draw.geometry.connector.routeConnector
 import org.stickynodes.editor.draw.geometry.path.PathSampler
 import org.stickynodes.editor.draw.geometry.path.bezierSegments
@@ -506,7 +507,6 @@ class SharedCommonTest {
             )
         }
     }
-
 
 
     @Test
@@ -1048,7 +1048,6 @@ class SharedCommonTest {
     }
 
 
-
     @Test
     fun `selection bounds include rotated rectangle corners`() {
         val rectangle = EditorRectangle(
@@ -1079,7 +1078,6 @@ class SharedCommonTest {
 
         assertEquals(ellipse.visualBounds, ellipse.selectionBounds)
     }
-
 
 
     @Test
@@ -1146,7 +1144,6 @@ class SharedCommonTest {
             assertTrue(bottomRight.y <= 376f + 0.001f)
         }
     }
-
 
 
     @Test
@@ -2199,7 +2196,6 @@ class SharedCommonTest {
 
         assertEquals(distributed, state.nodes)
     }
-
 
 
     @Test
@@ -5555,8 +5551,8 @@ class SharedCommonTest {
 
     @Test
     fun `oriented selection rejects incompatible rotations`() {
-        val first = EditorRectangle(x=10f, y=10f, rotation = 0f, width = 10f, height = 10f)
-        val second = EditorEllipse(x=10f, y=10f, rotation = 0.5f, width = 10f, height = 10f)
+        val first = EditorRectangle(x = 10f, y = 10f, rotation = 0f, width = 10f, height = 10f)
+        val second = EditorEllipse(x = 10f, y = 10f, rotation = 0.5f, width = 10f, height = 10f)
 
         val selection = listOf<EditorNode>(first, second)
             .orientedShapeSelectionOrNull()
@@ -6584,5 +6580,296 @@ class SharedCommonTest {
         )
 
         assertNull(route.roundedCorner(12f))
+    }
+
+    @Test
+    fun `free endpoint resolves to its own position`() {
+        val position = Offset(25f, 50f)
+        val endpoint = ConnectorEndpoint.Free(position)
+
+        assertEquals(
+            position,
+            endpoint.resolve { null }
+        )
+    }
+
+    @Test
+    fun `attached endpoint resolves using callback`() {
+        val nodeId = Uuid.random()
+        val resolvedPosition = Offset(100f, 200f)
+
+        val endpoint = ConnectorEndpoint.Attached(
+            nodeId = nodeId,
+            fallbackPosition = Offset.Zero
+        )
+
+        assertEquals(
+            resolvedPosition,
+            endpoint.resolve { id ->
+                if (id == nodeId) resolvedPosition else null
+            }
+        )
+    }
+
+    @Test
+    fun `attached endpoint falls back when node is missing`() {
+        val fallback = Offset(40f, 60f)
+
+        val endpoint = ConnectorEndpoint.Attached(
+            nodeId = Uuid.random(),
+            fallbackPosition = fallback
+        )
+
+        assertEquals(
+            fallback,
+            endpoint.resolve { null }
+        )
+    }
+
+    @Test
+    fun `free endpoint does not invoke resolver`() {
+        val position = Offset(12f, 34f)
+        val endpoint = ConnectorEndpoint.Free(position)
+
+        assertEquals(
+            position,
+            endpoint.resolve {
+                error("Resolver should not be called")
+            }
+        )
+    }
+    @Test
+    fun `free endpoints route between their positions`() {
+        val start = Offset(0f, 0f)
+        val end = Offset(100f, 0f)
+
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Free(start),
+            end = ConnectorEndpoint.Free(end),
+        )
+
+        assertEquals(
+            listOf(start, end),
+            connector.route { null }.points,
+        )
+    }
+
+    @Test
+    fun `attached endpoints use resolved positions`() {
+        val startId = Uuid.random()
+        val endId = Uuid.random()
+
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Attached(
+                nodeId = startId,
+                fallbackPosition = Offset.Zero,
+            ),
+            end = ConnectorEndpoint.Attached(
+                nodeId = endId,
+                fallbackPosition = Offset.Zero,
+            ),
+        )
+
+        val positions = mapOf(
+            startId to Offset(0f, 0f),
+            endId to Offset(100f, 0f),
+        )
+
+        assertEquals(
+            listOf(
+                Offset(0f, 0f),
+                Offset(100f, 0f),
+            ),
+            connector.route(positions::get).points,
+        )
+    }
+
+    @Test
+    fun `missing attachment uses fallback position`() {
+        val fallback = Offset(25f, 50f)
+        val freePosition = Offset(125f, 50f)
+
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Attached(
+                nodeId = Uuid.random(),
+                fallbackPosition = fallback,
+            ),
+            end = ConnectorEndpoint.Free(freePosition),
+        )
+
+        assertEquals(
+            listOf(fallback, freePosition),
+            connector.route { null }.points,
+        )
+    }
+
+    @Test
+    fun `moving an attached node changes the route`() {
+        val nodeId = Uuid.random()
+
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Attached(
+                nodeId = nodeId,
+                fallbackPosition = Offset.Zero,
+            ),
+            end = ConnectorEndpoint.Free(Offset(100f, 0f)),
+        )
+
+        val initial = connector.route {
+            Offset(0f, 0f)
+        }
+
+        val moved = connector.route {
+            Offset(50f, 0f)
+        }
+
+        assertEquals(
+            Offset(0f, 0f),
+            initial.points.first(),
+        )
+
+        assertEquals(
+            Offset(50f, 0f),
+            moved.points.first(),
+        )
+
+        assertEquals(
+            connector.end.resolve { null },
+            moved.points.last(),
+        )
+    }
+
+
+    @Test
+    fun `adding connector commits document change`() {
+        val state = EditorDocumentState()
+
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Free(Offset.Zero),
+            end = ConnectorEndpoint.Free(Offset(100f, 0f)),
+        )
+
+        state.addConnector(connector)
+
+        assertEquals(listOf(connector), state.connectors)
+        assertTrue(state.canUndo)
+
+        state.undo()
+
+        assertTrue(state.connectors.isEmpty())
+    }
+
+    @Test
+    fun `adding duplicate connector ID is rejected`() {
+        val state = EditorDocumentState()
+
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Free(Offset.Zero),
+            end = ConnectorEndpoint.Free(Offset(100f, 0f)),
+        )
+
+        state.addConnector(connector)
+
+        assertFailsWith<IllegalArgumentException> {
+            state.addConnector(connector)
+        }
+
+        assertEquals(1, state.connectors.size)
+    }
+
+    @Test
+    fun `updating connector preserves its identity and supports undo`() {
+        val state = EditorDocumentState()
+
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Free(Offset.Zero),
+            end = ConnectorEndpoint.Free(Offset(100f, 0f)),
+        )
+
+        state.addConnector(connector)
+
+        val updated = connector.copy(
+            end = ConnectorEndpoint.Free(Offset(200f, 50f)),
+        )
+
+        state.updateConnector(updated)
+
+        assertEquals(listOf(updated), state.connectors)
+        assertEquals(connector.id, state.connectors.single().id)
+
+        state.undo()
+
+        assertEquals(listOf(connector), state.connectors)
+
+        state.redo()
+
+        assertEquals(listOf(updated), state.connectors)
+    }
+
+    @Test
+    fun `deleting connector supports undo and redo`() {
+        val state = EditorDocumentState()
+
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Free(Offset.Zero),
+            end = ConnectorEndpoint.Free(Offset(100f, 0f)),
+        )
+
+        state.addConnector(connector)
+        state.deleteConnector(connector.id)
+
+        assertTrue(state.connectors.isEmpty())
+
+        state.undo()
+
+        assertEquals(listOf(connector), state.connectors)
+
+        state.redo()
+
+        assertTrue(state.connectors.isEmpty())
+    }
+
+    @Test
+    fun `updating missing connector does nothing`() {
+        val state = EditorDocumentState()
+
+        val missing = EditorConnector(
+            start = ConnectorEndpoint.Free(Offset.Zero),
+            end = ConnectorEndpoint.Free(Offset(100f, 0f)),
+        )
+
+        state.updateConnector(missing)
+
+        assertTrue(state.connectors.isEmpty())
+        assertFalse(state.canUndo)
+    }
+
+    @Test
+    fun `deleting missing connector does nothing`() {
+        val state = EditorDocumentState()
+
+        state.deleteConnector(Uuid.random())
+
+        assertTrue(state.connectors.isEmpty())
+        assertFalse(state.canUndo)
+    }
+
+    @Test
+    fun `updating connector with identical value creates no history entry`() {
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Free(Offset.Zero),
+            end = ConnectorEndpoint.Free(Offset(100f, 0f)),
+        )
+
+        val state = EditorDocumentState(
+            initialDocument = EditorDocument(
+                connectors = listOf(connector),
+            ),
+        )
+
+        state.updateConnector(connector)
+
+        assertFalse(state.canUndo)
+        assertEquals(listOf(connector), state.connectors)
     }
 }

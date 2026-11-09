@@ -61,6 +61,51 @@ class EditorDocumentState(
     val selectedNode: EditorNode?
         get() = selectedMember as? EditorNode
 
+    val connectors: List<EditorConnector>
+        get() = document.connectors
+
+    fun addConnector(connector: EditorConnector) {
+        require(connectors.none { it.id == connector.id }) {
+            "A connector with this ID already exists"
+        }
+
+        history = history.commit(
+            document.copy(
+                connectors = connectors + connector,
+            )
+        )
+    }
+
+    fun updateConnector(connector: EditorConnector) {
+        val index = connectors.indexOfFirst {
+            it.id == connector.id
+        }
+
+        if (index == -1) return
+
+        if (connectors[index] == connector) return
+
+        history = history.commit(
+            document.copy(
+                connectors = connectors.toMutableList().apply {
+                    this[index] = connector
+                },
+            )
+        )
+    }
+
+    fun deleteConnector(id: Uuid) {
+        val updated = connectors.filterNot {
+            it.id == id
+        }
+
+        if (updated == connectors) return
+
+        history = history.commit(
+            document.copy(connectors = updated)
+        )
+    }
+
     private var stylePreview by
     mutableStateOf<Pair<Uuid, NodeStyle>?>(null)
 
