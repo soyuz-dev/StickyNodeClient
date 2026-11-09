@@ -130,16 +130,16 @@ git clone https://github.com/soyuz-dev/StickyNodeClient.git
 cd StickyNodeClient
 ```
 
-| Task | Command |
-| --- | --- |
-| Run desktop app | `./gradlew :desktopApp:run` |
-| Desktop Hot Reload | `./gradlew :desktopApp:hotRun --auto` |
-| Package desktop JAR | `./gradlew :desktopApp:packageUberJarForCurrentOS` |
-| Run Kotlin/Wasm web app | `./gradlew :webApp:wasmJsBrowserDevelopmentRun` |
-| Run Kotlin/JS web app | `./gradlew :webApp:jsBrowserDevelopmentRun` |
-| Build Android debug APK | `./gradlew :androidApp:assembleDebug` |
-| Run common JVM tests | `./gradlew :shared:jvmTest` |
-| Deploy production web app | `./gradlew deployWeb` |
+| Task                      | Command                                            |
+|---------------------------|----------------------------------------------------|
+| Run desktop app           | `./gradlew :desktopApp:run`                        |
+| Desktop Hot Reload        | `./gradlew :desktopApp:hotRun --auto`              |
+| Package desktop JAR       | `./gradlew :desktopApp:packageUberJarForCurrentOS` |
+| Run Kotlin/Wasm web app   | `./gradlew :webApp:wasmJsBrowserDevelopmentRun`    |
+| Run Kotlin/JS web app     | `./gradlew :webApp:jsBrowserDevelopmentRun`        |
+| Build Android debug APK   | `./gradlew :androidApp:assembleDebug`              |
+| Run common JVM tests      | `./gradlew :shared:jvmTest`                        |
+| Deploy production web app | `./gradlew deployWeb`                              |
 
 On Windows, use `.\gradlew` instead of `./gradlew`. Desktop JAR output is under `desktopApp/build/compose/jars/`.
 
