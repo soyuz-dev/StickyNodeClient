@@ -58,6 +58,8 @@ import org.stickynodes.editor.draw.style.StrokeStyle
 import org.stickynodes.editor.tools.EditorTool
 import kotlin.uuid.Uuid
 import androidx.compose.ui.graphics.Path
+import org.stickynodes.editor.draw.geometry.connector.routeConnector
+import org.stickynodes.editor.draw.geometry.connector.toPath
 import org.stickynodes.editor.draw.geometry.transform.ResizeHandle
 import org.stickynodes.editor.draw.geometry.snapping.SnapResult
 import org.stickynodes.editor.draw.geometry.snapping.SpacingPlacement

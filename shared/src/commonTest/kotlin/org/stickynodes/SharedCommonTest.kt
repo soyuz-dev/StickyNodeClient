@@ -22,6 +22,8 @@ import org.stickynodes.editor.draw.model.*
 import org.stickynodes.editor.draw.style.*
 import org.stickynodes.editor.history.*
 import org.stickynodes.editor.*
+import org.stickynodes.editor.draw.geometry.connector.ConnectorRoute
+import org.stickynodes.editor.draw.geometry.connector.roundedCorner
 import org.stickynodes.editor.draw.geometry.connector.routeConnector
 import org.stickynodes.editor.draw.geometry.path.PathSampler
 import org.stickynodes.editor.draw.geometry.path.bezierSegments
@@ -6450,62 +6452,137 @@ class SharedCommonTest {
     }
 
 
-        @Test
-        fun `horizontal connection produces a straight route`() {
-            val start = Offset(0f, 0f)
-            val end = Offset(100f, 0f)
+    @Test
+    fun `horizontal connection produces a straight route`() {
+        val start = Offset(0f, 0f)
+        val end = Offset(100f, 0f)
 
-            assertEquals(
-                listOf(start, end),
-                routeConnector(start, end).points,
+        assertEquals(
+            listOf(start, end),
+            routeConnector(start, end).points
+        )
+    }
+
+    @Test
+    fun `diagonal at 45 degrees produces a straight route`() {
+        val start = Offset(0f, 0f)
+        val end = Offset(100f, 100f)
+
+        assertEquals(
+            listOf(start, end),
+            routeConnector(start, end).points
+        )
+    }
+
+    @Test
+    fun `non aligned endpoints produce a corner`() {
+        val start = Offset(0f, 0f)
+        val end = Offset(100f, 25f)
+
+        val route = routeConnector(start, end)
+
+        assertEquals(3, route.points.size)
+        assertEquals(start, route.points.first())
+        assertEquals(end, route.points.last())
+
+        val corner = route.points[1]
+
+        assertTrue(abs(corner.y) < 0.001f)
+        assertTrue(abs((end.x - corner.x) - (end.y - corner.y)) < 0.001f)
+    }
+
+    @Test
+    fun `coincident endpoints produce a degenerate straight route`() {
+        val point = Offset(42f, 17f)
+
+        assertEquals(
+            listOf(point, point),
+            routeConnector(point, point).points
+        )
+    }
+
+    @Test
+    fun `non finite endpoints are rejected`() {
+        assertFailsWith<IllegalArgumentException> {
+            routeConnector(
+                Offset(Float.NaN, 0f),
+                Offset(100f, 100f)
             )
         }
+    }
 
-        @Test
-        fun `diagonal at 45 degrees produces a straight route`() {
-            val start = Offset(0f, 0f)
-            val end = Offset(100f, 100f)
-
-            assertEquals(
-                listOf(start, end),
-                routeConnector(start, end).points,
+    @Test
+    fun `straight route has no rounded corner`() {
+        val route = ConnectorRoute(
+            listOf(
+                Offset(0f, 0f),
+                Offset(100f, 0f)
             )
-        }
+        )
 
-        @Test
-        fun `non aligned endpoints produce a corner`() {
-            val start = Offset(0f, 0f)
-            val end = Offset(100f, 25f)
+        assertNull(route.roundedCorner(12f))
+    }
 
-            val route = routeConnector(start, end)
-
-            assertEquals(3, route.points.size)
-            assertEquals(start, route.points.first())
-            assertEquals(end, route.points.last())
-
-            val corner = route.points[1]
-
-            assertTrue(abs(corner.y) < 0.001f)
-            assertTrue(abs((end.x - corner.x) - (end.y - corner.y)) < 0.001f)
-        }
-
-        @Test
-        fun `coincident endpoints produce a degenerate straight route`() {
-            val point = Offset(42f, 17f)
-
-            assertEquals(
-                listOf(point, point),
-                routeConnector(point, point).points,
+    @Test
+    fun `corner is rounded along adjacent segments`() {
+        val route = ConnectorRoute(
+            listOf(
+                Offset(0f, 0f),
+                Offset(100f, 0f),
+                Offset(100f, 100f)
             )
-        }
+        )
 
-        @Test
-        fun `non finite endpoints are rejected`() {
-            assertFailsWith<IllegalArgumentException> {
-                routeConnector(
-                    Offset(Float.NaN, 0f),
-                    Offset(100f, 100f),
-                )
-            }
-        }
+        val corner = assertNotNull(
+            route.roundedCorner(20f)
+        )
+
+        assertEquals(Offset(80f, 0f), corner.entry)
+        assertEquals(Offset(100f, 0f), corner.control)
+        assertEquals(Offset(100f, 20f), corner.exit)
+    }
+
+    @Test
+    fun `radius is limited by shortest segment`() {
+        val route = ConnectorRoute(
+            listOf(
+                Offset(0f, 0f),
+                Offset(10f, 0f),
+                Offset(10f, 100f)
+            )
+        )
+
+        val corner = assertNotNull(
+            route.roundedCorner(50f)
+        )
+
+        assertEquals(Offset(0f, 0f), corner.entry)
+        assertEquals(Offset(10f, 10f), corner.exit)
+    }
+
+    @Test
+    fun `zero radius produces no rounded corner`() {
+        val route = ConnectorRoute(
+            listOf(
+                Offset(0f, 0f),
+                Offset(100f, 0f),
+                Offset(100f, 100f)
+            )
+        )
+
+        assertNull(route.roundedCorner(0f))
+    }
+
+    @Test
+    fun `coincident points do not produce invalid curves`() {
+        val route = ConnectorRoute(
+            listOf(
+                Offset.Zero,
+                Offset.Zero,
+                Offset(100f, 0f)
+            )
+        )
+
+        assertNull(route.roundedCorner(12f))
+    }
 }
