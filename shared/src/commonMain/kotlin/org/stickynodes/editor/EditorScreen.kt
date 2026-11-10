@@ -664,7 +664,9 @@ fun EditorScreen(
                 textDraft = node.text
             },
             connectors = documentState.connectors,
-            onConnectorCreated = documentState::addConnector
+            onConnectorCreated = documentState::addConnector,
+            selectedConnectorId = documentState.selectedConnectorId,
+            onConnectorSelected = documentState::selectConnector,
         )
 
         textEditSession?.let { session ->

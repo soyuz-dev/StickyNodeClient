@@ -39,6 +39,8 @@ suspend fun PointerInputScope.detectNodeInteraction(
     groupRotationHandleAt: (Offset) -> Boolean = { false },
     groupResizeHandleAt: (Offset) -> ResizeHandle? = { null },
     onSnapChanged: (SnapResult?) -> Unit = {},
+    connectorAt: (Offset) -> Uuid? = { null },
+    onSelectConnector: (Uuid) -> Unit = {}
 ) {
     var lastClickNodeId: Uuid? = null
     var lastClickPosition = Offset.Unspecified
@@ -211,6 +213,17 @@ suspend fun PointerInputScope.detectNodeInteraction(
             }
 
             if (hitNode == null) {
+
+                val hitConnectorId = connectorAt(down.position)
+
+                if (hitConnectorId != null) {
+                    onSelectConnector(hitConnectorId)
+
+                    waitForUpOrCancellation()
+                    resetClickTracking()
+                    return@awaitEachGesture
+                }
+
                 handleMarqueeSelection(
                     down = down,
                     nodes = nodes,

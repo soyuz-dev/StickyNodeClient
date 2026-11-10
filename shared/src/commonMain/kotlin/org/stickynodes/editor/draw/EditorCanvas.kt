@@ -64,6 +64,8 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import org.stickynodes.editor.draw.geometry.connector.ConnectorAnchor
 import org.stickynodes.editor.draw.geometry.connector.anchorPosition
 import org.stickynodes.editor.draw.geometry.connector.connectorEndpointAt
+import org.stickynodes.editor.draw.geometry.connector.contains
+import org.stickynodes.editor.draw.geometry.connector.route
 import org.stickynodes.editor.draw.geometry.connector.routeConnector
 import org.stickynodes.editor.draw.geometry.connector.toPath
 import org.stickynodes.editor.draw.geometry.transform.ResizeHandle
@@ -101,6 +103,8 @@ fun EditorCanvas(
     ancestorGroups: List<EditorGroup> = listOf(),
     connectors: List<EditorConnector> = listOf(),
     onConnectorCreated: (EditorConnector) -> Unit = {},
+    selectedConnectorId: Uuid? = null,
+    onConnectorSelected: (Uuid) -> Unit = {},
 ) {
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
@@ -153,6 +157,8 @@ fun EditorCanvas(
     val currentOnTextEdit by rememberUpdatedState(onTextEdit)
     val currentOnHitSelection by rememberUpdatedState(onHitSelection)
     val currentOnConnectorCreated by rememberUpdatedState(onConnectorCreated)
+    val currentConnectors by rememberUpdatedState(connectors)
+    val currentOnConnectorSelected by rememberUpdatedState(onConnectorSelected)
 
     Canvas(
         modifier = modifier
@@ -468,8 +474,47 @@ fun EditorCanvas(
                                             radius * radius
                                 }
                             },
-                            onSnapChanged = { snapResult = it }
-                        )
+                            onSnapChanged = { snapResult = it },
+
+                            connectorAt = { screenPoint ->
+                                val worldPoint =
+                                    currentCamera.screenToWorld(screenPoint)
+
+                                val tolerance = with(density) {
+                                    8.dp.toPx()
+                                } / currentCamera.zoom
+
+                                val nodesById = currentNodes.associateBy { it.id }
+
+                                fun resolvePosition(
+                                    id: Uuid,
+                                    anchor: ConnectorAnchor?,
+                                ): Offset? {
+                                    val node = nodesById[id] ?: return null
+
+                                    return if (node is EditorShape && anchor != null) {
+                                        node.anchorPosition(anchor)
+                                    } else {
+                                        node.measuredSelectionBounds(
+                                            textMeasurer = textMeasurer,
+                                            textStyle = { text ->
+                                                text.layoutStyle(density)
+                                            },
+                                        ).center
+                                    }
+                                }
+
+                                currentConnectors.asReversed().firstOrNull { connector ->
+                                    connector.route(::resolvePosition).contains(
+                                        point = worldPoint,
+                                        tolerance = tolerance,
+                                    )
+                                }?.id
+                            },
+                            onSelectConnector = { id ->
+                                currentOnConnectorSelected(id)
+                            },
+                            )
                     }
 
                     EditorTool.PAN -> {
