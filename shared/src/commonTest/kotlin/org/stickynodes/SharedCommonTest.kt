@@ -23,15 +23,18 @@ import org.stickynodes.editor.draw.style.*
 import org.stickynodes.editor.history.*
 import org.stickynodes.editor.*
 import org.stickynodes.editor.draw.geometry.connector.ConnectorAnchor
+import org.stickynodes.editor.draw.geometry.connector.ConnectorHandle
 import org.stickynodes.editor.draw.geometry.connector.ConnectorRoute
 import org.stickynodes.editor.draw.geometry.connector.anchorPosition
 import org.stickynodes.editor.draw.geometry.connector.connectorEndpointAt
 import org.stickynodes.editor.draw.geometry.connector.contains
 import org.stickynodes.editor.draw.geometry.connector.detachRemovedNodes
 import org.stickynodes.editor.draw.geometry.connector.distanceToSegment
+import org.stickynodes.editor.draw.geometry.connector.handleAt
 import org.stickynodes.editor.draw.geometry.connector.roundedCorner
 import org.stickynodes.editor.draw.geometry.connector.route
 import org.stickynodes.editor.draw.geometry.connector.routeConnector
+import org.stickynodes.editor.draw.geometry.connector.withEndpoint
 import org.stickynodes.editor.draw.geometry.path.PathSampler
 import org.stickynodes.editor.draw.geometry.path.bezierSegments
 import org.stickynodes.editor.draw.geometry.path.containsStroke
@@ -7881,5 +7884,135 @@ class SharedCommonTest {
         state.clearSelection()
 
         assertNull(state.selectedConnector)
+    }
+
+
+    @Test
+    fun `connector start handle can be hit`() {
+        val route = ConnectorRoute(
+            listOf(
+                Offset(0f, 0f),
+                Offset(100f, 0f),
+            )
+        )
+
+        assertEquals(
+            ConnectorHandle.START,
+            route.handleAt(Offset(4f, 3f), radius = 5f),
+        )
+    }
+
+    @Test
+    fun `connector end handle can be hit`() {
+        val route = ConnectorRoute(
+            listOf(
+                Offset(0f, 0f),
+                Offset(100f, 0f),
+            )
+        )
+
+        assertEquals(
+            ConnectorHandle.END,
+            route.handleAt(Offset(97f, 4f), radius = 5f),
+        )
+    }
+
+    @Test
+    fun `connector handle hit testing rejects distant points`() {
+        val route = ConnectorRoute(
+            listOf(
+                Offset(0f, 0f),
+                Offset(100f, 0f),
+            )
+        )
+
+        assertNull(
+            route.handleAt(Offset(50f, 0f), radius = 10f)
+        )
+    }
+
+    @Test
+    fun `connector handle hit testing chooses nearest endpoint`() {
+        val route = ConnectorRoute(
+            listOf(
+                Offset(0f, 0f),
+                Offset(10f, 0f),
+            )
+        )
+
+        assertEquals(
+            ConnectorHandle.END,
+            route.handleAt(Offset(8f, 0f), radius = 10f),
+        )
+    }
+
+    @Test
+    fun `overlapping connector handles prefer start`() {
+        val route = ConnectorRoute(
+            listOf(
+                Offset(20f, 30f),
+                Offset(20f, 30f),
+            )
+        )
+
+        assertEquals(
+            ConnectorHandle.START,
+            route.handleAt(Offset(20f, 30f), radius = 5f),
+        )
+    }
+
+    @Test
+    fun `connector handle hit radius is inclusive`() {
+        val route = ConnectorRoute(
+            listOf(
+                Offset(0f, 0f),
+                Offset(100f, 0f),
+            )
+        )
+
+        assertEquals(
+            ConnectorHandle.START,
+            route.handleAt(Offset(6f, 8f), radius = 10f),
+        )
+    }
+
+    @Test
+    fun `connector handle hit testing rejects invalid radius`() {
+        val route = ConnectorRoute(
+            listOf(
+                Offset.Zero,
+                Offset(100f, 0f),
+            )
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            route.handleAt(Offset.Zero, radius = -1f)
+        }
+
+        assertFailsWith<IllegalArgumentException> {
+            route.handleAt(Offset.Zero, radius = Float.NaN)
+        }
+    }
+
+
+    @Test
+    fun `editing connector endpoint preserves identity and opposite endpoint`() {
+        val original = EditorConnector(
+            start = ConnectorEndpoint.Free(Offset.Zero),
+            end = ConnectorEndpoint.Free(Offset(100f, 0f)),
+        )
+
+        val newEnd = ConnectorEndpoint.Free(
+            Offset(200f, 50f)
+        )
+
+        val updated = original.withEndpoint(
+            ConnectorHandle.END,
+            newEnd,
+        )
+
+        assertEquals(original.id, updated.id)
+        assertEquals(original.start, updated.start)
+        assertEquals(newEnd, updated.end)
     }
 }

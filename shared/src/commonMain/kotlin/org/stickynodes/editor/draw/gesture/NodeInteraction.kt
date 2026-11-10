@@ -9,10 +9,14 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.isShiftPressed
+import org.stickynodes.editor.draw.geometry.connector.ConnectorAnchor
+import org.stickynodes.editor.draw.geometry.connector.ConnectorHandle
 import org.stickynodes.editor.draw.geometry.transform.ResizeHandle
 import org.stickynodes.editor.draw.geometry.snapping.SnapResult
 import org.stickynodes.editor.draw.geometry.snapping.snapTranslation
 import org.stickynodes.editor.draw.geometry.enclosingBounds
+import org.stickynodes.editor.draw.model.ConnectorEndpoint
+import org.stickynodes.editor.draw.model.EditorConnector
 import org.stickynodes.editor.draw.model.EditorNode
 import org.stickynodes.editor.draw.model.EditorShape
 import org.stickynodes.editor.draw.model.EditorText
@@ -40,7 +44,17 @@ suspend fun PointerInputScope.detectNodeInteraction(
     groupResizeHandleAt: (Offset) -> ResizeHandle? = { null },
     onSnapChanged: (SnapResult?) -> Unit = {},
     connectorAt: (Offset) -> Uuid? = { null },
-    onSelectConnector: (Uuid) -> Unit = {}
+    onSelectConnector: (Uuid) -> Unit = {},
+    selectedConnector: () -> EditorConnector? = { null },
+    connectorHandleAt: (EditorConnector, Offset) -> ConnectorHandle? = { _, _ -> null },
+    connectorEndpointAt: (Offset) -> ConnectorEndpoint =
+        { ConnectorEndpoint.Free(it) },
+    onConnectorPreview: (EditorConnector?) -> Unit = {},
+    onConnectorCommit: (EditorConnector) -> Unit = {},
+    connectorNodePosition: (
+        Uuid,
+        ConnectorAnchor?,
+    ) -> Offset? = { _, _ -> null },
 ) {
     var lastClickNodeId: Uuid? = null
     var lastClickPosition = Offset.Unspecified
@@ -179,6 +193,30 @@ suspend fun PointerInputScope.detectNodeInteraction(
                         onCommit = onCommit,
                     )
 
+                    return@awaitEachGesture
+                }
+            }
+
+            val connector = selectedConnector()
+
+            if (connector != null) {
+                val handle = connectorHandleAt(
+                    connector,
+                    down.position
+                )
+
+                if (handle != null) {
+                    handleConnectorEndpointDrag(
+                        down = down,
+                        connector = connector,
+                        handle = handle,
+                        endpointAt = connectorEndpointAt,
+                        onPreview = onConnectorPreview,
+                        onCommit = onConnectorCommit,
+                        nodePosition = connectorNodePosition
+                    )
+
+                    resetClickTracking()
                     return@awaitEachGesture
                 }
             }

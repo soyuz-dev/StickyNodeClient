@@ -65,6 +65,7 @@ import org.stickynodes.editor.draw.geometry.connector.ConnectorAnchor
 import org.stickynodes.editor.draw.geometry.connector.anchorPosition
 import org.stickynodes.editor.draw.geometry.connector.connectorEndpointAt
 import org.stickynodes.editor.draw.geometry.connector.contains
+import org.stickynodes.editor.draw.geometry.connector.handleAt
 import org.stickynodes.editor.draw.geometry.connector.route
 import org.stickynodes.editor.draw.geometry.connector.routeConnector
 import org.stickynodes.editor.draw.geometry.connector.toPath
@@ -78,6 +79,7 @@ import org.stickynodes.editor.draw.model.ConnectorEndpoint
 import org.stickynodes.editor.draw.model.EditorConnector
 import org.stickynodes.editor.draw.render.drawConnector
 import org.stickynodes.editor.draw.render.drawConnectorAnchors
+import org.stickynodes.editor.draw.render.drawConnectorSelection
 
 @Composable
 fun EditorCanvas(
@@ -105,6 +107,7 @@ fun EditorCanvas(
     onConnectorCreated: (EditorConnector) -> Unit = {},
     selectedConnectorId: Uuid? = null,
     onConnectorSelected: (Uuid) -> Unit = {},
+    onConnectorUpdated: (EditorConnector) -> Unit = {},
 ) {
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
@@ -132,6 +135,18 @@ fun EditorCanvas(
     var snapResult by remember {
         mutableStateOf<SnapResult?>(null)
     }
+
+    var editingConnectorPreview by remember {
+        mutableStateOf<EditorConnector?>(null)
+    }
+
+    val currentSelectedConnectorId by rememberUpdatedState(
+        selectedConnectorId
+    )
+
+    val currentOnConnectorUpdated by rememberUpdatedState(
+        onConnectorUpdated
+    )
 
     val selectionColor = Color(0xFF4492FF)
     val selectedGroups = selectedMembers.filterIsInstance<EditorGroup>()
@@ -514,7 +529,85 @@ fun EditorCanvas(
                             onSelectConnector = { id ->
                                 currentOnConnectorSelected(id)
                             },
-                            )
+                            selectedConnector = {
+                                currentConnectors.firstOrNull {
+                                    it.id == currentSelectedConnectorId
+                                }
+                            },
+                            connectorHandleAt = { connector, screenPoint ->
+                                val nodesById = currentNodes.associateBy { it.id }
+
+                                fun resolve(
+                                    id: Uuid,
+                                    anchor: ConnectorAnchor?,
+                                ): Offset? {
+                                    val node = nodesById[id] ?: return null
+
+                                    return if (anchor != null && node is EditorShape) {
+                                        node.anchorPosition(anchor)
+                                    } else {
+                                        node.measuredSelectionBounds(
+                                            textMeasurer = textMeasurer,
+                                            textStyle = { it.layoutStyle(density) },
+                                        ).center
+                                    }
+                                }
+
+                                connector.route(::resolve).handleAt(
+                                    position = currentCamera.screenToWorld(screenPoint),
+                                    radius = with(density) {
+                                        10.dp.toPx()
+                                    } / currentCamera.zoom,
+                                )
+                            },
+                            connectorEndpointAt = { screenPoint ->
+                                connectorEndpointAt(
+                                    position = currentCamera.screenToWorld(screenPoint),
+                                    nodes = currentNodes,
+                                    hitTest = { node, point ->
+                                        node.contains(
+                                            point = point,
+                                            textMeasurer = textMeasurer,
+                                            textStyle = { it.layoutStyle(density) },
+                                            zoom = currentCamera.zoom,
+                                        )
+                                    },
+                                    bounds = { node ->
+                                        node.measuredSelectionBounds(
+                                            textMeasurer = textMeasurer,
+                                            textStyle = { it.layoutStyle(density) },
+                                        )
+                                    },
+                                    snapRadius = with(density) {
+                                        12.dp.toPx()
+                                    } / currentCamera.zoom,
+                                )
+                            },
+                            onConnectorPreview = {
+                                editingConnectorPreview = it
+                            },
+                            onConnectorCommit = {
+                                currentOnConnectorUpdated(it)
+                            },
+
+                            connectorNodePosition = { id, anchor ->
+                                val node = currentNodes.firstOrNull {
+                                    it.id == id
+                                }
+
+                                when {
+                                    node == null -> null
+
+                                    anchor != null && node is EditorShape ->
+                                        node.anchorPosition(anchor)
+
+                                    else -> node.measuredSelectionBounds(
+                                        textMeasurer = textMeasurer,
+                                        textStyle = { it.layoutStyle(density) },
+                                    ).center
+                                }
+                            }
+                        )
                     }
 
                     EditorTool.PAN -> {
@@ -637,10 +730,15 @@ fun EditorCanvas(
                 }
 
                 for (connector in connectors) {
+                    val displayedConnector =
+                        editingConnectorPreview?.takeIf {
+                            it.id == connector.id
+                        } ?: connector
+
                     drawConnector(
-                        connector = connector,
+                        connector = displayedConnector,
                         nodePosition = ::nodePosition,
-                        zoom = camera.zoom
+                        zoom = camera.zoom,
                     )
                 }
 
@@ -756,6 +854,17 @@ fun EditorCanvas(
                 }
 
                 if (selectedTool == EditorTool.SELECT) {
+                    connectors.firstOrNull {
+                        it.id == selectedConnectorId
+                    }?.let { connector ->
+                        drawConnectorSelection(
+                            connector = connector,
+                            nodePosition = ::nodePosition,
+                            zoom = camera.zoom,
+                            color = selectionColor,
+                        )
+                    }
+
                     snapResult?.let { snap ->
                         val guideColor = Color(0xFFDD4FAF)
                         val guideWidth = 1.25.dp.toPx() / camera.zoom
