@@ -15,6 +15,7 @@ import org.stickynodes.data.model.RectangleDto
 import org.stickynodes.data.model.StrokeDto
 import org.stickynodes.data.model.StyleDto
 import org.stickynodes.data.model.TextDto
+import org.stickynodes.editor.draw.geometry.connector.ConnectorAnchor
 import org.stickynodes.editor.draw.model.ConnectorEndpoint
 import org.stickynodes.editor.draw.model.EditorConnector
 import org.stickynodes.editor.draw.model.EditorEllipse
@@ -33,13 +34,13 @@ import org.stickynodes.editor.history.EditorDocument
 import kotlin.uuid.Uuid
 
 fun EditorDocument.toDto(): DocumentDto = DocumentDto(
-    version = 3,
+    version = 4,
     members = members.map { it.toDto() },
     connectors = connectors.map { it.toDto() }
 )
 
 fun DocumentDto.toDocument(): EditorDocument {
-    require(version in 1..3) {
+    require(version in 1..4) {
         "Unsupported document version: $version"
     }
 
@@ -254,7 +255,8 @@ private fun ConnectorEndpoint.toDto(): ConnectorEndpointDto =
                 fallbackPosition = PointDto(
                     fallbackPosition.x,
                     fallbackPosition.y
-                )
+                ),
+                anchor = anchor?.name?.lowercase()
             )
     }
 
@@ -274,6 +276,11 @@ private fun ConnectorEndpointDto.toEndpoint(): ConnectorEndpoint =
                 fallbackPosition = Offset(
                     fallbackPosition.x,
                     fallbackPosition.y
-                )
+                ),
+                anchor = anchor?.let { name ->
+                    ConnectorAnchor.entries.firstOrNull {
+                        it.name.lowercase() == name
+                    } ?: throw IllegalArgumentException("Unknown connector anchor: $name")
+                }
             )
     }

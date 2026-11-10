@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
+import org.stickynodes.editor.draw.geometry.connector.ConnectorAnchor
 import org.stickynodes.editor.draw.geometry.connector.route
 import org.stickynodes.editor.draw.geometry.connector.toPath
 import org.stickynodes.editor.draw.model.EditorConnector
@@ -12,7 +13,7 @@ import kotlin.uuid.Uuid
 
 fun DrawScope.drawConnector(
     connector: EditorConnector,
-    nodePosition: (Uuid) -> Offset?,
+    nodePosition: (Uuid, ConnectorAnchor?) -> Offset?,
     zoom: Float
 ) {
     require(zoom.isFinite() && zoom > 0f)

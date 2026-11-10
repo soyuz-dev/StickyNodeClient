@@ -2,6 +2,7 @@ package org.stickynodes.data.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import org.stickynodes.editor.draw.geometry.connector.ConnectorAnchor
 
 @Serializable
 data class ConnectorDto(
@@ -23,5 +24,6 @@ sealed interface ConnectorEndpointDto{
     data class Attached(
         val nodeId: String,
         val fallbackPosition: PointDto,
+        val anchor: String? = null,
     ): ConnectorEndpointDto
 }

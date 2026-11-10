@@ -58,6 +58,11 @@ import org.stickynodes.editor.draw.style.StrokeStyle
 import org.stickynodes.editor.tools.EditorTool
 import kotlin.uuid.Uuid
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.input.pointer.PointerEvent
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import org.stickynodes.editor.draw.geometry.connector.ConnectorAnchor
+import org.stickynodes.editor.draw.geometry.connector.anchorPosition
 import org.stickynodes.editor.draw.geometry.connector.connectorEndpointAt
 import org.stickynodes.editor.draw.geometry.connector.routeConnector
 import org.stickynodes.editor.draw.geometry.connector.toPath
@@ -67,8 +72,10 @@ import org.stickynodes.editor.draw.geometry.snapping.SpacingPlacement
 import org.stickynodes.editor.draw.geometry.transform.orientedResizeHandleAt
 import org.stickynodes.editor.draw.geometry.selection.orientedShapeSelectionOrNull
 import org.stickynodes.editor.draw.gesture.detectConnectorCreation
+import org.stickynodes.editor.draw.model.ConnectorEndpoint
 import org.stickynodes.editor.draw.model.EditorConnector
 import org.stickynodes.editor.draw.render.drawConnector
+import org.stickynodes.editor.draw.render.drawConnectorAnchors
 
 @Composable
 fun EditorCanvas(
@@ -104,6 +111,10 @@ fun EditorCanvas(
 
     var previewConnector by remember {
         mutableStateOf<EditorConnector?>(null)
+    }
+
+    var hoveredConnectorEndpoint by remember {
+        mutableStateOf<ConnectorEndpoint?>(null)
     }
 
     var interactionPreview by remember {
@@ -239,6 +250,9 @@ fun EditorCanvas(
                                             }
                                         )
                                     },
+                                    snapRadius = with(density) {
+                                        12.dp.toPx()
+                                    } / currentCamera.zoom
                                 )
                             },
                             onPreview = {
@@ -479,6 +493,65 @@ fun EditorCanvas(
                         currentOnCameraChanged(it)
                     },
                 )
+            }
+            .pointerInput(selectedTool, textMeasurer, density) {
+                if (selectedTool != EditorTool.CONNECTOR) {
+                    hoveredConnectorEndpoint = null
+                    return@pointerInput
+                }
+
+                try {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent(
+                                PointerEventPass.Final
+                            )
+
+                            when (event.type) {
+                                PointerEventType.Move,
+                                PointerEventType.Enter -> {
+                                    val screenPoint = event.changes
+                                        .firstOrNull()?.position
+                                        ?: continue
+
+                                    val worldPoint = currentCamera.screenToWorld(screenPoint)
+
+                                    hoveredConnectorEndpoint = connectorEndpointAt(
+                                        position = worldPoint,
+                                        nodes = currentNodes,
+                                        hitTest = { node, point ->
+                                            node.contains(
+                                                point = point,
+                                                textMeasurer = textMeasurer,
+                                                textStyle = { text ->
+                                                    text.layoutStyle(density)
+                                                },
+                                                zoom = currentCamera.zoom,
+                                            )
+                                        },
+                                        bounds = { node ->
+                                            node.measuredSelectionBounds(
+                                                textMeasurer = textMeasurer,
+                                                textStyle = { text ->
+                                                    text.layoutStyle(density)
+                                                },
+                                            )
+                                        },
+                                        snapRadius = with (density) {
+                                            12.dp.toPx()
+                                        } / currentCamera.zoom,
+                                    )
+                                }
+
+                                PointerEventType.Exit -> {
+                                    hoveredConnectorEndpoint = null
+                                }
+                            }
+                        }
+                    }
+                } finally {
+                    hoveredConnectorEndpoint = null
+                }
             },
     ) {
         scale(
@@ -495,9 +568,20 @@ fun EditorCanvas(
 
                 val nodesById = nodes.associateBy { it.id }
 
-                fun nodePosition(id: Uuid): Offset? {
+
+                fun nodePosition(
+                    id: Uuid,
+                    anchor: ConnectorAnchor?,
+                ): Offset? {
                     val node = nodesById[id] ?: return null
-                    val displayedNode = previewById[id] ?: node
+
+                    val displayedNode = previewById[id]
+                        ?: previewNode?.takeIf { it.id == id }
+                        ?: node
+
+                    if (anchor != null && displayedNode is EditorShape) {
+                        return displayedNode.anchorPosition(anchor)
+                    }
 
                     return displayedNode.measuredSelectionBounds(
                         textMeasurer = textMeasurer,
@@ -538,6 +622,35 @@ fun EditorCanvas(
                         node = displayedNode,
                         textMeasurer = textMeasurer,
                     )
+                }
+
+
+                if (selectedTool == EditorTool.CONNECTOR) {
+                    val activeEndpoints = previewConnector?.let {
+                        listOf(it.start, it.end)
+                    } ?: listOfNotNull(hoveredConnectorEndpoint)
+
+                    val attachedEndpoints = activeEndpoints
+                        .filterIsInstance<ConnectorEndpoint.Attached>()
+                        .groupBy { it.nodeId }
+
+                    for ((nodeId, endpoints) in attachedEndpoints) {
+                        val node = nodesById[nodeId] ?: continue
+
+                        val shape = (
+                                previewById[nodeId]
+                                    ?: previewNode?.takeIf { it.id == nodeId }
+                                    ?: node
+                                ) as? EditorShape ?: continue
+
+                        drawConnectorAnchors(
+                            shape = shape,
+                            zoom = camera.zoom,
+                            selectedAnchors = endpoints
+                                .mapNotNull { it.anchor }
+                                .toSet(),
+                        )
+                    }
                 }
 
                 previewNode?.let {

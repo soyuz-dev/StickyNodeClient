@@ -22,8 +22,11 @@ import org.stickynodes.editor.draw.model.*
 import org.stickynodes.editor.draw.style.*
 import org.stickynodes.editor.history.*
 import org.stickynodes.editor.*
+import org.stickynodes.editor.draw.geometry.connector.ConnectorAnchor
 import org.stickynodes.editor.draw.geometry.connector.ConnectorRoute
+import org.stickynodes.editor.draw.geometry.connector.anchorPosition
 import org.stickynodes.editor.draw.geometry.connector.connectorEndpointAt
+import org.stickynodes.editor.draw.geometry.connector.detachRemovedNodes
 import org.stickynodes.editor.draw.geometry.connector.roundedCorner
 import org.stickynodes.editor.draw.geometry.connector.route
 import org.stickynodes.editor.draw.geometry.connector.routeConnector
@@ -6948,14 +6951,6 @@ class SharedCommonTest {
     }
 
     @Test
-    fun `new documents serialize as version three`() {
-        val dto = EditorDocument().toDto()
-
-        assertEquals(3, dto.version)
-        assertTrue(dto.connectors.isEmpty())
-    }
-
-    @Test
     fun `duplicate connector IDs are rejected during decoding`() {
         val connector = EditorConnector(
             start = ConnectorEndpoint.Free(Offset.Zero),
@@ -7019,33 +7014,6 @@ class SharedCommonTest {
     }
 
     @Test
-    fun `connector endpoint attaches to matching node`() {
-        val rectangle = EditorRectangle(
-            x = 10f,
-            y = 20f,
-            width = 100f,
-            height = 60f,
-        )
-
-        val endpoint = connectorEndpointAt(
-            position = Offset(30f, 40f),
-            nodes = listOf(rectangle),
-            hitTest = { node, point ->
-                node.bounds.contains(point)
-            },
-            bounds = { it.bounds },
-        )
-
-        assertEquals(
-            ConnectorEndpoint.Attached(
-                nodeId = rectangle.id,
-                fallbackPosition = Offset(60f, 50f),
-            ),
-            endpoint,
-        )
-    }
-
-    @Test
     fun `connector attachment prefers topmost node`() {
         val bottom = EditorRectangle(
             x = 0f,
@@ -7073,6 +7041,652 @@ class SharedCommonTest {
         assertEquals(
             top.id,
             (endpoint as ConnectorEndpoint.Attached).nodeId,
+        )
+    }
+
+
+    @Test
+    fun `connector anchors occupy all eight OBB positions`() {
+        val rectangle = EditorRectangle(
+            x = 100f,
+            y = 200f,
+            width = 80f,
+            height = 40f,
+        )
+
+        val expected = mapOf(
+            ConnectorAnchor.NORTH_WEST to Offset(100f, 200f),
+            ConnectorAnchor.NORTH to Offset(140f, 200f),
+            ConnectorAnchor.NORTH_EAST to Offset(180f, 200f),
+            ConnectorAnchor.EAST to Offset(180f, 220f),
+            ConnectorAnchor.SOUTH_EAST to Offset(180f, 240f),
+            ConnectorAnchor.SOUTH to Offset(140f, 240f),
+            ConnectorAnchor.SOUTH_WEST to Offset(100f, 240f),
+            ConnectorAnchor.WEST to Offset(100f, 220f),
+        )
+
+        for ((anchor, position) in expected) {
+            assertEquals(
+                position,
+                rectangle.anchorPosition(anchor),
+            )
+        }
+
+        assertEquals(8, ConnectorAnchor.entries.size)
+    }
+
+    @Test
+    fun `connector anchors follow shape translation`() {
+        val rectangle = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 60f,
+        )
+
+        val moved = rectangle.copy(
+            x = 50f,
+            y = 90f,
+        )
+
+        val anchor = ConnectorAnchor.NORTH_EAST
+
+        assertEquals(
+            rectangle.anchorPosition(anchor) + Offset(40f, 70f),
+            moved.anchorPosition(anchor),
+        )
+    }
+
+    @Test
+    fun `connector anchors follow shape resizing`() {
+        val rectangle = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 60f,
+        )
+
+        val resized = rectangle.copy(
+            width = 200f,
+            height = 120f,
+        )
+
+        assertEquals(
+            Offset(210f, 80f),
+            resized.anchorPosition(ConnectorAnchor.EAST),
+        )
+    }
+
+    @Test
+    fun `connector anchors rotate around shape centre`() {
+        val rectangle = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 100f,
+            height = 60f,
+            rotation = (PI / 2).toFloat(),
+        )
+
+        val north = rectangle.anchorPosition(
+            ConnectorAnchor.NORTH
+        )
+
+        assertEquals(80f, north.x, 0.001f)
+        assertEquals(30f, north.y, 0.001f)
+    }
+
+    @Test
+    fun `connector anchor stays fixed relative to shape`() {
+        val rectangle = EditorRectangle(
+            x = 20f,
+            y = 30f,
+            width = 120f,
+            height = 80f,
+            rotation = 0.7f,
+        )
+
+        val anchor = ConnectorAnchor.SOUTH_WEST
+
+        val original = rectangle.anchorPosition(anchor)
+
+        val moved = rectangle.copy(
+            x = rectangle.x + 50f,
+            y = rectangle.y - 25f,
+        )
+
+        val translated = moved.anchorPosition(anchor)
+
+        assertEquals(
+            original.x + 50f,
+            translated.x,
+            0.001f,
+        )
+
+        assertEquals(
+            original.y - 25f,
+            translated.y,
+            0.001f,
+        )
+    }
+
+
+    @Test
+    fun `connector anchor survives document serialization`() {
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Attached(
+                nodeId = Uuid.random(),
+                fallbackPosition = Offset(100f, 200f),
+                anchor = ConnectorAnchor.NORTH_EAST,
+            ),
+            end = ConnectorEndpoint.Attached(
+                nodeId = Uuid.random(),
+                fallbackPosition = Offset(300f, 400f),
+                anchor = ConnectorAnchor.SOUTH_WEST,
+            ),
+        )
+
+        val document = EditorDocument(
+            connectors = listOf(connector),
+        )
+
+        val restored = DocumentCodec.decode(
+            DocumentCodec.encode(document)
+        )
+
+        assertEquals(document, restored)
+    }
+
+    @Test
+    fun `all connector anchors survive serialization`() {
+        for (anchor in ConnectorAnchor.entries) {
+            val connector = EditorConnector(
+                start = ConnectorEndpoint.Attached(
+                    nodeId = Uuid.random(),
+                    fallbackPosition = Offset(10f, 20f),
+                    anchor = anchor,
+                ),
+                end = ConnectorEndpoint.Free(
+                    Offset(200f, 300f)
+                ),
+            )
+
+            val restored = DocumentCodec.decode(
+                DocumentCodec.encode(
+                    EditorDocument(
+                        connectors = listOf(connector)
+                    )
+                )
+            )
+
+            assertEquals(
+                anchor,
+                (restored.connectors.single().start
+                        as ConnectorEndpoint.Attached).anchor,
+            )
+        }
+    }
+
+    @Test
+    fun `legacy centre attachments remain supported`() {
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Attached(
+                nodeId = Uuid.random(),
+                fallbackPosition = Offset(50f, 60f),
+            ),
+            end = ConnectorEndpoint.Free(
+                Offset(200f, 100f)
+            ),
+        )
+
+        val restored = DocumentCodec.decode(
+            DocumentCodec.encode(
+                EditorDocument(
+                    connectors = listOf(connector)
+                )
+            )
+        )
+
+        val endpoint = restored.connectors.single().start
+                as ConnectorEndpoint.Attached
+
+        assertNull(endpoint.anchor)
+        assertEquals(Offset(50f, 60f), endpoint.fallbackPosition)
+    }
+
+    @Test
+    fun `version three attachment without anchor loads`() {
+        val nodeId = Uuid.random()
+        val connectorId = Uuid.random()
+
+        val json = """
+        {
+          "version": 3,
+          "nodes": [],
+          "connectors": [
+            {
+              "id": "$connectorId",
+              "start": {
+                "type": "attached",
+                "nodeId": "$nodeId",
+                "fallbackPosition": {
+                  "x": 25.0,
+                  "y": 75.0
+                }
+              },
+              "end": {
+                "type": "free",
+                "position": {
+                  "x": 150.0,
+                  "y": 200.0
+                }
+              }
+            }
+          ]
+        }
+    """.trimIndent()
+
+        val document = DocumentCodec.decode(json)
+
+        val endpoint = document.connectors.single().start
+                as ConnectorEndpoint.Attached
+
+        assertEquals(nodeId, endpoint.nodeId)
+        assertNull(endpoint.anchor)
+        assertEquals(Offset(25f, 75f), endpoint.fallbackPosition)
+    }
+
+    @Test
+    fun `new documents use version four`() {
+        assertEquals(4, EditorDocument().toDto().version)
+    }
+
+
+    @Test
+    fun `anchored connector resolves to requested shape port`() {
+        val rectangle = EditorRectangle(
+            x = 100f,
+            y = 200f,
+            width = 80f,
+            height = 40f,
+        )
+
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Attached(
+                nodeId = rectangle.id,
+                fallbackPosition = Offset.Zero,
+                anchor = ConnectorAnchor.EAST,
+            ),
+            end = ConnectorEndpoint.Free(
+                Offset(300f, 220f),
+            ),
+        )
+
+        val route = connector.route { id, anchor ->
+            if (id != rectangle.id) {
+                null
+            } else {
+                anchor?.let(rectangle::anchorPosition)
+                    ?: rectangle.bounds.center
+            }
+        }
+
+        assertEquals(
+            Offset(180f, 220f),
+            route.points.first(),
+        )
+    }
+
+    @Test
+    fun `anchored connector follows shape rotation`() {
+        val rectangle = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 100f,
+            height = 60f,
+            rotation = (PI / 2).toFloat(),
+        )
+
+        val endpoint = ConnectorEndpoint.Attached(
+            nodeId = rectangle.id,
+            fallbackPosition = Offset.Zero,
+            anchor = ConnectorAnchor.NORTH,
+        )
+
+        val position = endpoint.resolve { id, anchor ->
+            if (id == rectangle.id) {
+                anchor?.let(rectangle::anchorPosition)
+                    ?: rectangle.bounds.center
+            } else {
+                null
+            }
+        }
+
+        assertEquals(80f, position.x, 0.001f)
+        assertEquals(30f, position.y, 0.001f)
+    }
+
+    @Test
+    fun `legacy connector attachment still resolves to centre`() {
+        val rectangle = EditorRectangle(
+            x = 10f,
+            y = 20f,
+            width = 100f,
+            height = 60f,
+        )
+
+        val endpoint = ConnectorEndpoint.Attached(
+            nodeId = rectangle.id,
+            fallbackPosition = Offset.Zero,
+        )
+
+        val position = endpoint.resolve { id, anchor ->
+            if (id != rectangle.id) {
+                null
+            } else if (anchor == null) {
+                rectangle.bounds.center
+            } else {
+                rectangle.anchorPosition(anchor)
+            }
+        }
+
+        assertEquals(
+            Offset(60f, 50f),
+            position,
+        )
+    }
+
+
+    @Test
+    fun `connector chooses nearest OBB anchor inside shape`() {
+        val rectangle = EditorRectangle(
+            x = 100f,
+            y = 100f,
+            width = 100f,
+            height = 100f,
+        )
+
+        val endpoint = connectorEndpointAt(
+            position = Offset(195f, 145f),
+            nodes = listOf(rectangle),
+            hitTest = { node, point ->
+                node.bounds.contains(point)
+            },
+            bounds = { it.bounds },
+            snapRadius = 12f,
+        ) as ConnectorEndpoint.Attached
+
+        assertEquals(rectangle.id, endpoint.nodeId)
+        assertEquals(ConnectorAnchor.EAST, endpoint.anchor)
+        assertEquals(Offset(200f, 150f), endpoint.fallbackPosition)
+    }
+
+    @Test
+    fun `connector snaps to OBB anchor from outside shape`() {
+        val rectangle = EditorRectangle(
+            x = 100f,
+            y = 100f,
+            width = 100f,
+            height = 100f,
+        )
+
+        val endpoint = connectorEndpointAt(
+            position = Offset(205f, 150f),
+            nodes = listOf(rectangle),
+            hitTest = { node, point ->
+                node.bounds.contains(point)
+            },
+            bounds = { it.bounds },
+            snapRadius = 12f,
+        ) as ConnectorEndpoint.Attached
+
+        assertEquals(ConnectorAnchor.EAST, endpoint.anchor)
+    }
+
+    @Test
+    fun `connector stays free outside snapping radius`() {
+        val rectangle = EditorRectangle(
+            x = 100f,
+            y = 100f,
+            width = 100f,
+            height = 100f,
+        )
+
+        val position = Offset(230f, 150f)
+
+        val endpoint = connectorEndpointAt(
+            position = position,
+            nodes = listOf(rectangle),
+            hitTest = { node, point ->
+                node.bounds.contains(point)
+            },
+            bounds = { it.bounds },
+            snapRadius = 12f,
+        )
+
+        assertEquals(
+            ConnectorEndpoint.Free(position),
+            endpoint,
+        )
+    }
+
+    @Test
+    fun `connector chooses rotated OBB anchor`() {
+        val rectangle = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 100f,
+            height = 60f,
+            rotation = (PI / 2).toFloat(),
+        )
+
+        val endpoint = connectorEndpointAt(
+            position = Offset(81f, 30f),
+            nodes = listOf(rectangle),
+            hitTest = { _, _ -> false },
+            bounds = { it.bounds },
+            snapRadius = 12f,
+        ) as ConnectorEndpoint.Attached
+
+        assertEquals(ConnectorAnchor.NORTH, endpoint.anchor)
+        assertEquals(80f, endpoint.fallbackPosition.x, 0.001f)
+        assertEquals(30f, endpoint.fallbackPosition.y, 0.001f)
+    }
+
+    @Test
+    fun `connector attaches to topmost overlapping shape`() {
+        val bottom = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 100f,
+            height = 100f,
+        )
+
+        val top = EditorRectangle(
+            x = 20f,
+            y = 20f,
+            width = 100f,
+            height = 100f,
+        )
+
+        val endpoint = connectorEndpointAt(
+            position = Offset(50f, 50f),
+            nodes = listOf(bottom, top),
+            hitTest = { node, point ->
+                node.bounds.contains(point)
+            },
+            bounds = { it.bounds },
+        ) as ConnectorEndpoint.Attached
+
+        assertEquals(top.id, endpoint.nodeId)
+        assertNotNull(endpoint.anchor)
+    }
+
+
+    @Test
+    fun `deleting attached node converts endpoint to free`() {
+        val nodeId = Uuid.random()
+        val position = Offset(100f, 200f)
+
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Attached(
+                nodeId = nodeId,
+                fallbackPosition = Offset.Zero,
+                anchor = ConnectorAnchor.EAST,
+            ),
+            end = ConnectorEndpoint.Free(Offset(300f, 200f)),
+        )
+
+        val result = listOf(connector).detachRemovedNodes(
+            removedNodeIds = setOf(nodeId),
+            resolvePosition = { position },
+        )
+
+        assertEquals(
+            ConnectorEndpoint.Free(position),
+            result.single().start,
+        )
+
+        assertEquals(connector.end, result.single().end)
+        assertEquals(connector.id, result.single().id)
+    }
+
+    @Test
+    fun `deleting unrelated node preserves connector attachments`() {
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Attached(
+                nodeId = Uuid.random(),
+                fallbackPosition = Offset(20f, 30f),
+                anchor = ConnectorAnchor.NORTH,
+            ),
+            end = ConnectorEndpoint.Free(Offset(100f, 100f)),
+        )
+
+        val result = listOf(connector).detachRemovedNodes(
+            removedNodeIds = setOf(Uuid.random()),
+            resolvePosition = {
+                error("Unrelated attachment must not be resolved")
+            },
+        )
+
+        assertEquals(listOf(connector), result)
+    }
+
+    @Test
+    fun `deleting both attachment targets detaches both endpoints`() {
+        val firstId = Uuid.random()
+        val secondId = Uuid.random()
+
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Attached(
+                nodeId = firstId,
+                fallbackPosition = Offset.Zero,
+            ),
+            end = ConnectorEndpoint.Attached(
+                nodeId = secondId,
+                fallbackPosition = Offset.Zero,
+            ),
+        )
+
+        val result = listOf(connector).detachRemovedNodes(
+            removedNodeIds = setOf(firstId, secondId),
+            resolvePosition = { endpoint ->
+                when (endpoint.nodeId) {
+                    firstId -> Offset(10f, 20f)
+                    secondId -> Offset(200f, 300f)
+                    else -> null
+                }
+            },
+        ).single()
+
+        assertEquals(
+            ConnectorEndpoint.Free(Offset(10f, 20f)),
+            result.start,
+        )
+
+        assertEquals(
+            ConnectorEndpoint.Free(Offset(200f, 300f)),
+            result.end,
+        )
+    }
+
+    @Test
+    fun `missing position resolver uses attachment fallback`() {
+        val nodeId = Uuid.random()
+        val fallback = Offset(42f, 84f)
+
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Attached(
+                nodeId = nodeId,
+                fallbackPosition = fallback,
+            ),
+            end = ConnectorEndpoint.Free(Offset.Zero),
+        )
+
+        val result = listOf(connector).detachRemovedNodes(
+            removedNodeIds = setOf(nodeId),
+            resolvePosition = { null },
+        )
+
+        assertEquals(
+            ConnectorEndpoint.Free(fallback),
+            result.single().start,
+        )
+    }
+
+    @Test
+    fun `deleting a node and detaching connectors is one undo operation`() {
+        val rectangle = EditorRectangle(
+            x = 100f,
+            y = 200f,
+            width = 80f,
+            height = 40f,
+        )
+
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Attached(
+                nodeId = rectangle.id,
+                fallbackPosition = Offset.Zero,
+                anchor = ConnectorAnchor.EAST,
+            ),
+            end = ConnectorEndpoint.Free(Offset(300f, 220f)),
+        )
+
+        val state = EditorDocumentState(
+            initialDocument = EditorDocument(
+                members = listOf(rectangle),
+                connectors = listOf(connector),
+            ),
+        )
+
+        state.selectMember(rectangle.id)
+        state.deleteSelectedMembers()
+
+        assertTrue(state.document.nodes.isEmpty())
+
+        assertEquals(
+            ConnectorEndpoint.Free(Offset(180f, 220f)),
+            state.document.connectors.single().start,
+        )
+
+        state.undo()
+
+        assertEquals(
+            listOf(rectangle),
+            state.document.nodes,
+        )
+
+        assertEquals(
+            connector,
+            state.document.connectors.single(),
+        )
+
+        state.redo()
+
+        assertTrue(state.document.nodes.isEmpty())
+
+        assertEquals(
+            ConnectorEndpoint.Free(Offset(180f, 220f)),
+            state.document.connectors.single().start,
         )
     }
 }

@@ -10,6 +10,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import org.stickynodes.editor.draw.geometry.*
+import org.stickynodes.editor.draw.geometry.connector.anchorPosition
+import org.stickynodes.editor.draw.geometry.connector.detachRemovedNodes
 import org.stickynodes.editor.draw.geometry.selection.NodeAlignment
 import org.stickynodes.editor.draw.geometry.selection.NodeDistribution
 import org.stickynodes.editor.draw.geometry.selection.NodeSizing
@@ -361,14 +363,18 @@ class EditorDocumentState(
 
     private fun commitMembers(
         updatedMembers: List<EditorGroupMember>,
+        updatedConnectors: List<EditorConnector> = document.connectors,
     ) {
-        if (updatedMembers == document.members) return
+        if (updatedMembers == document.members && updatedConnectors == document.connectors) return
 
         cancelNudge()
         stylePreview = null
 
         history = history.commit(
-            document.copy(members = updatedMembers)
+            document.copy(
+                members = updatedMembers,
+                connectors = updatedConnectors,
+            )
         )
 
         validateSelection()
@@ -402,14 +408,52 @@ class EditorDocumentState(
         commitNodes(updatedNodes)
     }
 
+
     fun deleteSelectedMembers() {
         if (selectedMemberIds.isEmpty()) return
 
-        val updated = document.members.removeMembers(
+        val originalDocument = document
+
+        val updatedMembers = originalDocument.members.removeMembers(
             selectedMemberIds
         )
 
-        commitMembers(updated)
+        val remainingNodeIds = updatedMembers
+            .flatMap { it.flattenedNodes() }
+            .mapTo(mutableSetOf()) { it.id }
+
+        val removedNodeIds = originalDocument.nodes
+            .mapTo(mutableSetOf()) { it.id }
+            .apply {
+                removeAll(remainingNodeIds)
+            }
+
+        val originalNodesById = originalDocument.nodes.associateBy {
+            it.id
+        }
+
+        val updatedConnectors =
+            originalDocument.connectors.detachRemovedNodes(
+                removedNodeIds = removedNodeIds,
+                resolvePosition = { endpoint ->
+                    val node = originalNodesById[endpoint.nodeId]
+
+                    when (node) {
+                        is EditorShape ->
+                            endpoint.anchor?.let {
+                                node.anchorPosition(it)
+                            } ?: node.bounds.center
+
+                        else -> null
+                    }
+                },
+            )
+
+        commitMembers(
+            updatedMembers = updatedMembers,
+            updatedConnectors = updatedConnectors,
+        )
+
         clearSelection()
     }
 

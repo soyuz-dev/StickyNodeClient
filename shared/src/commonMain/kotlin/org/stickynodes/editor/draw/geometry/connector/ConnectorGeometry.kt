@@ -10,3 +10,10 @@ fun EditorConnector.route(
     start = start.resolve(nodePosition),
     end = end.resolve(nodePosition)
 )
+
+fun EditorConnector.route(
+    nodePosition: (Uuid, ConnectorAnchor?) -> Offset?
+): ConnectorRoute = routeConnector(
+    start = start.resolve(nodePosition),
+    end = end.resolve(nodePosition)
+)
