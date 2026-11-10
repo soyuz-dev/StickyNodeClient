@@ -26,7 +26,9 @@ import org.stickynodes.editor.draw.geometry.connector.ConnectorAnchor
 import org.stickynodes.editor.draw.geometry.connector.ConnectorRoute
 import org.stickynodes.editor.draw.geometry.connector.anchorPosition
 import org.stickynodes.editor.draw.geometry.connector.connectorEndpointAt
+import org.stickynodes.editor.draw.geometry.connector.contains
 import org.stickynodes.editor.draw.geometry.connector.detachRemovedNodes
+import org.stickynodes.editor.draw.geometry.connector.distanceToSegment
 import org.stickynodes.editor.draw.geometry.connector.roundedCorner
 import org.stickynodes.editor.draw.geometry.connector.route
 import org.stickynodes.editor.draw.geometry.connector.routeConnector
@@ -7688,5 +7690,196 @@ class SharedCommonTest {
             ConnectorEndpoint.Free(Offset(180f, 220f)),
             state.document.connectors.single().start,
         )
+    }
+
+
+    @Test
+    fun `distance to horizontal connector segment`() {
+        val start = Offset(0f, 0f)
+        val end = Offset(100f, 0f)
+
+        assertEquals(
+            10f,
+            distanceToSegment(
+                Offset(50f, 10f),
+                start,
+                end,
+            ),
+            0.001f,
+        )
+    }
+
+    @Test
+    fun `distance to segment clamps beyond endpoints`() {
+        val distance = distanceToSegment(
+            point = Offset(110f, 0f),
+            start = Offset(0f, 0f),
+            end = Offset(100f, 0f),
+        )
+
+        assertEquals(10f, distance, 0.001f)
+    }
+
+    @Test
+    fun `distance to diagonal connector segment`() {
+        val distance = distanceToSegment(
+            point = Offset(10f, 0f),
+            start = Offset(0f, 0f),
+            end = Offset(10f, 10f),
+        )
+
+        assertEquals(
+            7.0710678f,
+            distance,
+            0.001f,
+        )
+    }
+
+    @Test
+    fun `connector route hit testing checks all segments`() {
+        val route = ConnectorRoute(
+            points = listOf(
+                Offset(0f, 0f),
+                Offset(100f, 0f),
+                Offset(100f, 100f),
+            )
+        )
+
+        assertTrue(
+            route.contains(
+                point = Offset(102f, 50f),
+                tolerance = 5f,
+            )
+        )
+
+        assertFalse(
+            route.contains(
+                point = Offset(120f, 50f),
+                tolerance = 5f,
+            )
+        )
+    }
+
+    @Test
+    fun `zero length connector segment can be hit tested`() {
+        val point = Offset(20f, 30f)
+
+        assertEquals(
+            5f,
+            distanceToSegment(
+                point = Offset(23f, 34f),
+                start = point,
+                end = point,
+            ),
+            0.001f,
+        )
+    }
+
+    @Test
+    fun `connector hit tolerance is inclusive`() {
+        val route = ConnectorRoute(
+            listOf(
+                Offset(0f, 0f),
+                Offset(100f, 0f),
+            )
+        )
+
+        assertTrue(
+            route.contains(
+                point = Offset(50f, 5f),
+                tolerance = 5f,
+            )
+        )
+    }
+
+
+    @Test
+    fun `connector selection is independent of node selection`() {
+        val node = EditorRectangle(
+            x = 0f,
+            y = 0f,
+            width = 100f,
+            height = 100f,
+        )
+
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Free(Offset.Zero),
+            end = ConnectorEndpoint.Free(Offset(200f, 200f)),
+        )
+
+        val state = EditorDocumentState(
+            initialDocument = EditorDocument(
+                members = listOf(node),
+                connectors = listOf(connector),
+            ),
+        )
+
+        state.selectMember(node.id)
+        assertEquals(setOf(node.id), state.selectedMemberIds)
+
+        state.selectConnector(connector.id)
+
+        assertTrue(state.selectedMemberIds.isEmpty())
+        assertEquals(connector.id, state.selectedConnectorId)
+        assertEquals(connector, state.selectedConnector)
+
+        state.selectMember(node.id)
+
+        assertNull(state.selectedConnectorId)
+        assertEquals(setOf(node.id), state.selectedMemberIds)
+    }
+
+    @Test
+    fun `selecting unknown connector does nothing`() {
+        val state = EditorDocumentState()
+
+        state.selectConnector(Uuid.random())
+
+        assertNull(state.selectedConnectorId)
+        assertNull(state.selectedConnector)
+    }
+
+    @Test
+    fun `deleting selected connector clears connector selection`() {
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Free(Offset.Zero),
+            end = ConnectorEndpoint.Free(Offset(100f, 100f)),
+        )
+
+        val state = EditorDocumentState(
+            initialDocument = EditorDocument(
+                connectors = listOf(connector),
+            ),
+        )
+
+        state.selectConnector(connector.id)
+        state.deleteConnector(connector.id)
+
+        assertNull(state.selectedConnectorId)
+        assertTrue(state.connectors.isEmpty())
+
+        state.undo()
+
+        assertEquals(listOf(connector), state.connectors)
+        assertNull(state.selectedConnectorId)
+    }
+
+    @Test
+    fun `clearing selection also clears selected connector`() {
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Free(Offset.Zero),
+            end = ConnectorEndpoint.Free(Offset(100f, 0f)),
+        )
+
+        val state = EditorDocumentState(
+            initialDocument = EditorDocument(
+                connectors = listOf(connector),
+            ),
+        )
+
+        state.selectConnector(connector.id)
+        state.clearSelection()
+
+        assertNull(state.selectedConnector)
     }
 }

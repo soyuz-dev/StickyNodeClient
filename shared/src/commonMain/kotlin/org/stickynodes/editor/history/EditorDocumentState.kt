@@ -48,6 +48,14 @@ class EditorDocumentState(
         get() = document.members.flattenedMembers()
             .filter { it.id in selectedMemberIds }
 
+    var selectedConnectorId by mutableStateOf<Uuid?>(null)
+        private set
+
+    val selectedConnector: EditorConnector?
+        get() = connectors.firstOrNull {
+            it.id == selectedConnectorId
+        }
+
     val selectedMember: EditorGroupMember?
         get() = selectedMembers.singleOrNull()
 
@@ -106,6 +114,10 @@ class EditorDocumentState(
         history = history.commit(
             document.copy(connectors = updated)
         )
+
+        if (selectedConnectorId == id) {
+            selectedConnectorId = null
+        }
     }
 
     private var stylePreview by
@@ -306,6 +318,8 @@ class EditorDocumentState(
             stylePreview = null
             selectedMemberIds = selection
         }
+
+        selectedConnectorId = null
     }
 
     fun selectHitNode(
@@ -343,10 +357,19 @@ class EditorDocumentState(
         selectMembers(ids.intersect(validIds))
     }
 
+    fun selectConnector(id: Uuid?) {
+        if (id != null && connectors.none { it.id == id }) return
+
+        if (id != null) selectMembers(emptySet())
+
+        selectedConnectorId = id
+    }
+
     fun clearSelection() {
         cancelNudge()
         stylePreview = null
         selectedMemberIds = emptySet()
+        selectedConnectorId = null
     }
 
     fun selectAllNodes() {
@@ -508,6 +531,9 @@ class EditorDocumentState(
 
         cancelNudge()
         history = history.undo()
+
+        selectedConnectorId = selectedConnectorId
+            ?.takeIf { id -> connectors.any { it.id == id } }
         validateSelection()
     }
 
@@ -515,6 +541,10 @@ class EditorDocumentState(
         cancelNudge()
         stylePreview = null
         history = history.redo()
+
+
+        selectedConnectorId = selectedConnectorId
+            ?.takeIf { id -> connectors.any { it.id == id } }
         validateSelection()
     }
 
