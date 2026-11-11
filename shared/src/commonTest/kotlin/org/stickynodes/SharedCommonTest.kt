@@ -12,8 +12,11 @@ import kotlinx.serialization.json.Json
 import org.stickynodes.data.DocumentCodec
 import org.stickynodes.data.mapper.toDocument
 import org.stickynodes.data.mapper.toDto
+import org.stickynodes.data.model.ConnectorDto
+import org.stickynodes.data.model.ConnectorEndpointDto
 import org.stickynodes.data.model.DocumentDto
 import org.stickynodes.data.model.GroupDto
+import org.stickynodes.data.model.PointDto
 import org.stickynodes.data.model.StyleDto
 import org.stickynodes.data.model.TextDto
 import org.stickynodes.editor.draw.camera.EditorCamera
@@ -7302,8 +7305,8 @@ class SharedCommonTest {
     }
 
     @Test
-    fun `new documents use version four`() {
-        assertEquals(4, EditorDocument().toDto().version)
+    fun `new documents use version five`() {
+        assertEquals(5, EditorDocument().toDto().version)
     }
 
 
@@ -8042,6 +8045,68 @@ class SharedCommonTest {
                     else -> null
                 }
             }
+        )
+    }
+
+
+    @Test
+    fun `connector has default stroke style`() {
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Free(Offset.Zero),
+            end = ConnectorEndpoint.Free(Offset(100f, 0f)),
+        )
+
+        assertEquals(
+            DefaultConnectorStroke,
+            connector.stroke,
+        )
+    }
+
+    @Test
+    fun `connector stroke survives document round trip`() {
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Free(Offset.Zero),
+            end = ConnectorEndpoint.Free(Offset(100f, 0f)),
+            stroke = StrokeStyle(
+                color = 0xFFFF8800.toInt(),
+                width = 7.5f,
+            ),
+        )
+
+        val document = EditorDocument(
+            connectors = listOf(connector),
+        )
+
+        val restored = document.toDto().toDocument()
+
+        assertEquals(
+            connector,
+            restored.connectors.single(),
+        )
+    }
+
+    @Test
+    fun `legacy connector without stroke uses default`() {
+        val connector = ConnectorDto(
+            id = Uuid.random().toString(),
+            start = ConnectorEndpointDto.Free(
+                PointDto(0f, 0f),
+            ),
+            end = ConnectorEndpointDto.Free(
+                PointDto(100f, 0f),
+            ),
+        )
+
+        val document = DocumentDto(
+            version = 4,
+            connectors = listOf(connector),
+        )
+
+        val restored = document.toDocument()
+
+        assertEquals(
+            DefaultConnectorStroke,
+            restored.connectors.single().stroke,
         )
     }
 }

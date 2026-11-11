@@ -352,6 +352,23 @@ fun EditorScreen(
     // style controls appear.
     val selectedNode = documentState.selectedNode
 
+
+    val editableConnector =
+        if (selectedTool == EditorTool.SELECT) {
+            documentState.selectedConnector
+        } else {
+            null
+        }
+
+    var connectorStrokePreview by remember(
+        editableConnector?.id
+    ) {
+        mutableStateOf<StrokeStyle?>(null)
+    }
+
+    val activeConnectorStroke =
+        connectorStrokePreview ?: editableConnector?.stroke
+
     val styleToolbarType: StyleToolbarType? =
         when (selectedTool) {
             EditorTool.RECTANGLE,
@@ -666,7 +683,18 @@ fun EditorScreen(
                 textEditSession = node.toEditSession()
                 textDraft = node.text
             },
-            connectors = documentState.connectors,
+            connectors = documentState.connectors.map { connector ->
+                val preview = connectorStrokePreview
+
+                if (
+                    connector.id == editableConnector?.id &&
+                    preview != null
+                ) {
+                    connector.copy(stroke = preview)
+                } else {
+                    connector
+                }
+            },
             onConnectorCreated = documentState::addConnector,
             selectedConnectorId = documentState.selectedConnectorId,
             onConnectorSelected = documentState::selectConnector,
@@ -777,7 +805,9 @@ fun EditorScreen(
             )
 
             AnimatedVisibility(
-                visible = styleToolbarType != null,
+                visible =
+                    styleToolbarType != null ||
+                editableConnector != null,
                 enter = fadeIn(
                     animationSpec = tween(180)
                 ) + expandVertically(
@@ -837,7 +867,38 @@ fun EditorScreen(
                         }
                     }
 
-                    null -> Unit
+                    null -> {
+                        if (
+                            editableConnector != null &&
+                            activeConnectorStroke != null
+                        ) {
+                            ConnectorStyleToolbar(
+                                stroke = activeConnectorStroke,
+                                onStrokeChanged = { updated ->
+                                    documentState.updateConnector(
+                                        editableConnector.copy(
+                                            stroke = updated
+                                        )
+                                    )
+                                },
+                                onStrokePreview = { updated ->
+                                    connectorStrokePreview = updated
+                                },
+                                onStrokeChangeFinished = {
+                                    connectorStrokePreview?.let { updated ->
+                                        documentState.updateConnector(
+                                            editableConnector.copy(
+                                                stroke = updated
+                                            )
+                                        )
+                                    }
+
+                                    connectorStrokePreview = null
+                                },
+                                orientation = ToolbarOrientation.VERTICAL,
+                            )
+                        }
+                    }
                 }
             }
         }

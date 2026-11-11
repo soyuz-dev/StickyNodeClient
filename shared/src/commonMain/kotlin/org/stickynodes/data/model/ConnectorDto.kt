@@ -9,6 +9,7 @@ data class ConnectorDto(
     val id: String,
     val start: ConnectorEndpointDto,
     val end: ConnectorEndpointDto,
+    val stroke: StrokeDto? = null,
 )
 
 @Serializable

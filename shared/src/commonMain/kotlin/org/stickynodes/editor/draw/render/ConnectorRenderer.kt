@@ -24,9 +24,9 @@ fun DrawScope.drawConnector(
         route.toPath(
             cornerRadius = 12.dp.toPx() / zoom
         ),
-        color = Color(0xFF26A69A),
+        color = Color(connector.stroke.color),
         style = Stroke(
-            width = 2.5.dp.toPx() / zoom,
+            width = connector.stroke.width.dp.toPx() / zoom,
         )
     )
 }

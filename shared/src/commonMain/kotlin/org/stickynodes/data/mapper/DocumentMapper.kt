@@ -16,7 +16,9 @@ import org.stickynodes.data.model.StrokeDto
 import org.stickynodes.data.model.StyleDto
 import org.stickynodes.data.model.TextDto
 import org.stickynodes.editor.draw.geometry.connector.ConnectorAnchor
+import org.stickynodes.editor.draw.geometry.transform.snapRotation
 import org.stickynodes.editor.draw.model.ConnectorEndpoint
+import org.stickynodes.editor.draw.model.DefaultConnectorStroke
 import org.stickynodes.editor.draw.model.EditorConnector
 import org.stickynodes.editor.draw.model.EditorEllipse
 import org.stickynodes.editor.draw.model.EditorGroup
@@ -34,13 +36,13 @@ import org.stickynodes.editor.history.EditorDocument
 import kotlin.uuid.Uuid
 
 fun EditorDocument.toDto(): DocumentDto = DocumentDto(
-    version = 4,
+    version = 5,
     members = members.map { it.toDto() },
     connectors = connectors.map { it.toDto() }
 )
 
 fun DocumentDto.toDocument(): EditorDocument {
-    require(version in 1..4) {
+    require(version in 1..5) {
         "Unsupported document version: $version"
     }
 
@@ -230,6 +232,19 @@ private fun EditorConnector.toDto(): ConnectorDto =
         id = id.toString(),
         start = start.toDto(),
         end = end.toDto(),
+        stroke = StrokeDto(
+            color = stroke.color,
+            width = stroke.width,
+            cap = when (stroke.cap) {
+                StrokeCap.Round -> "round"
+                StrokeCap.Square -> "square"
+            },
+            join = when (stroke.join) {
+                StrokeJoin.Round -> "round"
+                StrokeJoin.Bevel -> "bevel"
+            },
+            dashPattern = stroke.dashPattern,
+        )
     )
 
 private fun ConnectorDto.toConnector(): EditorConnector =
@@ -237,6 +252,23 @@ private fun ConnectorDto.toConnector(): EditorConnector =
         id = Uuid.parse(id),
         start = start.toEndpoint(),
         end = end.toEndpoint(),
+        stroke = stroke?.let {
+            StrokeStyle(
+                color = it.color,
+                width = it.width,
+                cap = when (it.cap) {
+                    "round" -> StrokeCap.Round
+                    "square" -> StrokeCap.Square
+                    else -> error("Unknown stroke cap: ${it.cap}")
+                },
+                join = when (it.join) {
+                    "round" -> StrokeJoin.Round
+                    "bevel" -> StrokeJoin.Bevel
+                    else -> error("Unknown stroke join: ${it.join}")
+                },
+                dashPattern = it.dashPattern,
+            )
+        } ?: DefaultConnectorStroke
     )
 
 private fun ConnectorEndpoint.toDto(): ConnectorEndpointDto =
