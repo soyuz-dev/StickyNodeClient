@@ -4,12 +4,15 @@ package org.stickynodes.editor.draw.gesture
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerInputScope
+import org.stickynodes.editor.draw.geometry.connector.ConnectorAnchor
+import org.stickynodes.editor.draw.geometry.connector.isValidConnection
 import org.stickynodes.editor.draw.model.ConnectorEndpoint
 import org.stickynodes.editor.draw.model.EditorConnector
 import kotlin.uuid.Uuid
 
 suspend fun PointerInputScope.detectConnectorCreation(
     endpointAt: (Offset) -> ConnectorEndpoint,
+    nodePosition: (Uuid, ConnectorAnchor?) -> Offset?,
     onPreview: (EditorConnector?) -> Unit,
     onCommit: (EditorConnector) -> Unit,
 ) {
@@ -54,20 +57,10 @@ suspend fun PointerInputScope.detectConnectorCreation(
             onDragEnd = {
                 val connector = buildConnector()
 
-                if (connector != null) {
-                    val sameAttachment =
-                        connector.start is ConnectorEndpoint.Attached &&
-                                connector.end is ConnectorEndpoint.Attached &&
-                                connector.start.nodeId == connector.end.nodeId
-
-                    val samePosition =
-                        connector.start.resolve { null } ==
-                                connector.end.resolve { null }
-
-                    if (!sameAttachment && !samePosition) {
-                        onCommit(connector)
-                    }
-                }
+                if (
+                    connector != null &&
+                    connector.isValidConnection(nodePosition)
+                ) onCommit(connector)
 
                 reset()
             },

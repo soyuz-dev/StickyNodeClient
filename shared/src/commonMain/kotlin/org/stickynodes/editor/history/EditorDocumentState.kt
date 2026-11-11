@@ -120,6 +120,15 @@ class EditorDocumentState(
         }
     }
 
+    fun deleteSelection() {
+        val connectorId = selectedConnectorId
+
+        if (connectorId != null)
+            deleteConnector(connectorId)
+        else
+            deleteSelectedMembers()
+    }
+
     private var stylePreview by
     mutableStateOf<Pair<Uuid, NodeStyle>?>(null)
 
@@ -541,7 +550,6 @@ class EditorDocumentState(
         cancelNudge()
         stylePreview = null
         history = history.redo()
-
 
         selectedConnectorId = selectedConnectorId
             ?.takeIf { id -> connectors.any { it.id == id } }

@@ -31,6 +31,7 @@ import org.stickynodes.editor.draw.geometry.connector.contains
 import org.stickynodes.editor.draw.geometry.connector.detachRemovedNodes
 import org.stickynodes.editor.draw.geometry.connector.distanceToSegment
 import org.stickynodes.editor.draw.geometry.connector.handleAt
+import org.stickynodes.editor.draw.geometry.connector.isValidConnection
 import org.stickynodes.editor.draw.geometry.connector.roundedCorner
 import org.stickynodes.editor.draw.geometry.connector.route
 import org.stickynodes.editor.draw.geometry.connector.routeConnector
@@ -8014,5 +8015,33 @@ class SharedCommonTest {
         assertEquals(original.id, updated.id)
         assertEquals(original.start, updated.start)
         assertEquals(newEnd, updated.end)
+    }
+
+
+    @Test
+    fun `connector validation uses resolved positions instead of fallbacks`() {
+        val firstId = Uuid.random()
+        val secondId = Uuid.random()
+
+        val connector = EditorConnector(
+            start = ConnectorEndpoint.Attached(
+                nodeId = firstId,
+                fallbackPosition = Offset.Zero,
+            ),
+            end = ConnectorEndpoint.Attached(
+                nodeId = secondId,
+                fallbackPosition = Offset.Zero,
+            ),
+        )
+
+        assertTrue(
+            connector.isValidConnection { id, _ ->
+                when (id) {
+                    firstId -> Offset(10f, 20f)
+                    secondId -> Offset(100f, 200f)
+                    else -> null
+                }
+            }
+        )
     }
 }

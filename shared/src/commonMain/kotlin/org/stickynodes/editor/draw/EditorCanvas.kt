@@ -281,6 +281,25 @@ fun EditorCanvas(
                             },
                             onCommit = {
                                 currentOnConnectorCreated(it)
+                            },
+                            nodePosition = { id, anchor ->
+                                val node = currentNodes.firstOrNull {
+                                    it.id == id
+                                }
+
+                                when {
+                                    node == null -> null
+
+                                    anchor != null && node is EditorShape ->
+                                        node.anchorPosition(anchor)
+
+                                    else -> node.measuredSelectionBounds(
+                                        textMeasurer = textMeasurer,
+                                        textStyle = { text ->
+                                            text.layoutStyle(density)
+                                        }
+                                    ).center
+                                }
                             }
                         )
                     }
@@ -772,14 +791,37 @@ fun EditorCanvas(
                     selectedTool == EditorTool.CONNECTOR ||
                     (selectedTool == EditorTool.SELECT && editingConnectorPreview != null)
                     ) {
-                    val activeEndpoints =
-                        if (selectedTool == EditorTool.SELECT)
-                            editingConnectorPreview?.let {
+
+                    val activeEndpoints = when (selectedTool) {
+                        EditorTool.CONNECTOR -> {
+                            previewConnector?.let {
                                 listOf(it.start, it.end)
-                            } ?: listOf()
-                        else previewConnector?.let {
-                            listOf(it.start, it.end)
-                        } ?: listOfNotNull(hoveredConnectorEndpoint)
+                            } ?: listOfNotNull(hoveredConnectorEndpoint)
+                        }
+
+                        EditorTool.SELECT -> {
+                            val preview = editingConnectorPreview
+                            val original = connectors.firstOrNull {
+                                it.id == preview?.id
+                            }
+
+                            if (preview == null || original == null) {
+                                emptyList()
+                            } else {
+                                buildList {
+                                    if (preview.start != original.start) {
+                                        add(preview.start)
+                                    }
+
+                                    if (preview.end != original.end) {
+                                        add(preview.end)
+                                    }
+                                }
+                            }
+                        }
+
+                        else -> emptyList()
+                    }
 
                     val attachedEndpoints = activeEndpoints
                         .filterIsInstance<ConnectorEndpoint.Attached>()

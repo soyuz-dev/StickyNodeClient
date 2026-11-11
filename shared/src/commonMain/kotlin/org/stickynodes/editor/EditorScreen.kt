@@ -253,8 +253,11 @@ fun EditorScreen(
             }
 
             EditorShortcut.DeleteSelection -> {
-                if (documentState.selectedNodeIds.isNotEmpty()) {
-                    documentState.deleteSelectedNodes()
+                if (
+                    documentState.selectedNodeIds.isNotEmpty() ||
+                    documentState.selectedConnectorId != null
+                    ) {
+                    documentState.deleteSelection()
                     true
                 } else {
                     false
@@ -759,9 +762,11 @@ fun EditorScreen(
         ) {
             EditorToolbar(
                 selectedTool = selectedTool,
-                canDelete = selectedNodeIds.isNotEmpty(),
+                canDelete =
+                    selectedNodeIds.isNotEmpty() ||
+                documentState.selectedConnectorId != null,
                 onDelete = {
-                    documentState.deleteSelectedNodes()
+                    documentState.deleteSelection()
                     focusRequester.requestFocus()
                 },
                 onToolSelected = { tool ->

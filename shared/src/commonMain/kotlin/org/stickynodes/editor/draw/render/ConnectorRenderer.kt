@@ -59,6 +59,12 @@ fun DrawScope.drawConnectorSelection(
         route.points.last(),
     )) {
         drawCircle(
+            color = Color.White,
+            radius = handleRadius,
+            center = position,
+        )
+
+        drawCircle(
             color = color,
             radius = handleRadius,
             center = position,

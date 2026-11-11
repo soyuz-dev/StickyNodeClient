@@ -1,6 +1,9 @@
 
 package org.stickynodes.editor.draw.gesture
 
+import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.drag
+import androidx.compose.material3.FabPosition
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerInputChange
@@ -22,56 +25,36 @@ suspend fun AwaitPointerEventScope.handleConnectorEndpointDrag(
     nodePosition: (Uuid, ConnectorAnchor?) -> Offset?,
 ) {
     var preview = connector
-    var moved = false
-    var cancelled = false
+
+    fun updatePreview(position: Offset) {
+        preview = connector.withEndpoint(
+            handle = handle,
+            endpoint = endpointAt(position)
+        )
+
+        onPreview(preview)
+    }
 
     try {
-        while (true) {
-            val event = awaitPointerEvent()
+        val dragStart = awaitTouchSlopOrCancellation(
+            pointerId = down.id,
+        ) { change, _ ->
+            change.consume()
+        } ?: return
 
-            val change = event.changes.firstOrNull {
-                it.id == down.id
-            }
+        updatePreview(dragStart.position)
 
-            if (change == null) {
-                cancelled = true
-                break
-            }
-
-            if (change.isConsumed) {
-                cancelled = true
-                break
-            }
-
-            if (!change.pressed) {
-                break
-            }
-
-            if (change.position != down.position) {
-                moved = true
-            }
-
-            if (!moved) {
-                continue
-            }
-
-            preview = connector.withEndpoint(
-                handle = handle,
-                endpoint = endpointAt(change.position),
-            )
-
-            onPreview(preview)
+        val completed = drag(dragStart.id) { change ->
+            updatePreview(change.position)
             change.consume()
         }
 
         if (
-            !cancelled &&
-            moved &&
+            completed &&
             preview != connector &&
             preview.isValidConnection(nodePosition)
-        ) {
-            onCommit(preview)
-        }
+        ) onCommit(preview)
+
     } finally {
         onPreview(null)
     }
