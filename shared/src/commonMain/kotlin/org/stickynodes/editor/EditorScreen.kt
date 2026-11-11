@@ -667,6 +667,7 @@ fun EditorScreen(
             onConnectorCreated = documentState::addConnector,
             selectedConnectorId = documentState.selectedConnectorId,
             onConnectorSelected = documentState::selectConnector,
+            onConnectorUpdated = documentState::updateConnector
         )
 
         textEditSession?.let { session ->

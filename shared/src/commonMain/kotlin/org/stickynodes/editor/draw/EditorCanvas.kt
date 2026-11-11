@@ -768,10 +768,18 @@ fun EditorCanvas(
                 }
 
 
-                if (selectedTool == EditorTool.CONNECTOR) {
-                    val activeEndpoints = previewConnector?.let {
-                        listOf(it.start, it.end)
-                    } ?: listOfNotNull(hoveredConnectorEndpoint)
+                if (
+                    selectedTool == EditorTool.CONNECTOR ||
+                    (selectedTool == EditorTool.SELECT && editingConnectorPreview != null)
+                    ) {
+                    val activeEndpoints =
+                        if (selectedTool == EditorTool.SELECT)
+                            editingConnectorPreview?.let {
+                                listOf(it.start, it.end)
+                            } ?: listOf()
+                        else previewConnector?.let {
+                            listOf(it.start, it.end)
+                        } ?: listOfNotNull(hoveredConnectorEndpoint)
 
                     val attachedEndpoints = activeEndpoints
                         .filterIsInstance<ConnectorEndpoint.Attached>()
@@ -857,8 +865,11 @@ fun EditorCanvas(
                     connectors.firstOrNull {
                         it.id == selectedConnectorId
                     }?.let { connector ->
+                        val displayedConnector = editingConnectorPreview
+                            ?.takeIf { it.id == connector.id }
+                            ?: connector
                         drawConnectorSelection(
-                            connector = connector,
+                            connector = displayedConnector,
                             nodePosition = ::nodePosition,
                             zoom = camera.zoom,
                             color = selectionColor,
