@@ -60,6 +60,7 @@ import org.stickynodes.editor.draw.geometry.selection.visibleNodeIds
 import org.stickynodes.editor.draw.geometry.selection.visibleWorldBounds
 import org.stickynodes.editor.draw.model.*
 import org.stickynodes.editor.draw.style.*
+import org.stickynodes.editor.history.EditorDocumentState
 import org.stickynodes.editor.history.rememberEditorDocumentState
 import org.stickynodes.editor.tools.*
 import kotlin.uuid.Uuid
@@ -67,6 +68,9 @@ import kotlin.uuid.Uuid
 @Composable
 fun EditorScreen(
     modifier: Modifier = Modifier,
+    documentState: EditorDocumentState = rememberEditorDocumentState(),
+    onSave: (() -> Unit)? = null,
+    onOpen: (() -> Unit)? = null,
 ) {
     val cameraState = rememberEditorCameraState()
     val density = LocalDensity.current
@@ -75,7 +79,6 @@ fun EditorScreen(
         mutableStateOf(EditorTool.SELECT)
     }
 
-    val documentState = rememberEditorDocumentState()
     val nodes = documentState.nodes
     val selectedNodeIds = documentState.selectedNodeIds
     val displayNodes = documentState.displayNodes
@@ -154,6 +157,11 @@ fun EditorScreen(
 
 
     fun save() {
+        onSave?.let {
+            onSave()
+            return
+        }
+
         scope.launch {
             try {
                 storage.save(documentState.document)
@@ -164,6 +172,10 @@ fun EditorScreen(
     }
 
     fun open() {
+        onOpen?.let {
+            onOpen()
+            return
+        }
         scope.launch {
             try {
                 val document = storage.open() ?: return@launch
